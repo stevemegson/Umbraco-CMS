@@ -476,15 +476,15 @@ namespace umbraco.cms.businesslogic.web
             return docs.ToArray();
         }
 
-        public static int CountSubs(int parentId, bool publishedOnly)
+        public static int CountSubs(string parentPath, bool publishedOnly)
         {
             if (!publishedOnly)
             {
-                return CountSubs(parentId);
+                return CountSubs(parentPath);
             }
             else
             {
-                return SqlHelper.ExecuteScalar<int>("SELECT COUNT(*) FROM (select distinct umbracoNode.id from umbracoNode INNER JOIN cmsDocument ON cmsDocument.published = 1 and cmsDocument.nodeId = umbracoNode.id WHERE ','+path+',' LIKE '%," + parentId.ToString() + ",%') t");
+                return 1 + SqlHelper.ExecuteScalar<int>("SELECT COUNT(*) FROM (select distinct umbracoNode.id from umbracoNode INNER JOIN cmsDocument ON cmsDocument.published = 1 and cmsDocument.nodeId = umbracoNode.id WHERE path LIKE '" + parentPath + ",%') t");
             }
         }
 
@@ -616,6 +616,24 @@ namespace umbraco.cms.businesslogic.web
                 }
             }
             dr.Close();
+        }
+
+        public static void RePublishDocumentsOfType(int docTypeId)
+        {
+            XmlDocument xd = new XmlDocument();
+
+            foreach (var d in umbraco.cms.businesslogic.web.Document.GetDocumentsOfDocumentType(docTypeId))
+            {
+                try
+                {
+                    d.XmlGenerate(xd);
+                }
+                catch (Exception ee)
+                {
+                    Log.Add(LogTypes.Error, User.GetUser(0), d.Id,
+                            string.Format("Error generating xml: {0}", ee));
+                }
+            }
         }
 
         public static void RegeneratePreviews()

@@ -111,9 +111,9 @@ namespace umbraco.cms.businesslogic
         /// <returns>
         /// The number of ancestors from the given CMSNode
         /// </returns>
-        public static int CountSubs(int Id)
+        public static int CountSubs(string parentPath)
         {
-            return SqlHelper.ExecuteScalar<int>("SELECT COUNT(*) FROM umbracoNode WHERE ','+path+',' LIKE '%," + Id.ToString() + ",%'");
+            return 1 + SqlHelper.ExecuteScalar<int>("SELECT COUNT(*) FROM umbracoNode WHERE path LIKE '" + parentPath + ",%'");
         }
 
         /// <summary>

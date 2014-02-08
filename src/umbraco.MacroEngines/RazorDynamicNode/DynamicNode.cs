@@ -172,7 +172,8 @@ namespace umbraco.MacroEngines
                         List<DynamicNode> selfList = new List<DynamicNode>() { this };
                         return new DynamicNodeList(selfList);
                     }
-                    XmlNode node = doc.SelectSingleNode(string.Format("//*[@id='{0}']", n.Id));
+                    //XmlNode node = doc.SelectSingleNode(string.Format("//*[@id='{0}']", n.Id));
+                    XmlNode node = doc.GetElementById(n.Id.ToString());
                     if (node != null)
                     {
                         //got the current node (within the XmlContent instance)
@@ -180,7 +181,7 @@ namespace umbraco.MacroEngines
                         if (nodes.Count > 0)
                         {
                             //we got some resulting nodes
-                            List<NodeFactory.Node> nodeFactoryNodeList = new List<NodeFactory.Node>();
+                            List<NodeFactory.Node> nodeFactoryNodeList = new List<NodeFactory.Node>(nodes.Count);
                             //attempt to convert each node in the set to a NodeFactory.Node
                             foreach (XmlNode nodeXmlNode in nodes)
                             {
@@ -398,37 +399,34 @@ namespace umbraco.MacroEngines
             }
             return result;
         }
-        private List<string> GetAncestorOrSelfNodeTypeAlias(DynamicBackingItem node)
+        private static readonly object m_lock = new object();
+        private IEnumerable<string> GetAncestorOrSelfNodeTypeAlias(string nodeTypeAlias)
         {
-            List<string> list = new List<string>();
-            if (node != null)
+            return umbraco.cms.businesslogic.cache.Cache.GetCacheItem<IEnumerable<string>>(
+                "DynamicNodeAncestorNodeTypeAlias:" + nodeTypeAlias,
+                m_lock,
+                TimeSpan.FromMinutes(10),
+                () => GetAncestorOrSelfNodeTypeAliasImpl(nodeTypeAlias).ToArray()
+            );
+        }
+        private IEnumerable<string> GetAncestorOrSelfNodeTypeAliasImpl(string nodeTypeAlias)
+        {
+            CMSNode working = ContentType.GetByAlias(nodeTypeAlias);
+            while (working != null)
             {
-                if (node.Type == DynamicBackingItemType.Content)
+                if ((working as ContentType) != null)
                 {
-                    //find the doctype node, so we can walk it's parent's tree- not the working.parent content tree
-                    CMSNode working = ContentType.GetByAlias(node.NodeTypeAlias);
-                    while (working != null)
-                    {
-                        if ((working as ContentType) != null)
-                        {
-                            list.Add((working as ContentType).Alias);
-                        }
-                        try
-                        {
-                            working = working.Parent;
-                        }
-                        catch (ArgumentException)
-                        {
-                            break;
-                        }
-                    }
+                    yield return (working as ContentType).Alias;
+                }
+                if (working.Level == 1)
+                {
+                    break;
                 }
                 else
                 {
-                    return null;
+                    working = working.Parent;
                 }
             }
-            return list;
         }
         static Dictionary<System.Tuple<Guid, int>, Type> RazorDataTypeModelTypes = null;
         public override bool TryGetMember(GetMemberBinder binder, out object result)
@@ -600,15 +598,12 @@ namespace umbraco.MacroEngines
                 var typeChildren = n.ChildrenAsList;
                 if (typeChildren != null)
                 {
-                    var filteredTypeChildren = typeChildren.Where(x =>
-                    {
-                        List<string> ancestorAliases = GetAncestorOrSelfNodeTypeAlias(x);
-                        if (ancestorAliases == null)
-                        {
-                            return false;
-                        }
-                        return ancestorAliases.Any(alias => alias == name || MakePluralName(alias) == name);
-                    });
+                    var eligibleNodeTypeAliases = typeChildren.Select(c => c.NodeTypeAlias)
+                                                              .Distinct()
+                                                              .Where(x => GetAncestorOrSelfNodeTypeAlias(x).Any(alias => alias == name || MakePluralName(alias) == name))
+                                                              .ToArray();
+
+                    var filteredTypeChildren = typeChildren.Where(x => eligibleNodeTypeAliases.Contains(x.NodeTypeAlias));
                     if (filteredTypeChildren.Any())
                     {
                         result = new DynamicNodeList(filteredTypeChildren);

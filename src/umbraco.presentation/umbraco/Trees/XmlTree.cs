@@ -177,7 +177,8 @@ namespace umbraco.cms.presentation.Trees
 		public static XmlTreeNode Create(BaseTree bTree)
 		{
 			XmlTreeNode xNode = new XmlTreeNode();
-			xNode.Menu = bTree.AllowedActions.FindAll(delegate(IAction a) { return true; }); //return a duplicate copy of the list
+			//xNode.Menu = bTree.AllowedActions.FindAll(delegate(IAction a) { return true; }); //return a duplicate copy of the list
+            xNode.Menu = new List<IAction>(bTree.AllowedActions);
 			xNode.NodeType = bTree.TreeAlias;
 			xNode.Source = string.Empty;
 			xNode.IsRoot = false;

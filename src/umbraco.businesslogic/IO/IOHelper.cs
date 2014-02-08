@@ -16,8 +16,7 @@ namespace umbraco.IO
     {
         private static string m_rootDir = "";
         // static compiled regex for faster performance
-        private readonly static Regex _resolveUrlPattern = new Regex("(=[\"\']?)(\\W?\\~(?:.(?![\"\']?\\s+(?:\\S+)=|[>\"\']))+.)[\"\']?", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
-
+        private readonly static Regex _resolveUrlPattern = new Regex("(?:=[\"\']?)(\\W?\\~(?:.(?![\"\']?\\s+(?:\\S+)=|[>\"\']))+.)[\"\']?", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
         public static char DirSepChar
         {
             get

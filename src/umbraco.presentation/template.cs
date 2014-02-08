@@ -503,6 +503,10 @@ namespace umbraco
 
         public template(int templateID)
         {
+            if (templateID <= 0)
+            {
+                return;
+            }
             if (templateCache["template" + templateID.ToString()] != null)
             {
                 template t = (template)templateCache["template" + templateID];
