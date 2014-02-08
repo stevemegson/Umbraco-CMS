@@ -1,0 +1,4 @@
+syntax: glob
+src/packages/*
+*/bin/*
+*/obj/*
