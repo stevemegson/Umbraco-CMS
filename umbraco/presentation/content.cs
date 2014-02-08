@@ -59,29 +59,6 @@ namespace umbraco
 
         #endregion
 
-        #region Constructors
-
-        static content()
-        {
-            //Trace.Write("Initializing content");
-            //ThreadPool.QueueUserWorkItem(
-            //    delegate
-            //    {
-            //        XmlDocument xmlDoc = Instance.XmlContentInternal;
-            //        Trace.WriteLine("Content initialized");
-            //    });
-
-            Trace.WriteLine("Checking for xml content initialisation...");
-            Instance.CheckXmlContentPopulation();
-        }
-
-        public content()
-        {
-            ;
-        }
-
-        #endregion
-
         #region Singleton
 
         public static content Instance
@@ -942,7 +919,12 @@ namespace umbraco
                 {
                     // This is really bad, loading from cache file failed for some reason, now fallback to loading from database
                     Debug.WriteLine("Content file cache load failed: " + e);
-                    DeleteXmlCache();
+                    try
+                    {
+                        DeleteXmlCache();
+                    }
+                    catch (IOException)
+                    { }
                 }
             }
             return LoadContentFromDatabase();
