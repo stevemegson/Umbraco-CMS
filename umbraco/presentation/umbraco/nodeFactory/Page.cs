@@ -23,6 +23,8 @@ namespace umbraco.NodeFactory
         private Hashtable _aliasToNames = new Hashtable();
 
         private bool _initialized = false;
+        private bool _initializedChildren = false;
+        private bool _initializedParent = false;
         private Nodes _children = new Nodes();
         private Node _parent = null;
         private int _id;
@@ -47,8 +49,8 @@ namespace umbraco.NodeFactory
         {
             get
             {
-                if (!_initialized)
-                    initialize();
+                if (!_initializedChildren)
+                    initializeChildren();
                 return _children;
             }
         }
@@ -57,8 +59,11 @@ namespace umbraco.NodeFactory
         {
             get
             {
-                if (!_initialized)
-                    initialize();
+                if (!_initializedParent)
+                {
+                    initializeStructure();
+                }
+
                 return _parent;
             }
         }
@@ -112,8 +117,22 @@ namespace umbraco.NodeFactory
         {
             get
             {
-                if (!_initialized)
-                    initialize();
+                if (!_initialized && _nodeTypeAlias == null)
+                {
+                    if (_pageXmlNode != null && _pageXmlNode.Attributes != null)
+                    {
+                        if (UmbracoSettings.UseLegacyXmlSchema)
+                        {
+                            if (_pageXmlNode.Attributes.GetNamedItem("nodeTypeAlias") != null)
+                                _nodeTypeAlias = _pageXmlNode.Attributes.GetNamedItem("nodeTypeAlias").Value;
+                        }
+                        else
+                        {
+                            _nodeTypeAlias = _pageXmlNode.Name;
+                        }
+                    }
+                }
+
                 return _nodeTypeAlias;
             }
         }
@@ -245,21 +264,18 @@ namespace umbraco.NodeFactory
         public Node()
         {
             _pageXmlNode = ((IHasXmlNode)library.GetXmlNodeCurrent().Current).GetNode();
-            initializeStructure();
             initialize();
         }
 
         public Node(XmlNode NodeXmlNode)
         {
             _pageXmlNode = NodeXmlNode;
-            initializeStructure();
             initialize();
         }
 
         public Node(XmlNode NodeXmlNode, bool DisableInitializing)
         {
             _pageXmlNode = NodeXmlNode;
-            initializeStructure();
             if (!DisableInitializing)
                 initialize();
         }
@@ -281,7 +297,6 @@ namespace umbraco.NodeFactory
                     _pageXmlNode = content.Instance.XmlContent.DocumentElement;
 
                 }
-                initializeStructure();
                 initialize();
             }
             else
@@ -308,7 +323,6 @@ namespace umbraco.NodeFactory
 
 
             }
-            initializeStructure();
             initialize();
         }
 
@@ -497,6 +511,8 @@ namespace umbraco.NodeFactory
                 if (parent != null && (parent.Name == "node" || (parent.Attributes != null && parent.Attributes.GetNamedItem("isDoc") != null)))
                     _parent = new Node(parent, true);
             }
+
+            _initializedParent = true;
         }
 
         private void initialize()
@@ -560,7 +576,16 @@ namespace umbraco.NodeFactory
                 string dataXPath = UmbracoSettings.UseLegacyXmlSchema ? "data" : "* [not(@isDoc)]";
                 foreach (XmlNode n in _pageXmlNode.SelectNodes(dataXPath))
                     _properties.Add(new Property(n));
+            }
+            //            else
+            //                throw new ArgumentNullException("Node xml source is null");
+        }
 
+        private void initializeChildren()
+        {
+            if (_pageXmlNode != null)
+            {
+                _initializedChildren = true;
                 // load children
                 string childXPath = UmbracoSettings.UseLegacyXmlSchema ? "node" : "* [@isDoc]";
                 XPathNavigator nav = _pageXmlNode.CreateNavigator();
@@ -574,8 +599,6 @@ namespace umbraco.NodeFactory
                         );
                 }
             }
-            //            else
-            //                throw new ArgumentNullException("Node xml source is null");
         }
 
         public static Node GetCurrent()
