@@ -87,7 +87,7 @@ namespace umbraco.dialogs
 
                     //PPH added load balancing...
                     //content.Instance.PublishNode(documents);
-                    content.Instance.UpdateDocumentCache(documents.FindAll(doc => doc.Published));
+                    content.Instance.UpdateDocumentCache(_documents.FindAll(doc => doc.Published));
 
                     Application.Lock();
                     Application["publishTotal" + _nodeId.ToString()] = 0;

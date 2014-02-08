@@ -418,13 +418,13 @@ namespace umbraco
                     TransferValuesFromDocumentXmlToPublishedXml(docNode, currentNode);
                 }
 
-                EnsureChildrenSortOrder(x, parentNode);
+                EnsureChildrenSortOrder(currentNode, parentNode);
             }
 
 			return xmlContentCopy;
         }
 
-        private static void EnsureChildrenSortOrder(XmlNode x, XmlNode parentNode)
+        private static void EnsureChildrenSortOrder(XmlNode currentNode, XmlNode parentNode)
         {
             // TODO: Update with new schema!
                 var xpath = UmbracoSettings.UseLegacyXmlSchema
