@@ -53,6 +53,8 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
     <TargetFrameworkProfile />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -102,9 +104,16 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ClientDependency.Core, Version=1.5.0.0, Culture=neutral, PublicKeyToken=7a99a55a05d191a8, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\lib\ClientDependency.Core.dll</HintPath>
+    <ProjectReference Include="..\Umbraco.Core\Umbraco.Core.csproj">
+      <Project>{31785bc3-256c-4613-b2f5-a1b0bdded8c1}</Project>
+      <Name>Umbraco.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Umbraco.Web\Umbraco.Web.csproj">
+      <Project>{651E1350-91B6-44B7-BD60-7207006D7003}</Project>
+      <Name>Umbraco.Web</Name>
+    </ProjectReference>
+    <Reference Include="ClientDependency.Core">
+      <HintPath>..\packages\ClientDependency.1.5.1.0\lib\ClientDependency.Core.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Name>System</Name>
@@ -145,6 +154,10 @@
       <Project>{6EDD2061-82F2-461B-BB6E-879245A832DE}</Project>
       <Name>umbraco.controls</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Umbraco.Core\Umbraco.Core.csproj">
+      <Project>{31785BC3-256C-4613-B2F5-A1B0BDDED8C1}</Project>
+      <Name>Umbraco.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\umbraco.datalayer\umbraco.datalayer.csproj">
       <Project>{C7CB79F0-1C97-4B33-BFA7-00731B579AE2}</Project>
       <Name>umbraco.datalayer</Name>
@@ -153,10 +166,6 @@
       <Name>umbraco.interfaces</Name>
       <Project>{511F6D8D-7717-440A-9A57-A507E9A8B27F}</Project>
       <Package>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</Package>
-    </ProjectReference>
-    <ProjectReference Include="..\umbraco.presentation\umbraco.presentation.csproj">
-      <Project>{651E1350-91B6-44B7-BD60-7207006D7003}</Project>
-      <Name>umbraco.presentation</Name>
     </ProjectReference>
     <ProjectReference Include="..\umbraco.macroRenderings\umbraco.macroRenderings.csproj">
       <Project>{52AB8F1F-FB76-4E8C-885F-0747B6CE71EC}</Project>
@@ -172,6 +181,11 @@
     <Compile Include="AbstractJsonPrevalueEditor.cs" />
     <Compile Include="AbstractOptions.cs" />
     <Compile Include="AbstractPrevalueEditor.cs" />
+    <Compile Include="PickerRelations\PickerRelationsDataEditor.cs" />
+    <Compile Include="PickerRelations\PickerRelationsDataType.cs" />
+    <Compile Include="PickerRelations\PickerRelationsEventHandler.cs" />
+    <Compile Include="PickerRelations\PickerRelationsOptions.cs" />
+    <Compile Include="PickerRelations\PickerRelationsPreValueEditor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -226,9 +240,7 @@
     <Compile Include="folderbrowser\DataTypeFolderbrowser.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="folderbrowser\folderBrowser.cs">
-      <SubType>Code</SubType>
-    </Compile>
+    <Compile Include="folderbrowser\folderBrowser.cs" />
     <Compile Include="imagecropper\Config.cs" />
     <Compile Include="imagecropper\Data.cs" />
     <Compile Include="imagecropper\DataEditor.cs" />
@@ -262,9 +274,7 @@
     <Compile Include="macrocontainer\DataType.cs" />
     <Compile Include="macrocontainer\Editor.cs" />
     <Compile Include="macrocontainer\MacroContainerEvent.cs" />
-    <Compile Include="macrocontainer\MacroControlFactory.cs" />
     <Compile Include="macrocontainer\MacroEditor.cs" />
-    <Compile Include="macrocontainer\PersistableMacroProperty.cs" />
     <Compile Include="macrocontainer\PrevalueEditor.cs" />
     <Compile Include="mediapicker\mediaChooser.cs">
       <SubType>Code</SubType>
@@ -406,6 +416,7 @@
     <Compile Include="userControlWrapper\usercontrolDataType.cs" />
     <Compile Include="userControlWrapper\usercontrolPrevalueEditor.cs" />
     <Compile Include="XmlData.cs" />
+    <Compile Include="XPathCheckBoxList\XPathCheckBoxList.cs" />
     <Compile Include="XPathCheckBoxList\XPathCheckBoxListDataEditor.cs" />
     <Compile Include="XPathCheckBoxList\XPathCheckBoxListDataType.cs" />
     <Compile Include="XPathCheckBoxList\XPathCheckBoxListOptions.cs" />
@@ -473,11 +484,15 @@
     <EmbeddedResource Include="SettingControls\css\Values.css" />
     <EmbeddedResource Include="SettingControls\js\Values.js" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PreBuildEvent>
     </PreBuildEvent>
-    <PostBuildEvent>xcopy "$(TargetPath)" "$(ProjectDir)..\umbraco.presentation\bin\" /Y /F</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
+  <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
 </Project>

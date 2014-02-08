@@ -1,103 +1,116 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using Umbraco.Core;
 using umbraco.BusinessLogic.Utils;
 using umbraco.interfaces;
 
 namespace umbraco.cms.businesslogic.macro
 {
+
+	//TODO: This class needs to be changed to use the new MultipleResolverBase, doing this will require migrating and cleaning up
+	// a bunch of types so I have left it existing here under legacy code for now. The IMacroEngine interface also requires fixing
+	// considering the new macro types of SurfaceControllers.
+
     public class MacroEngineFactory
     {
-        private static readonly Dictionary<string, Type> m_engines = new Dictionary<string, Type>();
-        private static readonly List<IMacroEngine> m_allEngines = new List<IMacroEngine>();
-        private static object locker = new object();
+        private static readonly List<IMacroEngine> AllEngines = new List<IMacroEngine>();
+    	private static readonly ReaderWriterLockSlim Lock = new ReaderWriterLockSlim();
+    	private static volatile bool _isInitialized = false;
 
         public MacroEngineFactory()
         {
-            Initialize();
+			EnsureInitialize();
         }
 
+		internal static void EnsureInitialize()
+		{
+			if (_isInitialized)
+				return;
+
+			using (new WriteLock(Lock))
+			{
+				AllEngines.Clear();
+
+				AllEngines.AddRange(
+					PluginManager.Current.CreateInstances<IMacroEngine>(
+						PluginManager.Current.ResolveMacroEngines()));
+				
+				_isInitialized = true;
+			}
+		}
+
+		[Obsolete("Use EnsureInitialize method instead")]
         protected static void Initialize()
         {
-            List<Type> types = TypeFinder.FindClassesOfType<IMacroEngine>();
-            getEngines(types);
+        	EnsureInitialize();
         }
 
-        private static void getEngines(List<Type> types)
+        /// <summary>
+        /// Returns a collectino of MacroEngineLanguage objects, each of which describes a file extension and an associated macro engine
+        /// </summary>
+        /// <returns></returns>
+        /// <remarks>
+        /// Until the macro engines are rewritten, this method explicitly ignores the PartialViewMacroEngine because this method 
+        /// is essentially just used for any macro engine that stores it's files in the ~/macroScripts folder where file extensions
+        /// cannot overlap.
+        /// </remarks>
+        [Obsolete("This method is not used and will be removed from the codebase in the future")]
+        public static IEnumerable<MacroEngineLanguage> GetSupportedLanguages()
         {
-            foreach (Type t in types)
+            var languages = new List<MacroEngineLanguage>();
+            foreach (var engine in GetAll())
             {
-                IMacroEngine typeInstance = null;
-                try
+                foreach (string lang in engine.SupportedExtensions)
                 {
-                    if (t.IsVisible)
-                    {
-                        typeInstance = Activator.CreateInstance(t) as IMacroEngine;
-                    }
-                }
-                catch { }
-                if (typeInstance != null)
-                {
-                    try
-                    {
-                        lock (locker)
-                        {
-                            if (!m_engines.ContainsKey(typeInstance.Name))
-                                m_engines.Add(typeInstance.Name, t);
-                        }
-                    }
-                    catch (Exception ee)
-                    {
-                        BusinessLogic.Log.Add(umbraco.BusinessLogic.LogTypes.Error, -1, "Can't import MacroEngine '" + t.FullName + "': " + ee);
-                    }
-                }
-            }
-        }
-
-        public static IEnumerable<MacroEngineLanguage> GetSupportedLanguages() {
-            var languages = new List<MacroEngineLanguage>();
-            foreach(var engine in GetAll()) {
-                foreach(string lang in engine.SupportedExtensions)
                     if (languages.Find(t => t.Extension == lang) == null)
+                    {
                         languages.Add(new MacroEngineLanguage(lang, engine.Name));
+                    }
+                }
             }
             return languages;
         }
 
-        public static IEnumerable<MacroEngineLanguage> GetSupportedUILanguages() {
+        /// <summary>
+        /// Returns a collectino of MacroEngineLanguage objects, each of which describes a file extension and an associated macro engine that
+        /// supports file extension lookups.
+        /// </summary>
+        /// <returns></returns>		
+        /// <remarks>
+        /// The PartialViewMacroEngine will never be returned in these results because it does not support searching by file extensions. See
+        /// the notes in the PartialViewMacroEngine regarding this.
+        /// </remarks>
+        public static IEnumerable<MacroEngineLanguage> GetSupportedUILanguages()
+        {
             var languages = new List<MacroEngineLanguage>();
-            foreach (var engine in GetAll()) {
+            foreach (var engine in GetAll())
+            {
                 foreach (string lang in engine.SupportedUIExtensions)
-                    if (languages.Find(t => t.Extension == lang) == null)
+                {
+                    if (languages.All(t => t.Extension != lang))
+                    {
                         languages.Add(new MacroEngineLanguage(lang, engine.Name));
+                    }
+                }
             }
-            return languages;
-        }
+            return languages.OrderBy(s => s.Extension);
+        }		
 
         public static List<IMacroEngine> GetAll()
         {
-
-            if (m_allEngines.Count == 0)
-            {
-                Initialize();
-                foreach (string name in m_engines.Keys) {
-                    m_allEngines.Add(GetEngine(name));
-                }
-            }
-
-            return m_allEngines;
+			EnsureInitialize();            
+            return AllEngines;
         }
 
         public static IMacroEngine GetEngine(string name)
         {
-            if (m_engines.ContainsKey(name))
-            {
-                var newObject = Activator.CreateInstance(m_engines[name]) as IMacroEngine;
-                return newObject;
-            }
-
-            return null;
+        	EnsureInitialize();
+        	var engine = AllEngines.FirstOrDefault(x => x.Name == name);
+        	return engine;            
         }
 
         public static IMacroEngine GetByFilename(string filename)
@@ -113,8 +126,7 @@ namespace umbraco.cms.businesslogic.macro
 
         public static IMacroEngine GetByExtension(string extension)
         {
-            IMacroEngine engine =
-                GetAll().Find(t => t.SupportedExtensions.Contains(extension));
+            var engine = GetAll().Find(t => t.SupportedExtensions.Contains(extension));
             if (engine != null)
             {
                 return engine;

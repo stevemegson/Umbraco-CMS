@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Web;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml;
+using Umbraco.Core.IO;
 using umbraco.BusinessLogic;
 
 namespace umbraco.cms.businesslogic.media
@@ -14,15 +16,20 @@ namespace umbraco.cms.businesslogic.media
         public virtual int Priority { get { return 1000; } }
         public abstract string MediaTypeAlias { get; }
 
+        internal readonly MediaFileSystem FileSystem;
+
+        protected UmbracoMediaFactory()
+        {
+            FileSystem = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
+        }
+
         public virtual bool CanHandleMedia(int parentNodeId, PostedMediaFile postedFile, User user)
         {
             try
             {
                 var parentNode = new Media(parentNodeId);
 
-                return parentNodeId > -1 ?
-                    user.Applications.Any(app => app.alias.ToLower() == "media") && (user.StartMediaId <= 0 || ("," + parentNode.Path + ",").Contains("," + user.StartMediaId + ",")) && parentNode.ContentType.AllowedChildContentTypeIDs.Contains(MediaType.GetByAlias(MediaTypeAlias).Id) :
-                    true;
+                return parentNodeId <= -1 || user.Applications.Any(app => app.alias.ToLower() == "media") && (user.StartMediaId <= 0 || ("," + parentNode.Path + ",").Contains("," + user.StartMediaId + ",")) && parentNode.ContentType.AllowedChildContentTypeIDs.Contains(MediaType.GetByAlias(MediaTypeAlias).Id);
             }
             catch
             {
@@ -32,16 +39,13 @@ namespace umbraco.cms.businesslogic.media
 
         public Media HandleMedia(int parentNodeId, PostedMediaFile postedFile, User user)
         {
-            return HandleMedia(parentNodeId, postedFile, user, false);
-        }
-
-        public Media HandleMedia(int parentNodeId, PostedMediaFile postedFile, User user, bool replaceExisting)
-        {
             // Check to see if a file exists
             Media media;
-            string mediaName = extractTitleFromFileName(postedFile.FileName);
+            string mediaName = !string.IsNullOrEmpty(postedFile.DisplayName)
+                ? postedFile.DisplayName
+                : ExtractTitleFromFileName(postedFile.FileName);
 
-            if (replaceExisting && TryFindExistingMedia(parentNodeId, postedFile.FileName, out media))
+            if (postedFile.ReplaceExisting && TryFindExistingMedia(parentNodeId, postedFile.FileName, out media))
             {
                 // Do nothing as existing media is returned
             }
@@ -61,29 +65,17 @@ namespace umbraco.cms.businesslogic.media
             return media;
         }
 
+        [Obsolete("Use HandleMedia(int, PostedMediaFile, User) and set the ReplaceExisting property on PostedMediaFile instead")]
+        public Media HandleMedia(int parentNodeId, PostedMediaFile postedFile, User user, bool replaceExisting)
+        {
+            postedFile.ReplaceExisting = replaceExisting;
+
+            return HandleMedia(parentNodeId, postedFile, user);
+        }
+
         public abstract void DoHandleMedia(Media media, PostedMediaFile uploadedFile, User user);
 
         #region Helper Methods
-
-        public string ConstructDestPath(int propertyId)
-        {
-            if (UmbracoSettings.UploadAllowDirectories)
-            {
-                var path = VirtualPathUtility.Combine(VirtualPathUtility.AppendTrailingSlash(IO.SystemDirectories.Media), propertyId.ToString());
-
-                return VirtualPathUtility.ToAbsolute(VirtualPathUtility.AppendTrailingSlash(path));
-            }
-
-            return VirtualPathUtility.ToAbsolute(VirtualPathUtility.AppendTrailingSlash(IO.SystemDirectories.Media));
-        }
-
-        public string ConstructDestFileName(int propertyId, string filename)
-        {
-            if (UmbracoSettings.UploadAllowDirectories)
-                return filename;
-
-            return propertyId + "-" + filename;
-        }
 
         public bool TryFindExistingMedia(int parentNodeId, string fileName, out Media existingMedia)
         {
@@ -95,11 +87,10 @@ namespace umbraco.cms.businesslogic.media
                     var prop = childMedia.getProperty("umbracoFile");
                     if (prop != null)
                     {
-                        var destFileName = ConstructDestFileName(prop.Id, fileName);
-                        var destPath = ConstructDestPath(prop.Id);
-                        var destFilePath = VirtualPathUtility.Combine(destPath, destFileName);
+                        var destFilePath = FileSystem.GetRelativePath(prop.Id, fileName);
+                        var destFileUrl = FileSystem.GetUrl(destFilePath);
 
-                        if (prop.Value.ToString() == destFilePath)
+                        if (prop.Value.ToString() == destFileUrl)
                         {
                             existingMedia = childMedia;
                             return true;
@@ -112,29 +103,40 @@ namespace umbraco.cms.businesslogic.media
             return false;
         }
 
-        private string extractTitleFromFileName(string fileName)
+        private string ExtractTitleFromFileName(string fileName)
         {
             // change the name
-            string currentChar = String.Empty;
-            string curName = fileName.Substring(0, fileName.LastIndexOf("."));
-            int curNameLength = curName.Length;
-            string friendlyName = String.Empty;
-            for (int i = 0; i < curNameLength; i++)
+            var curName = fileName.Substring(0, fileName.LastIndexOf(".", StringComparison.Ordinal)).ToCharArray();
+            var curNameLength = curName.Length;
+            var friendlyName = String.Empty;
+
+            for (var i = 0; i < curNameLength; i++)
             {
-                currentChar = curName.Substring(i, 1);
-                if (friendlyName.Length == 0)
-                    currentChar = currentChar.ToUpper();
-
-                if (i < curNameLength - 1 && friendlyName != "" && curName.Substring(i - 1, 1) == " ")
-                    currentChar = currentChar.ToUpper();
-                else if (currentChar != " " && i < curNameLength - 1 && friendlyName != ""
-                && curName.Substring(i - 1, 1).ToUpper() != curName.Substring(i - 1, 1)
-                && currentChar.ToUpper() == currentChar)
-                    friendlyName += " ";
-
-                friendlyName += currentChar;
-
+                var currentChar = curName[i];
+                var currentString = String.Empty;
+                
+                if (Char.IsSeparator(currentChar) || Char.IsWhiteSpace(currentChar) || (Char.IsPunctuation(currentChar) 
+                    && (currentChar == '_' || currentChar == '-' || currentChar == '.' || currentChar == '%')))
+                {
+                    currentString = " ";
+                } 
+                else if (Char.IsPunctuation(currentChar) || Char.IsLetterOrDigit(currentChar))
+                {
+                    currentString = currentChar.ToString(CultureInfo.InvariantCulture);
+                }
+                
+                friendlyName += currentString;
             }
+            
+            //Capitalize each first letter of a word
+            var cultureInfo = Thread.CurrentThread.CurrentCulture;
+            var textInfo = cultureInfo.TextInfo;
+
+            friendlyName = textInfo.ToTitleCase(friendlyName);
+
+            //Remove multiple consecutive spaces
+            var regex = new Regex(@"[ ]{2,}", RegexOptions.None);
+            friendlyName = regex.Replace(friendlyName, @" ");
 
             return friendlyName;
         }

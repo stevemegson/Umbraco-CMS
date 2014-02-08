@@ -6,6 +6,7 @@ using System.Threading;
 using System.Web;
 using System.Web.Compilation;
 using System.Web.WebPages;
+using Umbraco.Core;
 using umbraco.cms.businesslogic.macro;
 using umbraco.interfaces;
 using umbraco.IO;
@@ -24,14 +25,7 @@ namespace umbraco.MacroEngines
         }
 
         public string GetMd5(string text) {
-            var x = new System.Security.Cryptography.MD5CryptoServiceProvider();
-            var bs = System.Text.Encoding.UTF8.GetBytes(text);
-            bs = x.ComputeHash(bs);
-            var s = new System.Text.StringBuilder();
-            foreach (var b in bs) {
-                s.Append(b.ToString("x2").ToLower());
-            }
-            return s.ToString();
+			return text.ToMd5();
         }
 
         /// <summary>
@@ -77,12 +71,19 @@ namespace umbraco.MacroEngines
             var contextWrapper = new HttpContextWrapper(context);
 
             //inject http context - for request response
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Loading Macro Script Context (file: {0})", macro.Name));
             razorWebPage.Context = contextWrapper;
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Loading Macro Script Context (file: {0})", macro.Name));
 
             //Inject Macro Model And Parameters
             if (razorWebPage is IMacroContext) {
+                HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Boxing Macro Script MacroContext (file: {0})", macro.Name));
                 var razorMacro = (IMacroContext)razorWebPage;
+                HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Boxing Macro Script MacroContext (file: {0})", macro.Name));
+
+                HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Loading Macro Script Model (file: {0})", macro.Name));
                 razorMacro.SetMembers(macro, currentPage);
+                HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Loading Macro Script Model (file: {0})", macro.Name));
             }
         }
 
@@ -106,11 +107,16 @@ namespace umbraco.MacroEngines
                 return String.Empty; //No File Location
 
             var razorWebPage = CompileAndInstantiate(fileLocation);
+
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Loading Macro Script Context (file: {0})", macro.Name));
             InjectContext(razorWebPage, macro, currentPage);
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Loading Macro Script Context (file: {0})", macro.Name));
 
             //Output Razor To String
             var output = new StringWriter();
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Executing Macro Script (file: {0})", macro.Name));
             razorWebPage.ExecutePageHierarchy(new WebPageContext(contextWrapper, razorWebPage, null), output);
+            HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Executing Macro Script (file: {0})", macro.Name));
             return output.ToString();
         }
 
@@ -165,11 +171,7 @@ namespace umbraco.MacroEngines
                 Success = false;
                 ResultException = exception;
                 HttpContext.Current.Trace.Warn("umbracoMacro", string.Format("Error Loading Razor Script (file: {0}) {1} {2}", macro.Name, exception.Message, exception.StackTrace));
-                var loading = string.Format("<div style=\"border: 1px solid #990000\">Error loading Razor Script {0}</br/>", macro.ScriptName);
-                if (GlobalSettings.DebugMode)
-                    loading = loading + exception.Message;
-                loading = loading + "</div>";
-                return loading;
+                throw;
             }
         }
 

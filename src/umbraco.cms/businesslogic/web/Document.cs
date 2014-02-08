@@ -2,8 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Web;
 using System.Xml;
+using Umbraco.Core.IO;
 using umbraco.BusinessLogic;
 using umbraco.BusinessLogic.Actions;
 using umbraco.cms.businesslogic.property;
@@ -15,6 +18,7 @@ using umbraco.interfaces;
 using umbraco.cms.businesslogic.datatype.controls;
 using System.IO;
 using System.Diagnostics;
+using Umbraco.Core;
 
 namespace umbraco.cms.businesslogic.web
 {
@@ -82,16 +86,13 @@ namespace umbraco.cms.businesslogic.web
             {
 
                 using (IRecordsReader dr =
-                        SqlHelper.ExecuteReader(string.Format(m_SQLOptimizedSingle.Trim(), "umbracoNode.id = @id", "cmsContentVersion.id desc"),
+                        SqlHelper.ExecuteReader(string.Format(SqlOptimizedSingle.Trim(), "umbracoNode.id = @id", "cmsContentVersion.id desc"),
                             SqlHelper.CreateParameter("@nodeObjectType", Document._objectType),
                             SqlHelper.CreateParameter("@id", id)))
                 {
                     if (dr.Read())
                     {
                         // Initialize node and basic document properties
-                        bool _hc = false;
-                        if (dr.GetInt("children") > 0)
-                            _hc = true;
                         int? masterContentType = null;
                         if (!dr.IsNull("masterContentType"))
                             masterContentType = dr.GetInt("masterContentType");
@@ -100,14 +101,14 @@ namespace umbraco.cms.businesslogic.web
                             , dr.GetInt("parentId")
                             , dr.GetInt("nodeUser")
                             , dr.GetInt("documentUser")
-                            , dr.GetBoolean("published")
+                            , dr.GetInt("published") > 0
                             , dr.GetString("path")
                             , dr.GetString("text")
                             , dr.GetDateTime("createDate")
                             , dr.GetDateTime("updateDate")
                             , dr.GetDateTime("versionDate")
                             , dr.GetString("icon")
-                            , _hc
+                            , dr.GetInt("children") > 0
                             , dr.GetString("alias")
                             , dr.GetString("thumbnail")
                             , dr.GetString("description")
@@ -136,7 +137,7 @@ namespace umbraco.cms.businesslogic.web
                             tmpReleaseDate,
                             tmpExpireDate,
                             dr.GetDateTime("updateDate"),
-                            dr.GetBoolean("published")
+                            dr.GetInt("published") > 0
                             );
                     }
                 }
@@ -146,31 +147,33 @@ namespace umbraco.cms.businesslogic.web
         #endregion
 
         #region Constants and Static members
+
+
         // NH: Modified to support SQL CE 4 (doesn't support nested selects)
-        private const string m_SQLOptimizedSingle = @"
-                Select 
-                    CASE WHEN (childrenTable.total>0) THEN childrenTable.total ELSE 0 END as Children,
-                    CASE WHEN (publishedTable.publishedTotal>0) THEN publishedTable.publishedTotal ELSE 0 END as Published,
-	                cmsContentVersion.VersionId,
-                    cmsContentVersion.versionDate,	                
-	                contentTypeNode.uniqueId as ContentTypeGuid, 
-					cmsContent.ContentType, cmsContentType.icon, cmsContentType.alias, cmsContentType.thumbnail, cmsContentType.description, cmsContentType.masterContentType, cmsContentType.nodeId as contentTypeId,
-	                published, documentUser, coalesce(templateId, cmsDocumentType.templateNodeId) as templateId, cmsDocument.text as DocumentText, releaseDate, expireDate, updateDate, 
-	                umbracoNode.createDate, umbracoNode.trashed, umbracoNode.parentId, umbracoNode.nodeObjectType, umbracoNode.nodeUser, umbracoNode.level, umbracoNode.path, umbracoNode.sortOrder, umbracoNode.uniqueId, umbracoNode.text 
-                from 
-	                umbracoNode 
-                    inner join cmsContentVersion on cmsContentVersion.contentID = umbracoNode.id
-                    inner join cmsDocument on cmsDocument.versionId = cmsContentVersion.versionId
-                    inner join cmsContent on cmsDocument.nodeId = cmsContent.NodeId
-                    inner join cmsContentType on cmsContentType.nodeId = cmsContent.ContentType
-                    inner join umbracoNode contentTypeNode on contentTypeNode.id = cmsContentType.nodeId
-                    left join cmsDocumentType on cmsDocumentType.contentTypeNodeId = cmsContent.contentType and cmsDocumentType.IsDefault = 1 
-                    /* SQL CE support */
-                    left outer join (select count(id) as total, parentId from umbracoNode where parentId = @id group by parentId) as childrenTable on childrenTable.parentId = umbracoNode.id
-                    left outer join (select Count(published) as publishedTotal, nodeId from cmsDocument where published = 1 And nodeId = @id group by nodeId) as publishedTable on publishedTable.nodeId = umbracoNode.id
-                    /* end SQL CE support */
-                where umbracoNode.nodeObjectType = @nodeObjectType AND {0}
-                order by {1}
+        private const string SqlOptimizedSingle = @"
+Select 
+    CASE WHEN (childrenTable.total>0) THEN childrenTable.total ELSE 0 END as Children,
+    CASE WHEN (publishedTable.publishedTotal>0) THEN publishedTable.publishedTotal ELSE 0 END as Published,
+	cmsContentVersion.VersionId,
+    cmsContentVersion.versionDate,	                
+	contentTypeNode.uniqueId as ContentTypeGuid, 
+	cmsContent.ContentType, cmsContentType.icon, cmsContentType.alias, cmsContentType.thumbnail, cmsContentType.description, cmsContentType.masterContentType, cmsContentType.nodeId as contentTypeId,
+	documentUser, coalesce(templateId, cmsDocumentType.templateNodeId) as templateId, cmsDocument.text as DocumentText, releaseDate, expireDate, updateDate, 
+	umbracoNode.createDate, umbracoNode.trashed, umbracoNode.parentId, umbracoNode.nodeObjectType, umbracoNode.nodeUser, umbracoNode.level, umbracoNode.path, umbracoNode.sortOrder, umbracoNode.uniqueId, umbracoNode.text 
+from 
+	umbracoNode 
+    inner join cmsContentVersion on cmsContentVersion.contentID = umbracoNode.id
+    inner join cmsDocument on cmsDocument.versionId = cmsContentVersion.versionId
+    inner join cmsContent on cmsDocument.nodeId = cmsContent.NodeId
+    inner join cmsContentType on cmsContentType.nodeId = cmsContent.ContentType
+    inner join umbracoNode contentTypeNode on contentTypeNode.id = cmsContentType.nodeId
+    left join cmsDocumentType on cmsDocumentType.contentTypeNodeId = cmsContent.contentType and cmsDocumentType.IsDefault = 1 
+    /* SQL CE support */
+    left outer join (select count(id) as total, parentId from umbracoNode where parentId = @id group by parentId) as childrenTable on childrenTable.parentId = umbracoNode.id
+    left outer join (select Count(published) as publishedTotal, nodeId from cmsDocument where published = 1 And nodeId = @id group by nodeId) as publishedTable on publishedTable.nodeId = umbracoNode.id
+    /* end SQL CE support */
+where umbracoNode.nodeObjectType = @nodeObjectType AND {0}
+order by {1}
                 ";
 
         // NH: Had to modify this for SQL CE 4. Only change is that the "coalesce(publishCheck.published,0) as published" didn't work in SQL CE 4
@@ -179,13 +182,13 @@ namespace umbraco.cms.businesslogic.web
         // zb-00010 #29443 : removed the following lines + added constraint on cmsDocument.newest in where clause (equivalent + handles duplicate dates)
         //            inner join (select contentId, max(versionDate) as versionDate from cmsContentVersion group by contentId) temp
         //                on cmsContentVersion.contentId = temp.contentId and cmsContentVersion.versionDate = temp.versionDate
-        private const string m_SQLOptimizedMany = @"
+        private const string SqlOptimizedMany = @"
                 select count(children.id) as children, umbracoNode.id, umbracoNode.uniqueId, umbracoNode.level, umbracoNode.parentId, 
 	                cmsDocument.documentUser, coalesce(cmsDocument.templateId, cmsDocumentType.templateNodeId) as templateId, 
 	                umbracoNode.path, umbracoNode.sortOrder, coalesce(publishCheck.published,0) as isPublished, umbracoNode.createDate, 
-	                cmsDocument.text, cmsDocument.updateDate, cmsContentVersion.versionDate, cmsContentType.icon, cmsContentType.alias, 
+                    cmsDocument.text, cmsDocument.updateDate, cmsContentVersion.versionDate, cmsDocument.releaseDate, cmsDocument.expireDate, cmsContentType.icon, cmsContentType.alias,
 	                cmsContentType.thumbnail, cmsContentType.description, cmsContentType.masterContentType, cmsContentType.nodeId as contentTypeId,
-                    umbracoNode.nodeUser
+                    umbracoNode.nodeUser, umbracoNode.trashed
                 from umbracoNode
                     left join umbracoNode children on children.parentId = umbracoNode.id
                     inner join cmsContent on cmsContent.nodeId = umbracoNode.id
@@ -200,11 +203,12 @@ namespace umbraco.cms.businesslogic.web
 	                cmsDocument.templateId, cmsDocumentType.templateNodeId, umbracoNode.path, umbracoNode.sortOrder, 
 	                coalesce(publishCheck.published,0), umbracoNode.createDate, cmsDocument.text, 
 	                cmsContentType.icon, cmsContentType.alias, cmsContentType.thumbnail, cmsContentType.description, 
-	                cmsContentType.masterContentType, cmsContentType.nodeId, cmsDocument.updateDate, cmsContentVersion.versionDate, umbracoNode.nodeUser
+                    cmsContentType.masterContentType, cmsContentType.nodeId, cmsDocument.updateDate, cmsContentVersion.versionDate, cmsDocument.releaseDate, cmsDocument.expireDate, 
+                    umbracoNode.nodeUser, umbracoNode.trashed
                 order by {1}
                 ";
 
-        private const string m_SQLOptimizedForPreview = @"
+        private const string SqlOptimizedForPreview = @"
                 select umbracoNode.id, umbracoNode.parentId, umbracoNode.level, umbracoNode.sortOrder, cmsDocument.versionId, cmsPreviewXml.xml from cmsDocument
                 inner join umbracoNode on umbracoNode.id = cmsDocument.nodeId
                 inner join cmsPreviewXml on cmsPreviewXml.nodeId = cmsDocument.nodeId and cmsPreviewXml.versionId = cmsDocument.versionId
@@ -222,7 +226,22 @@ namespace umbraco.cms.businesslogic.web
         private DateTime _release;
         private DateTime _expire;
         private int _template;
-        private bool _published;
+
+        /// <summary>
+        /// a backing property for the 'IsDocumentLive()' method
+        /// </summary>
+        private bool? _isDocumentLive;
+
+        /// <summary>
+        /// a backing property for the 'HasPublishedVersion()' method
+        /// </summary>
+        private bool? _hasPublishedVersion;
+
+        /// <summary>
+        /// Used as a value flag to indicate that we've already executed the sql for IsPathPublished()
+        /// </summary>
+        private bool? _pathPublished;
+
         private XmlNode _xml;
         private User _creator;
         private User _writer;
@@ -400,17 +419,11 @@ namespace umbraco.cms.businesslogic.web
             tmp.CreateContent(dct);
 
             //now create the document data
-            SqlHelper.ExecuteNonQuery("insert into cmsDocument (newest, nodeId, published, documentUser, versionId, Text) values (1, " +
-                                      tmp.Id + ", 0, " +
-                                      u.Id + ", @versionId, @text)",
-                                      SqlHelper.CreateParameter("@versionId", tmp.Version),
-                                      SqlHelper.CreateParameter("@text", tmp.Text));
-
-            // Update the sortOrder if the parent was the root!
-            if (ParentId == -1)
-            {
-                newNode.sortOrder = CountLeafNodes(-1, Document._objectType) + 1;
-            }
+            SqlHelper.ExecuteNonQuery("insert into cmsDocument (newest, nodeId, published, documentUser, versionId, updateDate, Text) "
+				+ "values (1, " + tmp.Id + ", 0, " + u.Id + ", @versionId, @updateDate, @text)",
+                SqlHelper.CreateParameter("@versionId", tmp.Version),
+                SqlHelper.CreateParameter("@updateDate", DateTime.Now),
+                SqlHelper.CreateParameter("@text", tmp.Text));
 
             //read the whole object from the db
             Document d = new Document(newId);
@@ -453,6 +466,8 @@ namespace umbraco.cms.businesslogic.web
             return isDoc;
         }
 
+        
+        /// <summary>
         /// Used to get the firstlevel/root documents of the hierachy
         /// </summary>
         /// <returns>Root documents</returns>
@@ -521,7 +536,7 @@ namespace umbraco.cms.businesslogic.web
             var tmp = new List<Document>();
             using (IRecordsReader dr =
                 SqlHelper.ExecuteReader(
-                                        string.Format(m_SQLOptimizedMany.Trim(), "cmsContent.contentType = @contentTypeId", "umbracoNode.sortOrder"),
+                                        string.Format(SqlOptimizedMany.Trim(), "cmsContent.contentType = @contentTypeId", "umbracoNode.sortOrder"),
                                         SqlHelper.CreateParameter("@nodeObjectType", Document._objectType),
                                         SqlHelper.CreateParameter("@contentTypeId", docTypeId)))
             {
@@ -549,30 +564,55 @@ namespace umbraco.cms.businesslogic.web
         /// <returns></returns>
         public static Document[] GetChildrenForTree(int NodeId)
         {
-            var tmp = new List<Document>();
-            using (IRecordsReader dr =
+            var documents = GetChildrenForTreeInternal(NodeId).ToList();
+            if (NodeId > 0)
+            {
+                var parent = new Document(NodeId);
+                //update the Published/PathPublished correctly for all documents added to this list
+                UpdatePublishedOnDescendants(documents, parent);    
+            }
+            return documents.ToArray();
+        }
+
+        /// <summary>
+        /// Performance tuned method for use in the tree
+        /// </summary>
+        /// <param name="parent">The parent document</param>
+        /// <returns></returns>
+        public static Document[] GetChildrenForTree(Document parent)
+        {
+            var documents = GetChildrenForTreeInternal(parent.Id).ToList();
+            //update the Published/PathPublished correctly for all documents added to this list
+            UpdatePublishedOnDescendants(documents, parent);
+            return documents.ToArray();
+        }
+
+        public static IEnumerable<Document> GetChildrenForTreeInternal(int nodeId)
+        {
+            var documents = new List<Document>();
+            using (var dr =
                 SqlHelper.ExecuteReader(
-                                        string.Format(m_SQLOptimizedMany.Trim(), "umbracoNode.parentID = @parentId", "umbracoNode.sortOrder"),
+                                        string.Format(SqlOptimizedMany.Trim(), "umbracoNode.parentID = @parentId", "umbracoNode.sortOrder"),
                                         SqlHelper.CreateParameter("@nodeObjectType", Document._objectType),
-                                        SqlHelper.CreateParameter("@parentId", NodeId)))
+                                        SqlHelper.CreateParameter("@parentId", nodeId)))
             {
                 while (dr.Read())
                 {
-                    Document d = new Document(dr.GetInt("id"), true);
+                    var d = new Document(dr.GetInt("id"), true);
                     d.PopulateDocumentFromReader(dr);
-                    tmp.Add(d);
+                    documents.Add(d);
                 }
             }
-
-            return tmp.ToArray();
+            return documents;
         }
+
 
         public static List<Document> GetChildrenBySearch(int NodeId, string searchString)
         {
             var tmp = new List<Document>();
             using (IRecordsReader dr =
                 SqlHelper.ExecuteReader(
-                                        string.Format(m_SQLOptimizedMany.Trim(), "umbracoNode.parentID = @parentId and umbracoNode.text like @search", "umbracoNode.sortOrder"),
+                                        string.Format(SqlOptimizedMany.Trim(), "umbracoNode.parentID = @parentId and umbracoNode.text like @search", "umbracoNode.sortOrder"),
                                         SqlHelper.CreateParameter("@nodeObjectType", Document._objectType),
                                         SqlHelper.CreateParameter("@search", searchString),
                                         SqlHelper.CreateParameter("@parentId", NodeId)))
@@ -588,7 +628,7 @@ namespace umbraco.cms.businesslogic.web
             return tmp;
         }
 
-
+        [MethodImpl(MethodImplOptions.Synchronized)]
         public static void RePublishAll()
         {
             XmlDocument xd = new XmlDocument();
@@ -664,7 +704,7 @@ namespace umbraco.cms.businesslogic.web
         {
             ArrayList docs = new ArrayList();
             IRecordsReader dr =
-                SqlHelper.ExecuteReader("select distinct nodeId from cmsDocument where newest = 1 and not expireDate is null and expireDate <= @today",
+                SqlHelper.ExecuteReader("select distinct nodeId from cmsDocument where published = 1 and not expireDate is null and expireDate <= @today",
                                         SqlHelper.CreateParameter("@today", DateTime.Now));
             while (dr.Read())
                 docs.Add(dr.GetInt("nodeId"));
@@ -778,19 +818,80 @@ namespace umbraco.cms.businesslogic.web
         }
 
         /// <summary>
-        /// Published flag is on if the document are published
+        /// Gets or sets a value indicating whether the document is published.
         /// </summary>
+		/// <remarks>A document can be published yet not visible, because of one or more of its
+		/// parents being unpublished. Use <c>PathPublished</c> to get a value indicating whether
+		/// the node and all its parents are published, and therefore whether the node is visible.</remarks>
         public bool Published
         {
-            get { return _published; }
-
+            get
+            {
+                //this is always the same as HasPublishedVersion in 4.x
+                return HasPublishedVersion();
+            }
             set
             {
-                _published = value;
+                _hasPublishedVersion = value;
                 SqlHelper.ExecuteNonQuery(
                     string.Format("update cmsDocument set published = {0} where nodeId = {1}", Id, value ? 1 : 0));
             }
         }
+
+        /// <summary>
+        /// Will return true if the document is published and live on the front-end.
+        /// </summary>
+        /// <returns></returns>
+        internal bool IsDocumentLive()
+        {
+            if (!_isDocumentLive.HasValue)
+            {
+                // get all nodes in the path to the document, and get all matching published documents
+                // the difference should be zero if everything is published
+                // test nodeObjectType to make sure we only count _content_ nodes
+                var sql = @"select count(node.id) - count(doc.nodeid)
+from umbracoNode as node 
+left join cmsDocument as doc on (node.id=doc.nodeId and doc.published=1)
+where (('" + Path + ",' like " + SqlHelper.Concat("node.path", "',%'") + @")
+ or ('" + Path + @"' = node.path)) and node.id <> -1
+and node.nodeObjectType=@nodeObjectType";
+
+                var count = SqlHelper.ExecuteScalar<int>(sql, SqlHelper.CreateParameter("@nodeObjectType", Document._objectType));
+                _isDocumentLive = (count == 0);
+            }
+            return _isDocumentLive.Value;
+        }
+
+        /// <summary>
+        /// Returns true if the document's ancestors are all published
+        /// </summary>
+        /// <returns></returns>
+        /// <remarks>
+        /// </remarks>
+		public bool PathPublished
+		{
+			get
+			{
+                //check our cached value for this object
+                if (!_pathPublished.HasValue)
+                {
+                    // get all nodes in the path to the document, and get all matching published documents
+                    // the difference should be zero if everything is published
+                    // test nodeObjectType to make sure we only count _content_ nodes
+                    var sql = @"select count(node.id) - count(doc.nodeid)
+from umbracoNode as node 
+left join cmsDocument as doc on (node.id=doc.nodeId and doc.published=1)
+where '" + Path + ",' like " + SqlHelper.Concat("node.path", "',%'") + @"
+and node.nodeObjectType=@nodeObjectType";
+
+                    var count = SqlHelper.ExecuteScalar<int>(sql, SqlHelper.CreateParameter("@nodeObjectType", Document._objectType));
+                    _pathPublished = (count == 0);
+                }
+
+                return _pathPublished.Value;
+			}
+            internal set { _pathPublished = value; }
+		}
 
         public override string Text
         {
@@ -905,7 +1006,7 @@ namespace umbraco.cms.businesslogic.web
             {
                 //cache the documents children so that this db call doesn't have to occur again
                 if (this._children == null)
-                    this._children = Document.GetChildrenForTree(this.Id);
+                    this._children = GetChildrenForTree(this);
 
                 return this._children.ToArray();
             }
@@ -1001,6 +1102,11 @@ namespace umbraco.cms.businesslogic.web
         /// </summary>
         /// <param name="u">The usercontext under which the action are performed</param>
         /// <returns>True if the publishing succeed. Possible causes for not publishing is if an event aborts the publishing</returns>
+        /// <remarks>
+        /// This method needs to be marked with [MethodImpl(MethodImplOptions.Synchronized)]
+        /// because we execute multiple queries affecting the same data, if two thread are to do this at the same time for the same node we may have problems
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.Synchronized)]
         public bool PublishWithResult(User u)
         {
             PublishEventArgs e = new PublishEventArgs();
@@ -1016,21 +1122,25 @@ namespace umbraco.cms.businesslogic.web
                     _template = new DocumentType(this.ContentType.Id).DefaultTemplate;
                 }
 
-                _published = true;
+                _hasPublishedVersion = true;
                 string tempVersion = Version.ToString();
-                Guid newVersion = createNewVersion();
-
+                DateTime versionDate = DateTime.Now;
+                Guid newVersion = createNewVersion(versionDate);
+                
                 Log.Add(LogTypes.Publish, u, Id, "");
 
                 //PPH make sure that there is only 1 newest node, this is important in regard to schedueled publishing...
                 SqlHelper.ExecuteNonQuery("update cmsDocument set newest = 0 where nodeId = " + Id);
 
-                SqlHelper.ExecuteNonQuery("insert into cmsDocument (newest, nodeId, published, documentUser, versionId, Text, TemplateId) values (1,@id, 0, @userId, @versionId, @text, @template)",
+                SqlHelper.ExecuteNonQuery("insert into cmsDocument (newest, nodeId, published, documentUser, versionId, updateDate, Text, TemplateId) "
+					+ "values (1, @id, 0, @userId, @versionId, @updateDate, @text, @template)",
                     SqlHelper.CreateParameter("@id", Id),
-                    SqlHelper.CreateParameter("@template", _template > 0 ? (object)_template : (object)DBNull.Value), //pass null in if the template doesn't have a valid id
                     SqlHelper.CreateParameter("@userId", u.Id),
                     SqlHelper.CreateParameter("@versionId", newVersion),
-                    SqlHelper.CreateParameter("@text", Text));
+                    SqlHelper.CreateParameter("@updateDate", versionDate),
+                    SqlHelper.CreateParameter("@text", Text),
+                    SqlHelper.CreateParameter("@template", _template > 0 ? (object)_template : (object)DBNull.Value) //pass null in if the template doesn't have a valid id
+					);
 
                 SqlHelper.ExecuteNonQuery("update cmsDocument set published = 0 where nodeId = " + Id);
                 SqlHelper.ExecuteNonQuery("update cmsDocument set published = 1, newest = 0 where versionId = @versionId",
@@ -1086,24 +1196,29 @@ namespace umbraco.cms.businesslogic.web
 
             if (!e.Cancel)
             {
-                Guid newVersion = createNewVersion();
-
+                DateTime versionDate = DateTime.Now;
+                Guid newVersion = createNewVersion(versionDate);
+ 
                 if (_template != 0)
                 {
-                    SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, Text, TemplateId) values (" +
-                                              Id +
-                                              ", 0, " + u.Id + ", @versionId, @text, " +
-                                              _template + ")",
-                                              SqlHelper.CreateParameter("@versionId", newVersion),
-                                              SqlHelper.CreateParameter("@text", Text));
+                    SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, updateDate, Text, TemplateId) "
+						+ "values (@nodeId, 0, @userId, @versionId, @updateDate, @text, @templateId)",
+						SqlHelper.CreateParameter("@nodeId", Id),
+						SqlHelper.CreateParameter("@userId", u.Id),
+                        SqlHelper.CreateParameter("@versionId", newVersion),
+                        SqlHelper.CreateParameter("@updateDate", versionDate),
+                        SqlHelper.CreateParameter("@text", Text),
+						SqlHelper.CreateParameter("@templateId", _template));
                 }
                 else
                 {
-                    SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, Text) values (" +
-                                             Id +
-                                             ", 0, " + u.Id + ", @versionId, @text )",
-                                             SqlHelper.CreateParameter("@versionId", newVersion),
-                                             SqlHelper.CreateParameter("@text", Text));
+                    SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, updateDate, Text) "
+						+ "values (@nodeId, 0, @userId, @versionId, @updateDate, @text)",
+						SqlHelper.CreateParameter("@nodeId", Id),
+						SqlHelper.CreateParameter("@userId", u.Id),
+                        SqlHelper.CreateParameter("@versionId", newVersion),
+                        SqlHelper.CreateParameter("@updateDate", versionDate),
+                        SqlHelper.CreateParameter("@text", Text));
                 }
 
                 // Get new version
@@ -1145,15 +1260,16 @@ namespace umbraco.cms.businesslogic.web
 
             if (!e.Cancel)
             {
-                _published = true;
+                _hasPublishedVersion = true;
                 string tempVersion = Version.ToString();
-                Guid newVersion = createNewVersion();
+                DateTime versionDate = DateTime.Now;
+                Guid newVersion = createNewVersion(versionDate);
 
-                SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, Text) values (" +
-                                          Id + ", 0, " + u.Id +
-                                          ", @versionId, @text)",
-                                          SqlHelper.CreateParameter("@versionId", newVersion),
-                                          SqlHelper.CreateParameter("@text", Text));
+                SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, updateDate, Text) "
+					+ "values (" + Id + ", 0, " + u.Id + ", @versionId, @text)",
+                    SqlHelper.CreateParameter("@versionId", newVersion),
+                    SqlHelper.CreateParameter("@updateDate", versionDate),
+                    SqlHelper.CreateParameter("@text", Text));
 
                 SqlHelper.ExecuteNonQuery("update cmsDocument set published = 0 where nodeId = " + Id);
                 SqlHelper.ExecuteNonQuery("update cmsDocument set published = 1 where versionId = @versionId", SqlHelper.CreateParameter("@versionId", tempVersion));
@@ -1172,7 +1288,7 @@ namespace umbraco.cms.businesslogic.web
 
         public void UnPublish()
         {
-            UnPublishEventArgs e = new UnPublishEventArgs();
+            var e = new UnPublishEventArgs();
 
             FireBeforeUnPublish(e);
 
@@ -1180,7 +1296,7 @@ namespace umbraco.cms.businesslogic.web
             {
                 SqlHelper.ExecuteNonQuery(string.Format("update cmsDocument set published = 0 where nodeId = {0}", Id));
 
-                _published = false;
+                _hasPublishedVersion = false;
 
                 FireAfterUnPublish(e);
             }
@@ -1191,7 +1307,7 @@ namespace umbraco.cms.businesslogic.web
         /// </summary>
         public override void Save()
         {
-            SaveEventArgs e = new SaveEventArgs();
+            var e = new SaveEventArgs();
             FireBeforeSave(e);
 
             if (!e.Cancel)
@@ -1216,20 +1332,41 @@ namespace umbraco.cms.businesslogic.web
             }
         }
 
+        /// <summary>
+        /// Returns true if the document has a published item in the database but is not in the recycle bin
+        /// </summary>
+        /// <returns></returns>
+        /// <remarks>
+        /// This will still return true if this document is not published on the front-end in some cases if one of it's ancestors are 
+        /// not-published. If you have a published document and unpublish one of it's ancestors, it will retain it's published flag in the
+        /// database.
+        /// </remarks>
         public bool HasPublishedVersion()
         {
-            return (SqlHelper.ExecuteScalar<int>("select Count(published) as tmp from cmsDocument where published = 1 And nodeId =" + Id) > 0);
+            //lazy load the value if it is not set.
+            if (!_hasPublishedVersion.HasValue)
+            {
+                var count = SqlHelper.ExecuteScalar<int>(@"
+select Count(published) as CountOfPublished 
+from cmsDocument 
+inner join umbracoNode on cmsDocument.nodeId = umbracoNode.id
+where published = 1 And nodeId = @nodeId And trashed = 0", SqlHelper.CreateParameter("@nodeId", Id));
+
+                _hasPublishedVersion = count > 0;
+            }
+            return _hasPublishedVersion.Value;
         }
 
         /// <summary>
         /// Pending changes means that there have been property/data changes since the last published version.
-        /// This is determined by the comparing the version date to the updated date. if they are different by .5 seconds, 
+        /// This is determined by the comparing the version date to the updated date. if they are different by more than 2 seconds, 
         /// then this is considered a change.
         /// </summary>
         /// <returns></returns>
         public bool HasPendingChanges()
         {
-            return new TimeSpan(UpdateDate.Ticks - VersionDate.Ticks).TotalMilliseconds > 500;
+            double timeDiff = new TimeSpan(UpdateDate.Ticks - VersionDate.Ticks).TotalMilliseconds;
+            return timeDiff > 2000;
         }
 
         /// <summary>
@@ -1262,6 +1399,28 @@ namespace umbraco.cms.businesslogic.web
                 i++;
             }
             return retVal;
+        }
+
+        /// <summary>
+        /// Returns the published version of this document
+        /// </summary>
+        /// <returns>The published version of this document</returns>
+        public DocumentVersionList GetPublishedVersion()
+        {
+            using (IRecordsReader dr =
+                SqlHelper.ExecuteReader("select top 1 documentUser, versionId, updateDate, text from cmsDocument where nodeId = @nodeId and published = 1 order by updateDate desc",
+                                        SqlHelper.CreateParameter("@nodeId", Id)))
+            {
+                if (dr.Read())
+                {
+                    return new DocumentVersionList(dr.GetGuid("versionId"),
+                                                dr.GetDateTime("updateDate"),
+                                                dr.GetString("text"),
+                                                User.GetUser(dr.GetInt("documentUser")));
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -1301,6 +1460,8 @@ namespace umbraco.cms.businesslogic.web
         /// <param name="RelateToOrignal"></param>
         public Document Copy(int CopyTo, User u, bool RelateToOrignal)
         {
+            var fs = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
+
             CopyEventArgs e = new CopyEventArgs();
             e.CopyTo = CopyTo;
             FireBeforeCopy(e);
@@ -1326,53 +1487,39 @@ namespace umbraco.cms.businesslogic.web
                     {
                         //copy file if it's an upload property (so it doesn't get removed when original doc get's deleted)
 
+                        IDataType tagsField = new Factory().GetNewObject(new Guid("4023e540-92f5-11dd-ad8b-0800200c9a66"));
                         IDataType uploadField = new Factory().GetNewObject(new Guid("5032a6e6-69e3-491d-bb28-cd31cd11086c"));
 
                         if (p.PropertyType.DataTypeDefinition.DataType.Id == uploadField.Id
                         && p.Value.ToString() != ""
-                        && File.Exists(IOHelper.MapPath(p.Value.ToString())))
+                        && fs.FileExists(fs.GetRelativePath(p.Value.ToString())))
                         {
+                            var currentPath = fs.GetRelativePath(p.Value.ToString());
 
-                            int propId = newDoc.getProperty(p.PropertyType.Alias).Id;
+                            var propId = newDoc.getProperty(p.PropertyType.Alias).Id;
+                            var newPath = fs.GetRelativePath(propId, System.IO.Path.GetFileName(currentPath));
 
-                            System.IO.Directory.CreateDirectory(IOHelper.MapPath(SystemDirectories.Media + "/" + propId.ToString()));
+                            fs.CopyFile(currentPath, newPath);
 
-                            string fileCopy = IOHelper.MapPath(
-                                SystemDirectories.Media + "/" +
-                                propId.ToString() + "/" +
-                                new FileInfo(IOHelper.MapPath(p.Value.ToString())).Name);
-
-                            File.Copy(IOHelper.MapPath(p.Value.ToString()), fileCopy);
-
-                            string relFilePath =
-                                SystemDirectories.Media + "/" +
-                                propId.ToString() + "/" +
-                                new FileInfo(IOHelper.MapPath(p.Value.ToString())).Name;
-
-                            if (SystemDirectories.Root == string.Empty)
-                                relFilePath = relFilePath.TrimStart('~');
-
-                            newDoc.getProperty(p.PropertyType.Alias).Value = relFilePath;
+                            newDoc.getProperty(p.PropertyType.Alias).Value = fs.GetUrl(newPath);
 
                             //copy thumbs
-                            FileInfo origFile = new FileInfo(IOHelper.MapPath(p.Value.ToString()));
-
-                            foreach (FileInfo thumb in origFile.Directory.GetFiles("*_thumb*"))
+                            foreach (var thumbPath in fs.GetThumbnails(currentPath))
                             {
-                                if (!File.Exists(IOHelper.MapPath(
-                                                     SystemDirectories.Media + "/" +
-                                                     propId.ToString() + "/" +
-                                                     thumb.Name)))
-                                {
-                                    thumb.CopyTo(IOHelper.MapPath(
-                                    SystemDirectories.Media + "/" +
-                                    propId.ToString() + "/" +
-                                    thumb.Name));
-                                }
+                                var newThumbPath = fs.GetRelativePath(propId, System.IO.Path.GetFileName(thumbPath));
+                                fs.CopyFile(thumbPath, newThumbPath);
                             }
 
-
-
+                        }
+                        else if (p.PropertyType.DataTypeDefinition.DataType.Id == tagsField.Id &&
+                                 p.Value.ToString() != "")
+                        {
+                            //Find tags from the original and add them to the new document
+                            var tags = Tags.Tag.GetTags(this.Id);
+                            foreach (var tag in tags)
+                            {
+                                Tags.Tag.AddTagsToNode(newDoc.Id, tag.TagCaption, tag.Group);
+                            }
                         }
                         else
                         {
@@ -1432,25 +1579,54 @@ namespace umbraco.cms.businesslogic.web
         }
 
         /// <summary>
+        /// Returns all descendants that are published on the front-end (hava a full published path)
+        /// </summary>
+        /// <returns></returns>
+        internal IEnumerable<Document> GetPublishedDescendants()
+        {            
+            var documents = new List<Document>();
+            using (var dr = SqlHelper.ExecuteReader(
+                                        string.Format(SqlOptimizedMany.Trim(), "umbracoNode.path LIKE '%," + this.Id + ",%'", "umbracoNode.level"),
+                                        SqlHelper.CreateParameter("@nodeObjectType", Document._objectType)))
+            {
+                while (dr.Read())
+                {
+                    var d = new Document(dr.GetInt("id"), true);
+                    d.PopulateDocumentFromReader(dr);
+                    documents.Add(d);  
+                }
+            }
+
+            //update the Published/PathPublished correctly for all documents added to this list
+            UpdatePublishedOnDescendants(documents, this);
+
+            //now, we only want to return any descendants that have a Published = true (full published path)
+            return documents.Where(x => x.Published);
+        } 
+
+        /// <summary>
         /// Returns all decendants of the current document
         /// </summary>
         /// <returns></returns>
         public override IEnumerable GetDescendants()
         {
-            var tmp = new List<Document>();
+            var documents = new List<Document>();
             using (IRecordsReader dr = SqlHelper.ExecuteReader(
-                                        string.Format(m_SQLOptimizedMany.Trim(), "umbracoNode.path LIKE '%," + this.Id + ",%'", "umbracoNode.level"),
+                                        string.Format(SqlOptimizedMany.Trim(), "umbracoNode.path LIKE '%," + this.Id + ",%'", "umbracoNode.level"),
                                         SqlHelper.CreateParameter("@nodeObjectType", Document._objectType)))
             {
                 while (dr.Read())
                 {
-                    Document d = new Document(dr.GetInt("id"), true);
+                    var d = new Document(dr.GetInt("id"), true);
                     d.PopulateDocumentFromReader(dr);
-                    tmp.Add(d);
+                    documents.Add(d);
                 }
             }
 
-            return tmp.ToArray();
+            //update the Published/PathPublished correctly for all documents added to this list
+            UpdatePublishedOnDescendants(documents, this);
+
+            return documents.ToArray();
         }
 
         /// <summary>
@@ -1599,6 +1775,10 @@ namespace umbraco.cms.businesslogic.web
             }
         }
 
+        /// <summary>
+        /// This is a specialized method which literally just makes sure that the sortOrder attribute of the xml
+        /// that is stored in the database is up to date.
+        /// </summary>
         public void refreshXmlSortOrder()
         {
             if (Published)
@@ -1630,7 +1810,7 @@ namespace umbraco.cms.businesslogic.web
 
             string pathExp = childrenOnly ? Path + ",%" : Path;
 
-            IRecordsReader dr = SqlHelper.ExecuteReader(String.Format(m_SQLOptimizedForPreview, pathExp));
+            IRecordsReader dr = SqlHelper.ExecuteReader(String.Format(SqlOptimizedForPreview, pathExp));
             while (dr.Read())
                 nodes.Add(new CMSPreviewNode(dr.GetInt("id"), dr.GetGuid("versionId"), dr.GetInt("parentId"), dr.GetShort("level"), dr.GetInt("sortOrder"), dr.GetString("xml")));
             dr.Close();
@@ -1685,8 +1865,6 @@ namespace umbraco.cms.businesslogic.web
                     throw new ArgumentException(string.Format("No Document exists with Version '{0}'", Version));
                 }
             }
-
-            _published = HasPublishedVersion();
         }
 
         protected void InitializeDocument(User InitUser, User InitWriter, string InitText, int InitTemplate,
@@ -1708,15 +1886,16 @@ namespace umbraco.cms.businesslogic.web
             _release = InitReleaseDate;
             _expire = InitExpireDate;
             _updated = InitUpdateDate;
-            _published = InitPublished;
+            _hasPublishedVersion = InitPublished;
         }
 
+        /// <summary>
+        /// Updates this document object based on the data in the IRecordsReader for data returned from the SqlOptimizedMany SQL call
+        /// </summary>
+        /// <param name="dr"></param>
         protected void PopulateDocumentFromReader(IRecordsReader dr)
         {
-            bool _hc = false;
-
-            if (dr.GetInt("children") > 0)
-                _hc = true;
+            var hc = dr.GetInt("children") > 0;
 
             int? masterContentType = null;
 
@@ -1728,20 +1907,26 @@ namespace umbraco.cms.businesslogic.web
                 , dr.GetInt("parentId")
                 , dr.GetInt("nodeUser")
                 , dr.GetInt("documentUser")
-                , (dr.GetInt("isPublished") == 1)
+                , !dr.GetBoolean("trashed") && (dr.GetInt("isPublished") == 1) //set published... double check trashed property
                 , dr.GetString("path")
                 , dr.GetString("text")
                 , dr.GetDateTime("createDate")
                 , dr.GetDateTime("updateDate")
                 , dr.GetDateTime("versionDate")
                 , dr.GetString("icon")
-                , _hc
+                , hc
                 , dr.GetString("alias")
                 , dr.GetString("thumbnail")
                 , dr.GetString("description")
                 , masterContentType
                 , dr.GetInt("contentTypeId")
                 , dr.GetInt("templateId"));
+
+            if (!dr.IsNull("releaseDate"))
+                _release = dr.GetDateTime("releaseDate");
+            if (!dr.IsNull("expireDate"))
+                _expire = dr.GetDateTime("expireDate");
+
         }
 
         protected void SaveXmlPreview(XmlDocument xd)
@@ -1752,7 +1937,72 @@ namespace umbraco.cms.businesslogic.web
         #endregion
 
         #region Private Methods
-        private void SetupDocumentForTree(Guid uniqueId, int level, int parentId, int creator, int writer, bool publish, string path,
+
+        /// <summary>
+        /// Updates this the Published property for all pre-populated descendant nodes in list format
+        /// </summary>
+        /// <param name="descendantsList">The pre-populated list of descendants of the root node passed in</param>
+        /// <param name="root">The very root document retreiving the ancestors</param>
+        /// <remarks>
+        /// This method will ensure that the document's Published is automatically set based on this (the root ancestor) document.
+        /// It will set the Published based on the documents with the shortest path first since the parent document to those documents
+        /// are 'this' document. Then we will go to the next level and set the Published based on their parent documents... since they will
+        /// now have the Published property set. and so on.
+        /// </remarks>
+        private static void UpdatePublishedOnDescendants(List<Document> descendantsList, Document root)
+        {
+            //create a new list containing 'this' so the list becomes DescendantsAndSelf
+            var descendantsAndSelf = descendantsList.Concat(new[] { root }).ToList();
+
+            //determine all path lengths in the list
+            var pathLengths = descendantsList.Select(x => x.Path.Split(',').Length).Distinct();
+            //start with the shortest paths
+            foreach (var pathLength in pathLengths.OrderBy(x => x))
+            {
+                var length = pathLength;
+                var docsWithPathLength = descendantsList.Where(x => x.Path.Split(',').Length == length);                
+                //iterate over all documents with the current path length
+                foreach (var d in docsWithPathLength)
+                {
+                    //we need to find the current doc's parent doc in the descendantsOrSelf list
+                    var parent = descendantsAndSelf.SingleOrDefault(x => x.Id == d.ParentId);
+                    if (parent != null)
+                    {
+                        //we are published if our parent is published and we have a published version
+                        d.Published = parent.Published && d.HasPublishedVersion();
+                        
+                        //our path is published if our parent is published
+                        d.PathPublished = parent.Published;
+                    }
+                }
+            }
+
+            
+        }
+
+        /// <summary>
+        /// Sets properties on this object based on the parameters
+        /// </summary>
+        /// <param name="uniqueId"></param>
+        /// <param name="level"></param>
+        /// <param name="parentId"></param>
+        /// <param name="creator"></param>
+        /// <param name="writer"></param>
+        /// <param name="hasPublishedVersion">If this document has a published version</param>
+        /// <param name="path"></param>
+        /// <param name="text"></param>
+        /// <param name="createDate"></param>
+        /// <param name="updateDate"></param>
+        /// <param name="versionDate"></param>
+        /// <param name="icon"></param>
+        /// <param name="hasChildren"></param>
+        /// <param name="contentTypeAlias"></param>
+        /// <param name="contentTypeThumb"></param>
+        /// <param name="contentTypeDesc"></param>
+        /// <param name="masterContentType"></param>
+        /// <param name="contentTypeId"></param>
+        /// <param name="templateId"></param>
+        private void SetupDocumentForTree(Guid uniqueId, int level, int parentId, int creator, int writer, bool hasPublishedVersion, string path,
                                          string text, DateTime createDate, DateTime updateDate,
                                          DateTime versionDate, string icon, bool hasChildren, string contentTypeAlias, string contentTypeThumb,
                                            string contentTypeDesc, int? masterContentType, int contentTypeId, int templateId)
@@ -1760,7 +2010,7 @@ namespace umbraco.cms.businesslogic.web
             SetupNodeForTree(uniqueId, _objectType, level, parentId, creator, path, text, createDate, hasChildren);
 
             _writerId = writer;
-            _published = publish;
+            _hasPublishedVersion = hasPublishedVersion;
             _updated = updateDate;
             _template = templateId;
             ContentType = new ContentType(contentTypeId, contentTypeAlias, icon, contentTypeThumb, masterContentType);
@@ -1775,6 +2025,11 @@ namespace umbraco.cms.businesslogic.web
             return temp;
         }
 
+        /// <summary>
+        /// This needs to be synchronized since we're doing multiple sql operations in the single method
+        /// </summary>
+        /// <param name="x"></param>
+        [MethodImpl(MethodImplOptions.Synchronized)]
         private void saveXml(XmlNode x)
         {
             bool exists = (SqlHelper.ExecuteScalar<int>("SELECT COUNT(nodeId) FROM cmsContentXml WHERE nodeId=@nodeId",

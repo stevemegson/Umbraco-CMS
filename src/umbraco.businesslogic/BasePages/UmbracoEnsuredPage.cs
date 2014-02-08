@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
+using Umbraco.Core;
+using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
 using umbraco.businesslogic.Exceptions;
-using umbraco.IO;
 
 namespace umbraco.BasePages
 {
@@ -20,20 +23,16 @@ namespace umbraco.BasePages
 
         }
 
+        [Obsolete("This constructor is not used and will be removed from the codebase in the future")]
         public UmbracoEnsuredPage(string hest)
         {
             
         }
 
-        private bool _redirectToUmbraco;
         /// <summary>
         /// If true then umbraco will force any window/frame to reload umbraco in the main window
         /// </summary>
-        public bool RedirectToUmbraco
-        {
-            get { return _redirectToUmbraco; }
-            set { _redirectToUmbraco = value; }
-        }
+        public bool RedirectToUmbraco { get; set; }
 
         /// <summary>
         /// Validates the user for access to a certain application
@@ -42,11 +41,7 @@ namespace umbraco.BasePages
         /// <returns></returns>
         public bool ValidateUserApp(string app)
         {
-
-            foreach (Application uApp in getUser().Applications)
-                if (uApp.alias == app)
-                    return true;
-            return false;
+            return getUser().Applications.Any(uApp => uApp.alias.InvariantEquals(app));
         }
 
         /// <summary>
@@ -61,7 +56,7 @@ namespace umbraco.BasePages
             if (permissions.IndexOf(Action) > -1 && (Path.Contains("-20") || ("," + Path + ",").Contains("," + getUser().StartNodeId.ToString() + ",")))
                 return true;
 
-            Log.Add(LogTypes.LoginFailure, getUser(), -1, "Insufficient permissions in UmbracoEnsuredPage: '" + Path + "', '" + permissions + "', '" + Action + "'");
+            LogHelper.Info<UmbracoEnsuredPage>("Insufficient permissions in UmbracoEnsuredPage: '" + Path + "', '" + permissions + "', '" + Action + "'");
             return false;
         }
 
@@ -69,7 +64,7 @@ namespace umbraco.BasePages
         /// Gets the current user.
         /// </summary>
         /// <value>The current user.</value>
-        public static BusinessLogic.User CurrentUser
+        public static User CurrentUser
         {
             get
             {
@@ -88,7 +83,7 @@ namespace umbraco.BasePages
             {
                 ensureContext();
 
-                if (!String.IsNullOrEmpty(CurrentApp))
+                if (!string.IsNullOrEmpty(CurrentApp))
                 {
                     if (!ValidateUserApp(CurrentApp))
                         throw new UserAuthorizationException(String.Format("The current user doesn't have access to the section/app '{0}'", CurrentApp));
@@ -96,7 +91,7 @@ namespace umbraco.BasePages
             }
             catch (UserAuthorizationException)
             {
-                Log.Add(LogTypes.Error, CurrentUser, -1, String.Format("Tried to access '{0}'", CurrentApp));
+                LogHelper.Warn<UmbracoEnsuredPage>(string.Format("{0} tried to access '{1}'", CurrentUser.Id, CurrentApp));
                 throw;
             }
             catch

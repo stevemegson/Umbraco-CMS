@@ -4,6 +4,7 @@ using System.Linq;
 
 using System.Data;
 using System.Xml;
+using Umbraco.Core.IO;
 using umbraco.cms.businesslogic.property;
 using umbraco.cms.businesslogic.propertytype;
 using umbraco.DataLayer;
@@ -14,6 +15,7 @@ using umbraco.interfaces;
 using System.IO;
 using umbraco.IO;
 using umbraco.cms.businesslogic.datatype.controls;
+using Umbraco.Core;
 
 namespace umbraco.cms.businesslogic
 {
@@ -158,15 +160,32 @@ namespace umbraco.cms.businesslogic
             {
                 if (!_versionDateInitialized)
                 {
-                    object o = SqlHelper.ExecuteScalar<object>(
-                        "select VersionDate from cmsContentVersion where versionId = '" + this.Version.ToString() + "'");
-                    if (o == null)
+                    // A Media item only contains a single version (which relates to it's creation) so get this value from the media xml fragment instead
+                    if (this is media.Media)
                     {
-                        _versionDate = DateTime.Now;
+                        // get the xml fragment from cmsXmlContent
+                        string xmlFragment = SqlHelper.ExecuteScalar<string>(@"SELECT [xml] FROM cmsContentXml WHERE nodeId = " + this.Id);
+                        if (!string.IsNullOrWhiteSpace(xmlFragment))
+                        {
+                            XmlDocument xmlDocument = new XmlDocument();
+                            xmlDocument.LoadXml(xmlFragment);                            
+
+                            _versionDateInitialized = DateTime.TryParse(xmlDocument.SelectSingleNode("//*[1]").Attributes["updateDate"].Value, out _versionDate);
+                        }
                     }
-                    else
+
+                    if (!_versionDateInitialized)
                     {
-                        _versionDateInitialized = DateTime.TryParse(o.ToString(), out _versionDate);
+                        object o = SqlHelper.ExecuteScalar<object>(
+                            "select VersionDate from cmsContentVersion where versionId = '" + this.Version.ToString() + "'");
+                        if (o == null)
+                        {
+                            _versionDate = DateTime.Now;
+                        }
+                        else
+                        {
+                            _versionDateInitialized = DateTime.TryParse(o.ToString(), out _versionDate);
+                        }
                     }
                 }
                 return _versionDate;
@@ -496,7 +515,7 @@ namespace umbraco.cms.businesslogic
         protected void CreateContent(ContentType ct)
         {
             SqlHelper.ExecuteNonQuery("insert into cmsContent (nodeId,ContentType) values (" + this.Id + "," + ct.Id + ")");
-            createNewVersion();
+            createNewVersion(DateTime.Now);
         }
 
 
@@ -506,13 +525,24 @@ namespace umbraco.cms.businesslogic
         /// 
         /// </summary>
         /// <returns>The new version Id</returns>
-        protected Guid createNewVersion()
+		protected Guid createNewVersion(DateTime versionDate = default(DateTime))
         {
+			if (versionDate == default (DateTime))
+			{
+				versionDate = DateTime.Now;
+			}
+
             ClearLoadedProperties();
 
             Guid newVersion = Guid.NewGuid();
             bool tempHasVersion = hasVersion();
-            foreach (propertytype.PropertyType pt in this.ContentType.PropertyTypes)
+
+            // we need to ensure that a version in the db exist before we add related data
+            SqlHelper.ExecuteNonQuery("Insert into cmsContentVersion (ContentId,versionId,versionDate) values (" + this.Id + ",'" + newVersion + "', @updateDate)",
+                SqlHelper.CreateParameter("@updateDate", versionDate));
+
+            List<PropertyType> pts = ContentType.PropertyTypes;
+            foreach (propertytype.PropertyType pt in pts)
             {
                 object oldValue = "";
                 if (tempHasVersion)
@@ -526,7 +556,6 @@ namespace umbraco.cms.businesslogic
                 property.Property p = this.addProperty(pt, newVersion);
                 if (oldValue != null && oldValue.ToString() != "") p.Value = oldValue;
             }
-            SqlHelper.ExecuteNonQuery("Insert into cmsContentVersion (ContentId,versionId) values (" + this.Id + ",'" + newVersion + "')");
             this.Version = newVersion;
             return newVersion;
         }
@@ -566,8 +595,10 @@ namespace umbraco.cms.businesslogic
         protected void DeleteAssociatedMediaFiles()
         {
             // Remove all files
-            IDataType uploadField = new Factory().GetNewObject(new Guid("5032a6e6-69e3-491d-bb28-cd31cd11086c"));
 
+            var fs = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
+            var uploadField = new Factory().GetNewObject(new Guid("5032a6e6-69e3-491d-bb28-cd31cd11086c"));
+             
             foreach (Property p in GenericProperties)
             {               
                 var isUploadField = false;
@@ -575,7 +606,7 @@ namespace umbraco.cms.businesslogic
                 {
                     if (p.PropertyType.DataTypeDefinition.DataType.Id == uploadField.Id
                          && p.Value.ToString() != ""
-                         && File.Exists(IOHelper.MapPath(p.Value.ToString())))
+                         && File.Exists(global::Umbraco.Core.IO.IOHelper.MapPath(p.Value.ToString())))
                     {
                         isUploadField = true;
                     }
@@ -587,14 +618,20 @@ namespace umbraco.cms.businesslogic
                     isUploadField = false;
                 }
                 if (isUploadField)
-                {                    
-                    var fi = new FileInfo(IOHelper.MapPath(p.Value.ToString()));
+                {
+                    var relativeFilePath = fs.GetRelativePath(p.Value.ToString());
+                    var parentDirectory = System.IO.Path.GetDirectoryName(relativeFilePath);
 
-                    fi.Directory.GetFiles().ToList().ForEach(x =>
+                    // don't want to delete the media folder if not using directories.
+                    if (UmbracoSettings.UploadAllowDirectories && parentDirectory != fs.GetRelativePath("/"))
                     {
-                        x.Delete();
-                    });
-                    fi.Directory.Delete(true);
+                        //issue U4-771: if there is a parent directory the recursive parameter should be true
+                        fs.DeleteDirectory(parentDirectory, String.IsNullOrEmpty(parentDirectory) == false);
+                    }
+                    else
+                    {
+                        fs.DeleteFile(relativeFilePath, true);
+                    }
                 }
             }
         }
@@ -662,11 +699,13 @@ namespace umbraco.cms.businesslogic
                     continue;
 
                 //get the propertyId
-                var property = propData
-                    .Where(x => x.PropertyTypeId == pt.Id)
-                    .SingleOrDefault();
+                var property = propData.LastOrDefault(x => x.PropertyTypeId == pt.Id);
                 if (property == null)
-                    continue;
+                {
+                    //continue;
+                    var prop = Property.MakeNew(pt, this, Version);
+                    property = new { Id = prop.Id, PropertyTypeId = pt.Id };
+                }
                 var propertyId = property.Id;
 
                 Property p = null;

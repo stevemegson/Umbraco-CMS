@@ -93,8 +93,21 @@ namespace umbraco.DataLayer.SqlHelpers.MySql
             switch (typeof(T).FullName)
             {
                 case "System.Boolean": return (T)(object)((1).Equals(scalar));
+                case "System.Guid": return (T)(object)(Guid.Parse(scalar.ToString()));
                 default: return base.ConvertScalar<T>(scalar);
             }
         }
-    }
+
+		/// <summary>
+		/// Creates a concatenation fragment for use in an SQL query.
+		/// </summary>
+		/// <param name="values">The values that need to be concatenated</param>
+		/// <returns>The SQL query fragment.</returns>
+		/// <remarks>SQL Server uses a+b, MySql uses concat(a,b), Oracle uses a||b...</remarks>
+		public override string Concat(params string[] values)
+		{
+			// mysql has a concat function
+			return "concat(" + string.Join(",", values) + ")";
+		}
+	}
 }

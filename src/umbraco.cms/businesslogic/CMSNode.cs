@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-
+using System.Runtime.CompilerServices;
 using System.Xml;
 
 using umbraco.cms.businesslogic.web;
@@ -117,7 +117,7 @@ namespace umbraco.cms.businesslogic
         }
 
         /// <summary>
-        /// Returns the number of leaf nodes from the parent id for a given object type
+        /// Returns the number of leaf nodes from the newParent id for a given object type
         /// </summary>
         /// <param name="parentId"></param>
         /// <param name="objectType"></param>
@@ -235,7 +235,7 @@ namespace umbraco.cms.businesslogic
         /// Given the protected modifier the CMSNode.MakeNew method can only be accessed by
         /// derived classes &gt; who by definition knows of its own objectType.
         /// </summary>
-        /// <param name="parentId">The parent CMSNode id</param>
+        /// <param name="parentId">The newParent CMSNode id</param>
         /// <param name="objectType">The objecttype identifier</param>
         /// <param name="userId">Creator</param>
         /// <param name="level">The level in the tree hieararchy</param>
@@ -251,7 +251,7 @@ namespace umbraco.cms.businesslogic
             if (level > 0)
             {
                 parent = new CMSNode(parentId);
-                sortOrder = parent.ChildCount + 1;
+                sortOrder = GetNewDocumentSortOrder(parentId);
                 path = parent.Path;
             }
             else
@@ -294,8 +294,22 @@ namespace umbraco.cms.businesslogic
             return retVal;
         }
 
+        private static int GetNewDocumentSortOrder(int parentId)
+        {
+            var sortOrder = 0;
+            using (IRecordsReader dr = SqlHelper.ExecuteReader(
+                        "SELECT MAX(sortOrder) AS sortOrder FROM umbracoNode WHERE parentID = @parentID AND nodeObjectType = @GuidForNodesOfTypeDocument",
+                        SqlHelper.CreateParameter("@parentID", parentId),
+                        SqlHelper.CreateParameter("@GuidForNodesOfTypeDocument", Document._objectType)
+                  ))
+            {
+                while (dr.Read())
+                    sortOrder = dr.GetInt("sortOrder") + 1;
+            }
 
-
+            return sortOrder;
+        }
+        
         /// <summary>
         /// Retrieve a list of the id's of all CMSNodes given the objecttype and the first letter of the name.
         /// </summary>
@@ -481,30 +495,34 @@ order by level,sortOrder";
             return base.ToString();
         }
 
-        private void Move(CMSNode parent)
+        private void Move(CMSNode newParent)
         {
             MoveEventArgs e = new MoveEventArgs();
             FireBeforeMove(e);
 
             if (!e.Cancel)
             {
-                //first we need to establish if the node already exists under the parent node
-                var isSameParent = (Path.Contains("," + parent.Id + ","));
+                //first we need to establish if the node already exists under the newParent node
+                //var isNewParentInPath = (Path.Contains("," + newParent.Id + ","));
 
-                //if it's the same parent, we can save some SQL calls since we know these wont change.
-                //level and path might change even if it's the same parent because the parent could be moving somewhere.
-                if (!isSameParent)
+                //if it's the same newParent, we can save some SQL calls since we know these wont change.
+                //level and path might change even if it's the same newParent because the newParent could be moving somewhere.
+                if (ParentId != newParent.Id)
                 {
                     int maxSortOrder = SqlHelper.ExecuteScalar<int>("select coalesce(max(sortOrder),0) from umbracoNode where parentid = @parentId",
-                        SqlHelper.CreateParameter("@parentId", parent.Id));
+                        SqlHelper.CreateParameter("@parentId", newParent.Id));
 
-                    this.Parent = parent;
-                    this.sortOrder = maxSortOrder + 1;
+                    this.Parent = newParent;
+                    this.sortOrder = maxSortOrder + 1;                    
                 }
-
-                this.Parent = parent;
-                this.Level = parent.Level + 1;
-                this.Path = parent.Path + "," + this.Id.ToString();
+                
+                //detect if we have moved, then update the level and path
+                // issue: http://issues.umbraco.org/issue/U4-1579
+                if (this.Path != newParent.Path + "," + this.Id.ToString())
+                {
+                    this.Level = newParent.Level + 1;
+                    this.Path = newParent.Path + "," + this.Id.ToString();
+                }
 
                 //this code block should not be here but since the class structure is very poor and doesn't use 
                 //overrides (instead using shadows/new) for the Children property, when iterating over the children
@@ -523,16 +541,16 @@ order by level,sortOrder";
                 }
 
                 //make sure the node type is a document/media, if it is a recycle bin then this will not be equal
-                if (!IsTrashed && parent.nodeObjectType == Document._objectType)
+                if (!IsTrashed && newParent.nodeObjectType == Document._objectType)
                 {
-                    //regenerate the xml for the parent node
-                    var d = new Document(parent.Id);
+                    //regenerate the xml for the newParent node
+                    var d = new Document(newParent.Id);
                     d.XmlGenerate(new XmlDocument());
                 }
-                else if (!IsTrashed && parent.nodeObjectType == Media._objectType)
+                else if (!IsTrashed && newParent.nodeObjectType == Media._objectType)
                 {
-                    //regenerate the xml for the parent node
-                    var m = new Media(parent.Id);
+                    //regenerate the xml for the newParent node
+                    var m = new Media(newParent.Id);
                     m.XmlGenerate(new XmlDocument());
                 }
 
@@ -718,7 +736,7 @@ order by level,sortOrder";
         }
 
         /// <summary>
-        /// Get the parent id of the node
+        /// Get the newParent id of the node
         /// </summary>
         public int ParentId
         {
@@ -726,14 +744,14 @@ order by level,sortOrder";
         }
 
         /// <summary>
-        /// Given the hierarchical tree structure a CMSNode has only one parent but can have many children
+        /// Given the hierarchical tree structure a CMSNode has only one newParent but can have many children
         /// </summary>
-        /// <value>The parent.</value>
+        /// <value>The newParent.</value>
         public CMSNode Parent
         {
             get
             {
-                if (Level == 1) throw new ArgumentException("No parent node");
+                if (Level == 1) throw new ArgumentException("No newParent node");
                 return new CMSNode(_parentid);
             }
             set
@@ -967,7 +985,7 @@ order by level,sortOrder";
         /// <param name="uniqueID">The unique ID.</param>
         /// <param name="nodeObjectType">Type of the node object.</param>
         /// <param name="Level">The level.</param>
-        /// <param name="ParentId">The parent id.</param>
+        /// <param name="ParentId">The newParent id.</param>
         /// <param name="UserId">The user id.</param>
         /// <param name="Path">The path.</param>
         /// <param name="Text">The text.</param>
@@ -1018,6 +1036,12 @@ order by level,sortOrder";
 
         }
 
+        /// <summary>
+        /// This needs to be synchronized since we are doing multiple sql operations in one method
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="versionId"></param>
+        [MethodImpl(MethodImplOptions.Synchronized)]
         protected void SavePreviewXml(XmlNode x, Guid versionId)
         {
             string sql = PreviewExists(versionId) ? "UPDATE cmsPreviewXml SET xml = @xml, timestamp = @timestamp WHERE nodeId=@nodeId AND versionId = @versionId"
@@ -1032,7 +1056,7 @@ order by level,sortOrder";
         protected void PopulateCMSNodeFromReader(IRecordsReader dr)
         {
             // testing purposes only > original umbraco data hasn't any unique values ;)
-            // And we need to have a parent in order to create a new node ..
+            // And we need to have a newParent in order to create a new node ..
             // Should automatically add an unique value if no exists (or throw a decent exception)
             if (dr.IsNull("uniqueID")) _uniqueID = Guid.NewGuid();
             else _uniqueID = dr.GetGuid("uniqueID");

@@ -10,7 +10,7 @@ using umbraco.interfaces;
 using umbraco.DataLayer;
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("umbraco.Test")]
+
 
 namespace umbraco.cms.businesslogic.web
 {
@@ -28,6 +28,14 @@ namespace umbraco.cms.businesslogic.web
         {
             get { return Application.SqlHelper; }
         }
+
+		/// <summary>
+		/// Empty ctor used for unit tests to create a custom domain
+		/// </summary>
+		internal Domain()
+		{
+			
+		}
 
 		public Domain(int Id)
         {

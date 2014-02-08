@@ -53,6 +53,8 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
     <TargetFrameworkProfile />
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -102,9 +104,8 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ClientDependency.Core, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\lib\ClientDependency.Core.dll</HintPath>
+    <Reference Include="ClientDependency.Core">
+      <HintPath>..\packages\ClientDependency.1.5.1.0\lib\ClientDependency.Core.dll</HintPath>
     </Reference>
     <Reference Include="HtmlAgilityPack, Version=1.4.0.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -147,6 +148,10 @@
       <Project>{E469A9CE-1BEC-423F-AC44-713CD72457EA}</Project>
       <Package>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</Package>
     </ProjectReference>
+    <ProjectReference Include="..\Umbraco.Core\Umbraco.Core.csproj">
+      <Project>{31785BC3-256C-4613-B2F5-A1B0BDDED8C1}</Project>
+      <Name>Umbraco.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\umbraco.datalayer\umbraco.datalayer.csproj">
       <Project>{C7CB79F0-1C97-4B33-BFA7-00731B579AE2}</Project>
       <Name>umbraco.datalayer</Name>
@@ -167,7 +172,6 @@
     <Compile Include="Actions\ActionAssignDomain.cs" />
     <Compile Include="Actions\ActionAudit.cs" />
     <Compile Include="Actions\ActionBrowse.cs" />
-    <Compile Include="Actions\ActionCodeExport.cs" />
     <Compile Include="Actions\ActionCopy.cs" />
     <Compile Include="Actions\ActionDelete.cs" />
     <Compile Include="Actions\ActionDisable.cs" />
@@ -202,6 +206,7 @@
     </Compile>
     <Compile Include="Actions\IActionHandler.cs" />
     <Compile Include="businesslogic\CMSPreviewNode.cs" />
+    <Compile Include="businesslogic\datatype\AbstractDataEditorControl.cs" />
     <Compile Include="businesslogic\datatype\ClientDependencyAttribute.cs" />
     <Compile Include="businesslogic\datatype\DataEditorSetting.cs" />
     <Compile Include="businesslogic\datatype\DataEditorSettingsStorage.cs" />
@@ -221,8 +226,11 @@
     </Compile>
     <Compile Include="businesslogic\ISaveHandlerContents.cs" />
     <Compile Include="businesslogic\macro\IMacroEngine.cs" />
+    <Compile Include="businesslogic\macro\IMacroEngineResultStatus.cs" />
     <Compile Include="businesslogic\macro\MacroEngineFactory.cs" />
     <Compile Include="businesslogic\macro\MacroModel.cs" />
+    <Compile Include="businesslogic\macro\MacroPropertyModel.cs" />
+    <Compile Include="businesslogic\macro\MacroTypes.cs" />
     <Compile Include="businesslogic\media\IMediaFactory.cs" />
     <Compile Include="businesslogic\media\MediaFactory.cs" />
     <Compile Include="businesslogic\media\UmbracoFileMediaFactory.cs" />
@@ -257,12 +265,15 @@
     <Compile Include="businesslogic\skinning\TaskType.cs" />
     <Compile Include="businesslogic\Tags\Tag.cs" />
     <Compile Include="businesslogic\task\Tasks.cs" />
+    <Compile Include="businesslogic\template\MasterpageHelper.cs" />
+    <Compile Include="businesslogic\template\ViewHelper.cs" />
     <Compile Include="businesslogic\Tuple.cs" />
     <Compile Include="businesslogic\web\DocumentVersionList.cs" />
     <Compile Include="businesslogic\skinning\Skinning.cs" />
     <Compile Include="helpers\Casing.cs" />
     <Compile Include="helpers\DeepLink.cs" />
     <Compile Include="helpers\DeepLinkType.cs" />
+    <Compile Include="PluginManagerExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -406,6 +417,7 @@
   <ItemGroup>
     <Content Include="businesslogic\Packager\FileResources\Packages.config" />
     <None Include="ClassDiagram1.cd" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="businesslogic\Packager\FileResources\PackageFiles.resx">
@@ -440,4 +452,5 @@
     <PostBuildEvent>
     </PostBuildEvent>
   </PropertyGroup>
+  <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
 </Project>

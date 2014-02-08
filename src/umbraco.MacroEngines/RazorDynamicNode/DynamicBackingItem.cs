@@ -88,7 +88,7 @@ namespace umbraco.MacroEngines
                     var children = media.ChildrenAsList.Value;
                     if (children != null)
                     {
-                        return children.ToList().ConvertAll(m => new DynamicBackingItem(m));
+                        return children.ConvertAll(m => new DynamicBackingItem(m));
                     }
                 }
                 return new List<DynamicBackingItem>();
@@ -134,8 +134,7 @@ namespace umbraco.MacroEngines
                             result = content.GetType().InvokeMember(alias,
                                                       System.Reflection.BindingFlags.GetProperty |
                                                       System.Reflection.BindingFlags.Instance |
-                                                      System.Reflection.BindingFlags.Public |
-                                                      System.Reflection.BindingFlags.NonPublic,
+                                                      System.Reflection.BindingFlags.Public,
                                                       null,
                                                       content,
                                                       null);
@@ -178,8 +177,7 @@ namespace umbraco.MacroEngines
                             result = content.GetType().InvokeMember(alias,
                                                       System.Reflection.BindingFlags.GetProperty |
                                                       System.Reflection.BindingFlags.Instance |
-                                                      System.Reflection.BindingFlags.Public |
-                                                      System.Reflection.BindingFlags.NonPublic,
+                                                      System.Reflection.BindingFlags.Public,
                                                       null,
                                                       content,
                                                       null);

@@ -43,7 +43,7 @@ CREATE TABLE [umbracoRelation]
 [childId] [int] NOT NULL, 
 [relType] [int] NOT NULL, 
 [datetime] [datetime] NOT NULL CONSTRAINT [DF_umbracoRelation_datetime] DEFAULT (getdate()), 
-[comment] [nvarchar] (1000) COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[comment] [nvarchar] (1000) NOT NULL 
 ) 
  
 ; 
@@ -55,12 +55,12 @@ CREATE TABLE [cmsDocument]
 [published] [bit] NOT NULL, 
 [documentUser] [int] NOT NULL, 
 [versionId] [uniqueidentifier] NOT NULL, 
-[text] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
+[text] [nvarchar] (255) NOT NULL, 
 [releaseDate] [datetime] NULL, 
 [expireDate] [datetime] NULL, 
 [updateDate] [datetime] NOT NULL CONSTRAINT [DF_cmsDocument_updateDate] DEFAULT (getdate()), 
 [templateId] [int] NULL, 
-[alias] [nvarchar] (255) COLLATE Danish_Norwegian_CI_AS NULL ,
+[alias] [nvarchar] (255) NULL ,
 [newest] [bit] NOT NULL CONSTRAINT [DF_cmsDocument_newest] DEFAULT (0)
 ) 
  
@@ -73,8 +73,8 @@ CREATE TABLE [umbracoLog]
 [userId] [int] NOT NULL, 
 [NodeId] [int] NOT NULL, 
 [Datestamp] [datetime] NOT NULL CONSTRAINT [DF_umbracoLog_Datestamp] DEFAULT (getdate()), 
-[logHeader] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[logComment] [nvarchar] (1000) COLLATE Danish_Norwegian_CI_AS NULL 
+[logHeader] [nvarchar] (50) NOT NULL, 
+[logComment] [nvarchar] (1000) NULL 
 ) 
  
 ; 
@@ -86,7 +86,7 @@ ALTER TABLE [umbracoLog] ADD CONSTRAINT [PK_umbracoLog] PRIMARY KEY CLUSTERED  (
 CREATE TABLE [umbracoUserGroup] 
 ( 
 [id] [smallint] NOT NULL IDENTITY(1, 1), 
-[userGroupName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[userGroupName] [nvarchar] (255)S NOT NULL 
 ) 
 ; 
 ALTER TABLE [umbracoUserGroup] ADD CONSTRAINT [PK_userGroup] PRIMARY KEY CLUSTERED  ([id]) 
@@ -105,10 +105,10 @@ ALTER TABLE [umbracoUser2userGroup] ADD CONSTRAINT [PK_user2userGroup] PRIMARY K
 CREATE TABLE [umbracoApp] 
 ( 
 [sortOrder] [tinyint] NOT NULL CONSTRAINT [DF_app_sortOrder] DEFAULT (0), 
-[appAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[appIcon] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[appName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[appInitWithTreeAlias] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[appAlias] [nvarchar] (50) NOT NULL, 
+[appIcon] [nvarchar] (255) NOT NULL, 
+[appName] [nvarchar] (255) NOT NULL, 
+[appInitWithTreeAlias] [nvarchar] (255) NULL 
 ) 
  
 ; 
@@ -122,8 +122,8 @@ CREATE TABLE [cmsPropertyData]
 [propertytypeid] [int] NOT NULL, 
 [dataInt] [int] NULL, 
 [dataDate] [datetime] NULL, 
-[dataNvarchar] [nvarchar] (500) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[dataNtext] [ntext] COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[dataNvarchar] [nvarchar] (500) NULL, 
+[dataNtext] [ntext] NULL 
 ) 
  
 ; 
@@ -151,8 +151,9 @@ CREATE TABLE [cmsContentType]
 ( 
 [pk] [int] NOT NULL IDENTITY(1, 1), 
 [nodeId] [int] NOT NULL, 
-[alias] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[icon] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[alias] [nvarchar] (255) NULL, 
+[icon] [nvarchar] (255) NULL, 
+[thumbnail] nvarchar(255) NOT NULL CONSTRAINT [DF_cmsContentType_thumbnail] DEFAULT ('folder.png') 
 ) 
  
 ; 
@@ -161,10 +162,10 @@ ALTER TABLE [cmsContentType] ADD CONSTRAINT [PK_cmsContentType] PRIMARY KEY CLUS
 CREATE TABLE [cmsMacroPropertyType] 
 ( 
 [id] [smallint] NOT NULL IDENTITY(1, 1), 
-[macroPropertyTypeAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroPropertyTypeRenderAssembly] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroPropertyTypeRenderType] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroPropertyTypeBaseType] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[macroPropertyTypeAlias] [nvarchar] (50) NULL, 
+[macroPropertyTypeRenderAssembly] [nvarchar] (255) NULL, 
+[macroPropertyTypeRenderType] [nvarchar] (255) NULL, 
+[macroPropertyTypeBaseType] [nvarchar] (255) NULL 
 ) 
  
 ; 
@@ -178,9 +179,9 @@ CREATE TABLE [umbracoStylesheetProperty]
 [id] [smallint] NOT NULL IDENTITY(1, 1), 
 [stylesheetPropertyEditor] [bit] NOT NULL CONSTRAINT [DF_stylesheetProperty_stylesheetPropertyEditor] DEFAULT (0), 
 [stylesheet] [tinyint] NOT NULL, 
-[stylesheetPropertyAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[stylesheetPropertyName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[stylesheetPropertyValue] [nvarchar] (400) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[stylesheetPropertyAlias] [nvarchar] (50) NULL, 
+[stylesheetPropertyName] [nvarchar] (255) NULL, 
+[stylesheetPropertyValue] [nvarchar] (400) NULL 
 ) 
 ; 
 
@@ -193,7 +194,7 @@ CREATE TABLE [cmsTab]
 ( 
 [id] [int] NOT NULL IDENTITY(1, 1), 
 [contenttypeNodeId] [int] NOT NULL, 
-[text] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
+[text] [nvarchar] (255) NOT NULL, 
 [sortorder] [int] NOT NULL 
 ) 
  
@@ -205,8 +206,8 @@ CREATE TABLE [cmsTemplate]
 [pk] [int] NOT NULL IDENTITY(1, 1), 
 [nodeId] [int] NOT NULL, 
 [master] [int] NULL, 
-[alias] [nvarchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[design] [ntext] COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[alias] [nvarchar] (100) NULL, 
+[design] [ntext] NOT NULL 
 ) 
  
 ; 
@@ -215,7 +216,7 @@ ALTER TABLE [cmsTemplate] ADD CONSTRAINT [PK_templates] PRIMARY KEY CLUSTERED  (
 CREATE TABLE [umbracoUser2app] 
 ( 
 [user] [int] NOT NULL, 
-[app] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[app] [nvarchar] (50) NOT NULL 
 ) 
  
 ; 
@@ -224,9 +225,9 @@ ALTER TABLE [umbracoUser2app] ADD CONSTRAINT [PK_user2app] PRIMARY KEY CLUSTERED
 CREATE TABLE [umbracoUserType] 
 ( 
 [id] [smallint] NOT NULL IDENTITY(1, 1), 
-[userTypeAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[userTypeName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[userTypeDefaultPermissions] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[userTypeAlias] [nvarchar] (50) NULL, 
+[userTypeName] [nvarchar] (255) NOT NULL, 
+[userTypeDefaultPermissions] [nvarchar] (50) NULL 
 ) 
  
 ; 
@@ -240,12 +241,12 @@ CREATE TABLE [umbracoUser]
 [userType] [smallint] NOT NULL, 
 [startStructureID] [int] NOT NULL, 
 [startMediaID] [int] NULL, 
-[userName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[userLogin] [nvarchar] (125) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[userPassword] [nvarchar] (125) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[userEmail] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[userDefaultPermissions] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[userLanguage] [nvarchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[userName] [nvarchar] (255) NOT NULL, 
+[userLogin] [nvarchar] (125) NOT NULL, 
+[userPassword] [nvarchar] (125) NOT NULL, 
+[userEmail] [nvarchar] (255) NOT NULL, 
+[userDefaultPermissions] [nvarchar] (50) NULL, 
+[userLanguage] [nvarchar] (10) NULL 
 ) 
  
 ; 
@@ -276,9 +277,9 @@ ALTER TABLE [cmsMemberType] ADD CONSTRAINT [PK_cmsMemberType] PRIMARY KEY CLUSTE
 CREATE TABLE [cmsMember] 
 ( 
 [nodeId] [int] NOT NULL, 
-[Email] [nvarchar] (1000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [DF_cmsMember_Email] DEFAULT (''), 
-[LoginName] [nvarchar] (1000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [DF_cmsMember_LoginName] DEFAULT (''), 
-[Password] [nvarchar] (1000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [DF_cmsMember_Password] DEFAULT ('') 
+[Email] [nvarchar] (1000) NOT NULL CONSTRAINT [DF_cmsMember_Email] DEFAULT (''), 
+[LoginName] [nvarchar] (1000) NOT NULL CONSTRAINT [DF_cmsMember_LoginName] DEFAULT (''), 
+[Password] [nvarchar] (1000) NOT NULL CONSTRAINT [DF_cmsMember_Password] DEFAULT ('') 
 ) 
  
 ; 
@@ -289,10 +290,10 @@ CREATE TABLE [umbracoNode]
 [parentID] [int] NOT NULL, 
 [nodeUser] [int] NULL, 
 [level] [smallint] NOT NULL, 
-[path] [nvarchar] (150) COLLATE Danish_Norwegian_CI_AS NOT NULL, 
+[path] [nvarchar] (150) NOT NULL, 
 [sortOrder] [int] NOT NULL, 
 [uniqueID] [uniqueidentifier] NULL, 
-[text] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
+[text] [nvarchar] (255) NULL, 
 [nodeObjectType] [uniqueidentifier] NULL, 
 [createDate] [datetime] NOT NULL CONSTRAINT [DF_umbracoNode_createDate] DEFAULT (getdate()) 
 ) 
@@ -310,13 +311,13 @@ CREATE TABLE [cmsPropertyType]
 [dataTypeId] [int] NOT NULL, 
 [contentTypeId] [int] NOT NULL, 
 [tabId] [int] NULL, 
-[Alias] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[Name] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[helpText] [nvarchar] (1000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
+[Alias] [nvarchar] (255) NOT NULL, 
+[Name] [nvarchar] (255) NULL, 
+[helpText] [nvarchar] (1000) NULL, 
 [sortOrder] [int] NOT NULL CONSTRAINT [DF__cmsProper__sortO__1EA48E88] DEFAULT (0), 
 [mandatory] [bit] NOT NULL CONSTRAINT [DF__cmsProper__manda__2180FB33] DEFAULT (0), 
-[validationRegExp] [nvarchar] (255) COLLATE Danish_Norwegian_CI_AS NULL, 
-[Description] [nvarchar] (2000) COLLATE Danish_Norwegian_CI_AS NULL 
+[validationRegExp] [nvarchar] (255) NULL, 
+[Description] [nvarchar] (2000) NULL 
 ) 
  
 ; 
@@ -330,8 +331,8 @@ CREATE TABLE [cmsMacroProperty]
 [macroPropertyType] [smallint] NOT NULL, 
 [macro] [int] NOT NULL, 
 [macroPropertySortOrder] [tinyint] NOT NULL CONSTRAINT [DF_macroProperty_macroPropertySortOrder] DEFAULT (0), 
-[macroPropertyAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[macroPropertyName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[macroPropertyAlias] [nvarchar] (50) NOT NULL, 
+[macroPropertyName] [nvarchar] (255) NOT NULL 
 ) 
  
 ; 
@@ -342,11 +343,11 @@ CREATE TABLE [cmsMacro]
 [id] [int] NOT NULL IDENTITY(1, 1), 
 [macroUseInEditor] [bit] NOT NULL CONSTRAINT [DF_macro_macroUseInEditor] DEFAULT (0), 
 [macroRefreshRate] [int] NOT NULL CONSTRAINT [DF_macro_macroRefreshRate] DEFAULT (0), 
-[macroAlias] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[macroName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroScriptType] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroScriptAssembly] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[macroXSLT] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
+[macroAlias] [nvarchar] (255) NOT NULL, 
+[macroName] [nvarchar] (255) NULL, 
+[macroScriptType] [nvarchar] (255) NULL, 
+[macroScriptAssembly] [nvarchar] (255) NULL, 
+[macroXSLT] [nvarchar] (255) NULL, 
 [macroCacheByPage] [bit] NOT NULL CONSTRAINT [DF_cmsMacro_macroCacheByPage] DEFAULT (1), 
 [macroCachePersonalized] [bit] NOT NULL CONSTRAINT [DF_cmsMacro_macroCachePersonalized] DEFAULT (0), 
 [macroDontRender] [bit] NOT NULL CONSTRAINT [DF_cmsMacro_macroDontRender] DEFAULT (0) 
@@ -369,14 +370,14 @@ CREATE TABLE [umbracoAppTree]
 [treeSilent] [bit] NOT NULL CONSTRAINT [DF_umbracoAppTree_treeSilent] DEFAULT (0), 
 [treeInitialize] [bit] NOT NULL CONSTRAINT [DF_umbracoAppTree_treeInitialize] DEFAULT (1), 
 [treeSortOrder] [tinyint] NOT NULL, 
-[appAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeAlias] [nvarchar] (150) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeTitle] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeIconClosed] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeIconOpen] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeHandlerAssembly] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[treeHandlerType] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-[action] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL  
+[appAlias] [nvarchar] (50) NOT NULL, 
+[treeAlias] [nvarchar] (150) NOT NULL, 
+[treeTitle] [nvarchar] (255) NOT NULL, 
+[treeIconClosed] [nvarchar] (255) NOT NULL, 
+[treeIconOpen] [nvarchar] (255) NOT NULL, 
+[treeHandlerAssembly] [nvarchar] (255) NOT NULL, 
+[treeHandlerType] [nvarchar] (255) NOT NULL,
+[action] [nvarchar] (255) NULL  
 ) 
  
 ; 
@@ -395,7 +396,7 @@ ALTER TABLE [cmsContentTypeAllowedContentType] ADD CONSTRAINT [PK_cmsContentType
 CREATE TABLE [cmsContentXml] 
 ( 
 [nodeId] [int] NOT NULL, 
-[xml] [ntext] COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[xml] [ntext] NOT NULL 
 ) 
  
 ; 
@@ -406,7 +407,7 @@ CREATE TABLE [cmsDataType]
 [pk] [int] NOT NULL IDENTITY(1, 1), 
 [nodeId] [int] NOT NULL, 
 [controlId] [uniqueidentifier] NOT NULL, 
-[dbType] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[dbType] [varchar] (50) NOT NULL 
 ) 
  
 ; 
@@ -416,9 +417,9 @@ CREATE TABLE [cmsDataTypePreValues]
 ( 
 [id] [int] NOT NULL IDENTITY(1, 1), 
 [datatypeNodeId] [int] NOT NULL, 
-[value] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
+[value] [nvarchar] (255) NULL, 
 [sortorder] [int] NOT NULL, 
-[alias] [nvarchar] (50) COLLATE Danish_Norwegian_CI_AS NULL 
+[alias] [nvarchar] (50) NULL 
 ) 
  
 ; 
@@ -429,7 +430,7 @@ CREATE TABLE [cmsDictionary]
 [pk] [int] NOT NULL IDENTITY(1, 1), 
 [id] [uniqueidentifier] NOT NULL, 
 [parent] [uniqueidentifier] NOT NULL, 
-[key] [nvarchar] (1000) COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[key] [nvarchar] (1000) NOT NULL 
 ) 
  
 ; 
@@ -440,7 +441,7 @@ CREATE TABLE [cmsLanguageText]
 [pk] [int] NOT NULL IDENTITY(1, 1), 
 [languageId] [int] NOT NULL, 
 [UniqueId] [uniqueidentifier] NOT NULL, 
-[value] [nvarchar] (1000) COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[value] [nvarchar] (1000) NOT NULL 
 ) 
  
 ; 
@@ -458,8 +459,8 @@ ALTER TABLE [cmsMember2MemberGroup] ADD CONSTRAINT [PK_cmsMember2MemberGroup] PR
 CREATE TABLE [cmsStylesheet] 
 ( 
 [nodeId] [int] NOT NULL, 
-[filename] [nvarchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[content] [ntext] COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[filename] [nvarchar] (100) NOT NULL, 
+[content] [ntext] NULL 
 ) 
  
 ; 
@@ -467,8 +468,8 @@ CREATE TABLE [cmsStylesheetProperty]
 ( 
 [nodeId] [int] NOT NULL, 
 [stylesheetPropertyEditor] [bit] NULL, 
-[stylesheetPropertyAlias] [nvarchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[stylesheetPropertyValue] [nvarchar] (400) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[stylesheetPropertyAlias] [nvarchar] (50) NULL, 
+[stylesheetPropertyValue] [nvarchar] (400) NULL 
 ) 
  
 ; 
@@ -477,7 +478,7 @@ CREATE TABLE [umbracoDomains]
 [id] [int] NOT NULL IDENTITY(1, 1), 
 [domainDefaultLanguage] [int] NULL, 
 [domainRootStructureID] [int] NULL, 
-[domainName] [nvarchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[domainName] [nvarchar] (255) NOT NULL 
 ) 
  
 ; 
@@ -486,8 +487,8 @@ ALTER TABLE [umbracoDomains] ADD CONSTRAINT [PK_domains] PRIMARY KEY CLUSTERED  
 CREATE TABLE [umbracoLanguage] 
 ( 
 [id] [smallint] NOT NULL IDENTITY(1, 1), 
-[languageISOCode] [nvarchar] (10) COLLATE SQL_Latin1_General_CP1_CI_AS NULL, 
-[languageCultureName] [nvarchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[languageISOCode] [nvarchar] (10) NULL, 
+[languageCultureName] [nvarchar] (100) NULL 
 ) 
  
 ; 
@@ -499,8 +500,8 @@ CREATE TABLE [umbracoRelationType]
 [dual] [bit] NOT NULL, 
 [parentObjectType] [uniqueidentifier] NOT NULL, 
 [childObjectType] [uniqueidentifier] NOT NULL, 
-[name] [nvarchar] (255) COLLATE Danish_Norwegian_CI_AS NOT NULL, 
-[alias] [nvarchar] (100) COLLATE Danish_Norwegian_CI_AS NULL 
+[name] [nvarchar] (255) NOT NULL, 
+[alias] [nvarchar] (100) NULL 
 ) 
  
 ; 
@@ -512,8 +513,8 @@ ALTER TABLE [umbracoRelationType] ADD CONSTRAINT [PK_umbracoRelationType] PRIMAR
 CREATE TABLE [umbracoStylesheet] 
 ( 
 [nodeId] [int] NOT NULL, 
-[filename] [nvarchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL, 
-[content] [ntext] COLLATE SQL_Latin1_General_CP1_CI_AS NULL 
+[filename] [nvarchar] (100) NOT NULL, 
+[content] [ntext] NULL 
 )  
 ; 
 
@@ -526,7 +527,7 @@ CREATE TABLE [umbracoUser2NodeNotify]
 ( 
 [userId] [int] NOT NULL, 
 [nodeId] [int] NOT NULL, 
-[action] [char] (1) COLLATE Danish_Norwegian_CI_AS NOT NULL 
+[action] [char] (1) NOT NULL 
 ) 
  
 ; 
@@ -536,7 +537,7 @@ CREATE TABLE [umbracoUser2NodePermission]
 ( 
 [userId] [int] NOT NULL, 
 [nodeId] [int] NOT NULL, 
-[permission] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL 
+[permission] [char] (1) NOT NULL 
 ) 
  
 ; 
@@ -655,9 +656,9 @@ INSERT INTO [umbracoNode] ([id], [trashed], [parentID], [nodeUser], [level], [pa
 SET IDENTITY_INSERT [umbracoNode] OFF 
 ;
 SET IDENTITY_INSERT [cmsContentType] ON 
-INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon]) VALUES (532, 1031, N'Folder', N'folder.gif') 
-INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon]) VALUES (533, 1032, N'Image', N'mediaPhoto.gif') 
-INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon]) VALUES (534, 1033, N'File', N'mediaFile.gif') 
+INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon], [thumbnail]) VALUES (532, 1031, N'Folder', N'folder.gif', N'folder.png') 
+INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon], [thumbnail]) VALUES (533, 1032, N'Image', N'mediaPhoto.gif', N'mediaPhoto.png') 
+INSERT INTO [cmsContentType] ([pk], [nodeId], [alias], [icon], [thumbnail]) VALUES (534, 1033, N'File', N'mediaFile.gif', N'mediaFile.png') 
 SET IDENTITY_INSERT [cmsContentType] OFF 
 ;
 SET IDENTITY_INSERT [umbracoUser] ON 
@@ -818,10 +819,10 @@ insert into umbracoRelationType (dual, parentObjectType, childObjectType, name, 
 ;
 ALTER TABLE cmsMacro ADD macroPython nvarchar(255)
 ;
-alter TABLE [cmsContentType]
-add [thumbnail] nvarchar(255) NOT NULL CONSTRAINT
-[DF_cmsContentType_thumbnail] DEFAULT ('folder.png')
-;
+--alter TABLE [cmsContentType]
+--add [thumbnail] nvarchar(255) NOT NULL CONSTRAINT
+--[DF_cmsContentType_thumbnail] DEFAULT ('folder.png')
+--;
 alter TABLE [cmsContentType]
 add [description] nvarchar(1500) NULL
 ;
@@ -829,7 +830,7 @@ ALTER TABLE umbracoLog ALTER COLUMN logComment NVARCHAR(4000) NULL
 ;
 SET IDENTITY_INSERT [cmsDataTypePreValues] ON 
 insert into cmsDataTypePreValues (id, dataTypeNodeId, [value], sortorder, alias)
-values (3,-87,',code,undo,redo,cut,copy,mcepasteword,stylepicker,bold,italic,bullist,numlist,outdent,indent,mcelink,unlink,mceinsertanchor,mceimage,umbracomacro,mceinserttable,mcecharmap,' + char(124) + '1' + char(124) + '1,2,3,' + char(124) + '0' + char(124) + '500,400' + char(124) + '1049,' + char(124) + 'true' + char(124) + '', 0, '')
+values (3,-87,',code,undo,redo,cut,copy,mcepasteword,stylepicker,bold,italic,bullist,numlist,outdent,indent,mcelink,unlink,mceinsertanchor,mceimage,umbracomacro,mceinserttable,umbracoembed,mcecharmap,' + char(124) + '1' + char(124) + '1,2,3,' + char(124) + '0' + char(124) + '500,400' + char(124) + '1049,' + char(124) + 'true' + char(124) + '', 0, '')
 
 insert into cmsDataTypePreValues (id, dataTypeNodeId, [value], sortorder, alias)
 values (4,1041,'default', 0, 'group')

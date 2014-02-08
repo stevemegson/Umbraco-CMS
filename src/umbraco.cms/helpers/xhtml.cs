@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.IO;
 
@@ -127,17 +128,16 @@ namespace umbraco.cms.helpers
 				return closeBracket+tag;
 		}
 
-        public static Hashtable ReturnAttributes(String tag) {
-            Hashtable ht = new Hashtable();
-            MatchCollection m =
-                Regex.Matches(tag, "(?<attributeName>\\S*)=\"(?<attributeValue>[^\"]*)\"",
-                              RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
-            // fix for issue 14862: return lowercase attributes for case insensitive matching
-            foreach (Match attributeSet in m)
-                ht.Add(attributeSet.Groups["attributeName"].Value.ToString().ToLower(), attributeSet.Groups["attributeValue"].Value.ToString());
-
-            return ht;
-        }
+		[Obsolete("Has been superceded by Umbraco.Core.XmlHelper.GetAttributesFromElement")]
+		public static Hashtable ReturnAttributes(String tag)
+		{
+			var h = new Hashtable();
+			foreach (var i in Umbraco.Core.XmlHelper.GetAttributesFromElement(tag))
+			{
+				h.Add(i.Key, i.Value);
+			}
+			return h;
+		}
 
 		private static string returnLowerCaseAttributes(String tag) 
 		{
@@ -147,6 +147,32 @@ namespace umbraco.cms.helpers
 				newTag += " " + attributeSet.Groups["attributeName"].Value.ToString().ToLower() + "=\"" + attributeSet.Groups["attributeValue"].Value.ToString() + "\"";
 
 			return newTag;
-		}	
+		}
+
+        // helper method gotten from:
+        // http://stackoverflow.com/questions/20762/how-do-you-remove-invalid-hexadecimal-characters-from-an-xml-based-data-source-p#comment8130028_641632
+	    internal static string RemoveIllegalXmlCharacters(string inString)
+        {
+
+            if (inString == null) return null;
+
+            StringBuilder sbOutput = new StringBuilder();
+            char ch;
+
+            for (int i = 0; i < inString.Length; i++)
+            {
+                ch = inString[i];
+                if ((ch >= 0x0020 && ch <= 0xD7FF) ||
+                    (ch >= 0xE000 && ch <= 0xFFFD) ||
+                    ch == 0x0009 ||
+                    ch == 0x000A ||
+                    ch == 0x000D)
+                {
+                    sbOutput.Append(ch);
+                }
+            }
+            return sbOutput.ToString();
+
+        }
 	}
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
 using umbraco.cms.businesslogic.Files;
@@ -32,13 +33,13 @@ namespace umbraco.cms.businesslogic.datatype
                     if (value is HttpPostedFile)
                     {
                         var file = value as HttpPostedFile;
-                        name = file.FileName;
+                        name = Umbraco.Core.IO.IOHelper.SafeFileName(file.FileName.Substring(file.FileName.LastIndexOf(IOHelper.DirSepChar) + 1, file.FileName.Length - file.FileName.LastIndexOf(IOHelper.DirSepChar) - 1).ToLower());
                         fileStream = file.InputStream;
                     }
                     else if (value is HttpPostedFileBase)
                     {
                         var file = value as HttpPostedFileBase;
-                        name = file.FileName;
+                        name = Umbraco.Core.IO.IOHelper.SafeFileName(file.FileName.Substring(file.FileName.LastIndexOf(IOHelper.DirSepChar) + 1, file.FileName.Length - file.FileName.LastIndexOf(IOHelper.DirSepChar) - 1).ToLower());
                         fileStream = file.InputStream;
                     }
                     else if (value is HttpPostedFileWrapper)
@@ -57,7 +58,7 @@ namespace umbraco.cms.businesslogic.datatype
                                               ? Path.Combine(PropertyId.ToString(), name)
                                               : PropertyId + "-" + name;
 
-                        fileName = Path.Combine(SystemDirectories.Media, fileName);
+                        //fileName = Path.Combine(SystemDirectories.Media, fileName);
                         um = UmbracoFile.Save(fileStream, fileName);
 
                         if (um.SupportsResizing)
@@ -110,7 +111,7 @@ namespace umbraco.cms.businesslogic.datatype
                             }
                         }
 
-                        base.Value = um.LocalName;
+                        base.Value = um.Url;
                     }
                     else
                     {
@@ -128,7 +129,7 @@ namespace umbraco.cms.businesslogic.datatype
                 }
             }
         }
-
+        
         private void clearRelatedValues()
         {
             string propertyTypeAlias = new Property(PropertyId).PropertyType.Alias;
