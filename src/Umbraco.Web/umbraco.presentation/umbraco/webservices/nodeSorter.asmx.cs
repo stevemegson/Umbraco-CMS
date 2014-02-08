@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Web.Script.Services;
 using System.Web.Services;
@@ -92,16 +93,22 @@ namespace umbraco.presentation.webservices
                 if (isContent && AuthorizeRequest(DefaultApps.content.ToString()) == false) return;
                 if (isMedia && AuthorizeRequest(DefaultApps.media.ToString()) == false) return;
 
+                List<Document> changedDocuments = new List<Document>();
+
                 for (var i = 0; i < ids.Length; i++)
                 {
                     if (ids[i] == "" || ids[i].Trim() == "") continue;
                    
                     if (isContent)
                     {
-                        var document = new Document(int.Parse(ids[i]))
-                            {
-                                sortOrder = i
-                            };
+                        var document = new Document(int.Parse(ids[i]));
+
+                        if (document.sortOrder == i )
+                        {
+                            continue;
+                        }
+
+                        document.sortOrder = i;
                         
                         //TODO: Theoretically we should be calling this too but it will show up as an unpublished
                         // revision which is not what we want, otherwise we should call Publish() on each node but this
@@ -113,8 +120,7 @@ namespace umbraco.presentation.webservices
                             // update the sort order of the xml in the database
                             document.refreshXmlSortOrder();
 
-                            //TODO: WE don't want to have to republish the entire document !!!!
-                            library.UpdateDocumentCache(document);
+                            changedDocuments.Add(document);
                         }
                     }
                     else if (isMedia)
@@ -126,6 +132,9 @@ namespace umbraco.presentation.webservices
                         media.Save();
                     }
                 }
+
+                //TODO: WE don't want to have to republish the entire document !!!!
+                content.Instance.UpdateDocumentCache(changedDocuments);
 
                 // Refresh sort order on cached xml
                 if (isContent)
