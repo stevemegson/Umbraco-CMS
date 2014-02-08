@@ -12,8 +12,16 @@ namespace umbraco.MacroEngines
 {
     public static class ExtensionMethodFinder
     {
+        private static Dictionary<Tuple<Type, string, int, bool>, List<MethodInfo>> _cache = new Dictionary<Tuple<Type, string, int, bool>, List<MethodInfo>>();
+
         private static List<MethodInfo> GetAllExtensionMethods(Type thisType, string name, int argumentCount, bool argsContainsThis)
         {
+            var cacheKey = new Tuple<Type, string, int, bool>(thisType, name, argumentCount, argsContainsThis);
+            if (_cache.ContainsKey(cacheKey))
+            {
+                return _cache[cacheKey];
+            }
+
             //get extension methods from runtime
             var candidates = (
                 from assembly in BuildManager.GetReferencedAssemblies().Cast<Assembly>()
@@ -48,7 +56,10 @@ namespace umbraco.MacroEngines
                                                    method.t != null && methodArgZeroHasCorrectTargetType(method.m, method.t, thisType)
                                                    select method);
 
-            return methodsWhereArgZeroIsTargetType.Select(mt => mt.m).ToList();
+            var result = methodsWhereArgZeroIsTargetType.Select(mt => mt.m).ToList();
+            _cache[cacheKey] = result;
+
+            return result;
         }
         private static bool methodArgZeroHasCorrectTargetType(MethodInfo method, Type firstArgumentType, Type thisType)
         {
