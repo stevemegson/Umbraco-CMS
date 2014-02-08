@@ -1,18 +1,11 @@
 using System;
-using System.Collections;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Web;
-using System.Web.SessionState;
-using System.Web.UI;
+using System.Linq;
 using System.Web.UI.WebControls;
 using System.Web.UI.HtmlControls;
-
-using umbraco.cms.businesslogic.member;
-using umbraco.cms.businesslogic.web;
 using System.Xml;
-using umbraco.IO;
+using System.Xml.Linq;
+using Umbraco.Core;
+using Umbraco.Core.IO;
 
 namespace umbraco.presentation.umbraco.dialogs
 {
@@ -27,22 +20,22 @@ namespace umbraco.presentation.umbraco.dialogs
             CurrentApp = BusinessLogic.DefaultApps.settings.ToString();
 
 	    }
-		protected System.Web.UI.WebControls.Literal FeedBackMessage;
-		protected System.Web.UI.WebControls.Literal jsShowWindow;
-		protected System.Web.UI.WebControls.Panel Wizard;
-		protected System.Web.UI.HtmlControls.HtmlTable Table1;
-		protected System.Web.UI.HtmlControls.HtmlInputHidden tempFile;
-		protected System.Web.UI.HtmlControls.HtmlInputFile documentTypeFile;
-		protected System.Web.UI.WebControls.Button submit;
-		protected System.Web.UI.WebControls.Panel Confirm;
-		protected System.Web.UI.WebControls.Literal dtName;
-		protected System.Web.UI.WebControls.Literal dtAlias;
-		protected System.Web.UI.WebControls.Button import;
-		protected System.Web.UI.WebControls.Literal dtNameConfirm;
-		protected System.Web.UI.WebControls.Panel done;
+		protected Literal FeedBackMessage;
+		protected Literal jsShowWindow;
+		protected Panel Wizard;
+		protected HtmlTable Table1;
+		protected HtmlInputHidden tempFile;
+		protected HtmlInputFile documentTypeFile;
+		protected Button submit;
+		protected Panel Confirm;
+		protected Literal dtName;
+		protected Literal dtAlias;
+		protected Button import;
+		protected Literal dtNameConfirm;
+		protected Panel done;
 		private string tempFileName = "";
 
-		private void Page_Load(object sender, System.EventArgs e)
+		private void Page_Load(object sender, EventArgs e)
 		{
 			if (!IsPostBack) 
 			{
@@ -74,37 +67,40 @@ namespace umbraco.presentation.umbraco.dialogs
 		}
 		#endregion
 
-		private void import_Click(object sender, System.EventArgs e)
+		private void import_Click(object sender, EventArgs e)
 		{
-			XmlDocument xd = new XmlDocument();
-			xd.Load(tempFile.Value);
-			cms.businesslogic.packager.Installer.ImportDocumentType(xd.DocumentElement, base.getUser(), true);
-			dtNameConfirm.Text = xd.DocumentElement.SelectSingleNode("/DocumentType/Info/Name").FirstChild.Value;
+            var xd = new XmlDocument();
+            xd.Load(tempFile.Value);
 
-			Wizard.Visible = false;
+		    var userId = base.getUser().Id;
+
+            var element = XElement.Parse(xd.InnerXml);
+		    var importContentTypes = ApplicationContext.Current.Services.PackagingService.ImportContentTypes(element, userId);
+		    var contentType = importContentTypes.FirstOrDefault();
+		    if (contentType != null)
+		        dtNameConfirm.Text = contentType.Name;
+
+		    Wizard.Visible = false;
 			Confirm.Visible = false;
 			done.Visible = true;
 		}
 
-		private void submit_Click(object sender, System.EventArgs e)
+		private void submit_Click(object sender, EventArgs e)
 		{
 			tempFileName = "justDelete_" + Guid.NewGuid().ToString() + ".udt";
-			string fileName = IOHelper.MapPath(SystemDirectories.Data + "/" + tempFileName);
+			var fileName = IOHelper.MapPath(SystemDirectories.Data + "/" + tempFileName);
 			tempFile.Value = fileName;
 
 			documentTypeFile.PostedFile.SaveAs(fileName);
 
-			XmlDocument xd = new XmlDocument();
+			var xd = new XmlDocument();
 			xd.Load(fileName);
-			dtName.Text = xd.DocumentElement.SelectSingleNode("/DocumentType/Info/Name").FirstChild.Value;
-			dtAlias.Text = xd.DocumentElement.SelectSingleNode("/DocumentType/Info/Alias").FirstChild.Value;
-
+			dtName.Text = xd.DocumentElement.SelectSingleNode("//DocumentType/Info/Name").FirstChild.Value;
+			dtAlias.Text = xd.DocumentElement.SelectSingleNode("//DocumentType/Info/Alias").FirstChild.Value;
 
 			Wizard.Visible = false;
 			done.Visible = false;
 			Confirm.Visible = true;
-
 		}
-
 	}
 }

@@ -1,4 +1,5 @@
 using System;
+using Umbraco.Core.Logging;
 using System.Linq;
 using Umbraco.Core;
 using Umbraco.Core.IO;
@@ -11,6 +12,7 @@ namespace umbraco.BasePages
     /// <summary>
     /// UmbracoEnsuredPage is the standard protected page in the umbraco backend, and forces authentication.
     /// </summary>
+    [Obsolete("This class has been superceded by Umbraco.Web.UI.Pages.UmbracoEnsuredPage")]
     public class UmbracoEnsuredPage : BasePage
     {
         public string CurrentApp { get; set; }
@@ -56,7 +58,8 @@ namespace umbraco.BasePages
             if (permissions.IndexOf(Action) > -1 && (Path.Contains("-20") || ("," + Path + ",").Contains("," + getUser().StartNodeId.ToString() + ",")))
                 return true;
 
-            LogHelper.Info<UmbracoEnsuredPage>("Insufficient permissions in UmbracoEnsuredPage: '" + Path + "', '" + permissions + "', '" + Action + "'");
+	        var user = getUser();
+	        LogHelper.Info<UmbracoEnsuredPage>("User {0} has insufficient permissions in UmbracoEnsuredPage: '{1}', '{2}', '{3}'", () => user.Name, () => Path, () => permissions, () => Action);
             return false;
         }
 
@@ -89,7 +92,7 @@ namespace umbraco.BasePages
                         throw new UserAuthorizationException(String.Format("The current user doesn't have access to the section/app '{0}'", CurrentApp));
                 }
             }
-            catch (UserAuthorizationException)
+            catch (UserAuthorizationException ex)
             {
                 LogHelper.Warn<UmbracoEnsuredPage>(string.Format("{0} tried to access '{1}'", CurrentUser.Id, CurrentApp));
                 throw;
@@ -105,9 +108,6 @@ namespace umbraco.BasePages
                 else
                     Response.Redirect(SystemDirectories.Umbraco + "/logout.aspx?redir=" + Server.UrlEncode(Request.RawUrl), true);
             }
-
-            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo(ui.Culture(this.getUser()));
-            System.Threading.Thread.CurrentThread.CurrentUICulture = System.Threading.Thread.CurrentThread.CurrentCulture;
         }
     }
 }

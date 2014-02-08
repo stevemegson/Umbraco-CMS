@@ -4,8 +4,8 @@ using System.IO;
 using Umbraco.Core.CodeAnnotations;
 
 namespace Umbraco.Core.IO
-{	
-    public interface IFileSystem
+{
+	public interface IFileSystem
     {
         IEnumerable<string> GetDirectories(string path);
 

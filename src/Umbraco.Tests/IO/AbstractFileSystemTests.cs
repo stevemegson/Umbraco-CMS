@@ -41,6 +41,11 @@ namespace Umbraco.Tests.IO
 
             Assert.AreEqual(1, files.Count());
 
+            foreach (var file in files)
+            {
+                _fileSystem.DeleteFile(file);
+            }
+
             _fileSystem.DeleteDirectory("test", true);
         }
 
@@ -104,10 +109,12 @@ namespace Umbraco.Tests.IO
 
             _fileSystem.DeleteDirectory("test", true);
         }
-        
+
         [Test]
         public void Can_Get_File_Dates()
         {
+            _fileSystem.DeleteFile("test.txt");
+
             _fileSystem.AddFile("test.txt", CreateStream());
 
             var created = _fileSystem.GetCreated("test.txt");

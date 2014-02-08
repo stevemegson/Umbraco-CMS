@@ -1,4 +1,5 @@
 using System;
+using Umbraco.Core;
 
 namespace umbraco.editorControls.uploadfield
 {
@@ -7,20 +8,26 @@ namespace umbraco.editorControls.uploadfield
 	/// </summary>
 	public class DataTypeUploadField : cms.businesslogic.datatype.BaseDataType,interfaces.IDataType
 	{
-		private interfaces.IDataEditor _Editor;
+		private interfaces.IDataEditor _editor;
 		private interfaces.IData _baseData;
 		private interfaces.IDataPrevalue _prevalueeditor;
 
+		/// <summary>
+		/// Always returns an uploadField control
+		/// </summary>
 		public override interfaces.IDataEditor DataEditor 
 		{
 			get
 			{
-				if (_Editor == null)
-                    _Editor = new uploadField(Data, ((uploadFieldPreValue)PrevalueEditor).Configuration);
-				return _Editor;
+				if (_editor == null)
+                    _editor = new uploadField(Data, ((uploadFieldPreValue)PrevalueEditor).Configuration);
+				return _editor;
 			}
 		}
 
+		/// <summary>
+		/// Always returns FileHandlerData
+		/// </summary>
 		public override interfaces.IData Data 
 		{
 			get 
@@ -38,7 +45,7 @@ namespace umbraco.editorControls.uploadfield
 
 		public override Guid Id 
 		{
-			get {return new Guid("5032a6e6-69e3-491d-bb28-cd31cd11086c");}
+			get { return new Guid(Constants.PropertyEditors.UploadField); }
 		}
 
 		public override interfaces.IDataPrevalue PrevalueEditor 

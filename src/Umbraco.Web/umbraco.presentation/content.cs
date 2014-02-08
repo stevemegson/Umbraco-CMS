@@ -9,6 +9,7 @@ using System.Web;
 using System.Xml;
 using System.Xml.XPath;
 using Umbraco.Core;
+using Umbraco.Core.Cache;
 using Umbraco.Core.IO;
 using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
@@ -21,6 +22,7 @@ using umbraco.DataLayer;
 using umbraco.presentation.nodeFactory;
 using Action = umbraco.BusinessLogic.Actions.Action;
 using Node = umbraco.NodeFactory.Node;
+using Umbraco.Core;
 
 namespace umbraco
 {
@@ -137,17 +139,7 @@ namespace umbraco
             set
             {
                 lock (XmlContentInternalSyncLock)
-                {
-                    // Clear macro cache
-                    Cache.ClearCacheObjectTypes("umbraco.MacroCacheContent");
-                    Cache.ClearCacheByKeySearch("macroHtml_");
-
-                    // Clear library cache
-                    if (UmbracoSettings.UmbracoLibraryCacheDuration > 0)
-                    {
-                        Cache.ClearCacheObjectTypes("MS.Internal.Xml.XPath.XPathSelectionIterator");
-                    }
-
+                {                    
                     _xmlContent = value;
 
                     if (!UmbracoSettings.isXmlContentCacheDisabled && UmbracoSettings.continouslyUpdateXmlDiskCache)
@@ -317,8 +309,7 @@ namespace umbraco
                         // queues this up, because this delegate is executing on a different thread and may complete
                         // after the request which invoked it (which would normally persist the file on completion)
                         // So we are responsible for ensuring the content is persisted in this case.
-                        if (!UmbracoSettings.isXmlContentCacheDisabled &&
-                            UmbracoSettings.continouslyUpdateXmlDiskCache)
+                        if (!UmbracoSettings.isXmlContentCacheDisabled && UmbracoSettings.continouslyUpdateXmlDiskCache)
                             PersistXmlToFile(xmlDoc);
                     });
 
@@ -373,12 +364,12 @@ namespace umbraco
                         }
                         else
                         {
-                            Log.Add(LogTypes.Error, d.Id, "Can't update Sitemap Provider due to empty Url in node");
+                            LogHelper.Debug<content>(string.Format("Can't update Sitemap Provider due to empty Url in node id: {0}", d.Id));
                 }
             }
                     catch (Exception ee)
                     {
-                        Log.Add(LogTypes.Error, d.Id, string.Format("Error adding node to Sitemap Provider in PublishNodeDo(): {0}", ee));
+                        LogHelper.Error<content>(string.Format("Error adding node to Sitemap Provider in PublishNodeDo(): {0}", d.Id), ee);
         }
                 }
             }
@@ -415,7 +406,24 @@ namespace umbraco
                 }
                 else
                 {
+                    //check the current parent id
+                    var currParentId = currentNode.AttributeValue<int>("parentID");
+
+                    //update the node with it's new values
                     TransferValuesFromDocumentXmlToPublishedXml(docNode, currentNode);
+
+                    //If the node is being moved we also need to ensure that it exists under the new parent!
+                    // http://issues.umbraco.org/issue/U4-2312
+                    // we were never checking this before and instead simply changing the parentId value but not 
+                    // changing the actual parent.
+
+                    //check the new parent
+                    if (currParentId != currentNode.AttributeValue<int>("parentID"))
+                    {
+                        //ok, we've actually got to move the node
+                        parentNode.AppendChild(currentNode);
+                    }
+                    
                 }
 
                 EnsureChildrenSortOrder(x, parentNode);
@@ -492,7 +500,6 @@ namespace umbraco
             UpdateDocumentCache(d);
         }
 
-
         /// <summary>
         /// Updates the document cache.
         /// </summary>
@@ -520,23 +527,9 @@ namespace umbraco
                     ClearContextCache();
                 }
 
-                // clear cached field values
-                if (HttpContext.Current != null)
-                {
-                    System.Web.Caching.Cache httpCache = HttpContext.Current.Cache;
-                    string cachedFieldKeyStart = String.Format("contentItem{0}_", d.Id);
-                    var foundKeys = new List<string>();
-                    foreach (DictionaryEntry cacheItem in httpCache)
-                    {
-                        string key = cacheItem.Key.ToString();
-                        if (key.StartsWith(cachedFieldKeyStart))
-                            foundKeys.Add(key);
-                    }
-                    foreach (string foundKey in foundKeys)
-                    {
-                        httpCache.Remove(foundKey);
-                    }
-                }
+                var cachedFieldKeyStart = string.Format("{0}{1}_", CacheKeys.ContentItemCacheKey, d.Id);
+                ApplicationContext.Current.ApplicationCache.ClearCacheByKeySearch(cachedFieldKeyStart);                    
+
                 Action.RunActionHandlers(d, ActionPublish.Instance);
 
                 FireAfterUpdateDocumentCache(d, e);
@@ -582,15 +575,20 @@ namespace umbraco
                 Action.RunActionHandlers(d, ActionPublish.Instance);
             }
         }
-
-        [Obsolete("Method obsolete in version 4.1 and later, please use UpdateDocumentCache", true)]
+        
         /// <summary>
         /// Updates the document cache async.
         /// </summary>
         /// <param name="documentId">The document id.</param>
+        [Obsolete("Method obsolete in version 4.1 and later, please use UpdateDocumentCache", true)]
         public virtual void UpdateDocumentCacheAsync(int documentId)
         {
-            ThreadPool.QueueUserWorkItem(delegate { UpdateDocumentCache(documentId); });
+            //SD: WE've obsoleted this but then didn't make it call the method it should! So we've just 
+            // left a bug behind...???? ARGH. 
+            //.... changed now.
+            //ThreadPool.QueueUserWorkItem(delegate { UpdateDocumentCache(documentId); });
+
+            UpdateDocumentCache(documentId);
         }
 
         /// <summary>
@@ -600,7 +598,12 @@ namespace umbraco
         [Obsolete("Method obsolete in version 4.1 and later, please use ClearDocumentCache", true)]
         public virtual void ClearDocumentCacheAsync(int documentId)
         {
-            ThreadPool.QueueUserWorkItem(delegate { ClearDocumentCache(documentId); });
+            //SD: WE've obsoleted this but then didn't make it call the method it should! So we've just 
+            // left a bug behind...???? ARGH.
+            //.... changed now.
+            //ThreadPool.QueueUserWorkItem(delegate { ClearDocumentCache(documentId); });
+
+            ClearDocumentCache(documentId);
         }
 
         public virtual void ClearDocumentCache(int documentId)
@@ -666,16 +669,17 @@ namespace umbraco
                     Action.RunActionHandlers(doc, ActionUnPublish.Instance);
                 }
 
+                //SD: changed to fire event BEFORE running the sitemap!! argh.
+                FireAfterClearDocumentCache(doc, e);
+
                 // update sitemapprovider
                 if (SiteMap.Provider is UmbracoSiteMapProvider)
                 {
                     var prov = (UmbracoSiteMapProvider)SiteMap.Provider;
                     prov.RemoveNode(doc.Id);
+                }                
                 }
-
-                FireAfterClearDocumentCache(doc, e);
             }
-        }
 
 
         /// <summary>
@@ -1011,19 +1015,6 @@ namespace umbraco
         }
 
         /// <summary>
-        /// Invalidates the disk content cache file. Effectively just deletes it.
-        /// </summary>
-        [Obsolete("This method is obsolete in version 4.1 and above, please use DeleteXmlCache", true)]
-        private void ClearDiskCacheAsync()
-        {
-            // Queue file deletion
-            // We queue this function, because there can be a write process running at the same time
-            // and we don't want this method to block web request
-            ThreadPool.QueueUserWorkItem(
-                delegate { DeleteXmlCache(); });
-        }
-
-        /// <summary>
         /// Load content from either disk or database
         /// </summary>
         /// <returns></returns>
@@ -1070,7 +1061,7 @@ namespace umbraco
             lock (ReaderWriterSyncLock)
             {
                 var xmlDoc = new XmlDocument();
-                Log.Add(LogTypes.System, User.GetUser(0), -1, "Loading content from disk cache...");
+                LogHelper.Info<content>("Loading content from disk cache...");
                 xmlDoc.Load(UmbracoXmlDiskCacheFileName);
                 _lastDiskCacheReadTime = DateTime.UtcNow;
                 return xmlDoc;
@@ -1107,14 +1098,17 @@ namespace umbraco
                 }
 
                 // Try to log to the DB
-                Log.Add(LogTypes.System, staticUser, -1, "Loading content from database...");
+                LogHelper.Info<content>("Loading content from database...");
 
                 var hierarchy = new Dictionary<int, List<int>>();
                 var nodeIndex = new Dictionary<int, XmlNode>();
 
                 try
                 {
-                    Log.Add(LogTypes.Debug, staticUser, -1, "Republishing starting");
+					LogHelper.Debug<content>("Republishing starting");
+
+                    lock (DbReadSyncLock)
+                    {
 
                     // Lets cache the DTD to save on the DB hit on the subsequent use
                     string dtd = DocumentType.GenerateDtd();
@@ -1132,13 +1126,13 @@ inner join cmsContentXml on cmsContentXml.nodeId = umbracoNode.id and umbracoNod
 where umbracoNode.id in (select cmsDocument.nodeId from cmsDocument where cmsDocument.published = 1)
 order by umbracoNode.level, umbracoNode.sortOrder";
 
-                    lock (DbReadSyncLock)
-                    {
+
+
                         using (
                             IRecordsReader dr = SqlHelper.ExecuteReader(sql,
                                                                         SqlHelper.CreateParameter("@type",
                                                                                                   new Guid(
-                                                                                                      "C66BA18E-EAF3-4CFF-8A22-41B16D66A972")))
+                                                                                                      Constants.ObjectTypes.Document)))
                             )
                         {
                             while (dr.Read())
@@ -1181,9 +1175,8 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                     }
                             }
                         }
-                    }
 
-                    Log.Add(LogTypes.Debug, staticUser, -1, "Xml Pages loaded");
+                        LogHelper.Debug<content>("Xml Pages loaded");
 
                     try
                     {
@@ -1198,30 +1191,28 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                         // Start building the content tree recursively from the root (-1) node
                         GenerateXmlDocument(hierarchy, nodeIndex, -1, xmlDoc.DocumentElement);
 
-                        Log.Add(LogTypes.Debug, staticUser, -1, "Done republishing Xml Index");
+                            LogHelper.Debug<content>("Done republishing Xml Index");
 
                         return xmlDoc;
                     }
                     catch (Exception ee)
                     {
-                        Log.Add(LogTypes.Error, staticUser, -1,
-                                string.Format("Error while generating XmlDocument from database: {0}", ee));
+                            LogHelper.Error<content>("Error while generating XmlDocument from database", ee);
                     }
                 }
-                catch (OutOfMemoryException)
+                }
+                catch (OutOfMemoryException ee)
                 {
-                    Log.Add(LogTypes.Error, staticUser, -1,
-                            string.Format("Error Republishing: Out Of Memory. Parents: {0}, Nodes: {1}",
-                                          hierarchy.Count, nodeIndex.Count));
+                    LogHelper.Error<content>(string.Format("Error Republishing: Out Of Memory. Parents: {0}, Nodes: {1}", hierarchy.Count, nodeIndex.Count), ee);
                 }
                 catch (Exception ee)
                 {
-                    Log.Add(LogTypes.Error, staticUser, -1, string.Format("Error Republishing: {0}", ee));
+                    LogHelper.Error<content>("Error Republishing", ee);
                 }
             }
             catch (Exception ee)
             {
-                Log.Add(LogTypes.Error, -1, string.Format("Error Republishing: {0}", ee));
+                LogHelper.Error<content>("Error Republishing", ee);
             }
 
             // An error of some sort must have stopped us from successfully generating
@@ -1322,7 +1313,7 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                                                   Thread.CurrentThread.Name, stopWatch.Elapsed,
                                                   Thread.CurrentThread.IsThreadPoolThread));
 
-                        Log.Add(LogTypes.Debug, staticUser, -1, string.Format("Xml saved in {0}", stopWatch.Elapsed));
+						LogHelper.Debug<content>(string.Format("Xml saved in {0}", stopWatch.Elapsed));
                     }
                     catch (Exception ee)
                     {
@@ -1336,7 +1327,8 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                         Trace.Write(string.Format(
                             "Error saving content on thread '{0}' due to '{1}' (Threadpool? {2})",
                             Thread.CurrentThread.Name, ee.Message, Thread.CurrentThread.IsThreadPoolThread));
-                            Log.Add(LogTypes.Error, staticUser, -1, string.Format("Xml wasn't saved: {0}", ee));
+
+                        LogHelper.Error<content>("Xml wasn't saved", ee);
                         }
                     }
                 }

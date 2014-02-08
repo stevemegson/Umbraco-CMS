@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Web;
 using System.Web.Caching;
+using Umbraco.Core;
 using Umbraco.Core.Logging;
 using global::umbraco.BusinessLogic;
 
@@ -15,19 +16,17 @@ namespace Umbraco.Web
 	//   and it needs to be manually registered - which we want to avoid, in order
 	//   to be as unobtrusive as possible
 
-	internal sealed class LegacyScheduledTasks : IApplicationEventHandler
+	internal sealed class LegacyScheduledTasks : ApplicationEventHandler
 	{
-		Timer pingTimer;
-		Timer publishingTimer;
-		CacheItemRemovedCallback OnCacheRemove;
+		Timer _pingTimer;
+		Timer _publishingTimer;
+		CacheItemRemovedCallback _onCacheRemove;
 
-		public void OnApplicationInitialized(UmbracoApplication httpApplication, Core.ApplicationContext applicationContext)
-		{
-			// nothing yet
-		}
+        protected override void ApplicationStarting(UmbracoApplicationBase umbracoApplication, Core.ApplicationContext applicationContext)
+        {
+            if (umbracoApplication.Context == null)
+                return;
 
-		public void OnApplicationStarting(UmbracoApplication httpApplication, Core.ApplicationContext applicationContext)
-		{
 			// time to setup the tasks
 
 			// these are the legacy tasks
@@ -35,18 +34,13 @@ namespace Umbraco.Web
 			// of course we should have a proper scheduler, see #U4-809
 
 			// ping/keepalive
-            pingTimer = new Timer(new TimerCallback(global::umbraco.presentation.keepAliveService.PingUmbraco), applicationContext, 60000, 300000);
+            _pingTimer = new Timer(new TimerCallback(global::umbraco.presentation.keepAliveService.PingUmbraco), applicationContext, 60000, 300000);
 
 			// (un)publishing _and_ also run scheduled tasks (!)
-            publishingTimer = new Timer(new TimerCallback(global::umbraco.presentation.publishingService.CheckPublishing), applicationContext, 30000, 60000);
+            _publishingTimer = new Timer(new TimerCallback(global::umbraco.presentation.publishingService.CheckPublishing), applicationContext, 30000, 60000);
 
 			// log scrubbing
 			AddTask(LOG_SCRUBBER_TASK_NAME, GetLogScrubbingInterval());
-		}
-
-		public void OnApplicationStarted(UmbracoApplication httpApplication, Core.ApplicationContext applicationContext)
-		{
-			// nothing
 		}
 
 		#region Log Scrubbing
@@ -88,10 +82,10 @@ namespace Umbraco.Web
 
 		private void AddTask(string name, int seconds)
 		{
-			OnCacheRemove = new CacheItemRemovedCallback(CacheItemRemoved);
+			_onCacheRemove = new CacheItemRemovedCallback(CacheItemRemoved);
 			HttpRuntime.Cache.Insert(name, seconds, null,
 				DateTime.Now.AddSeconds(seconds), System.Web.Caching.Cache.NoSlidingExpiration,
-				CacheItemPriority.NotRemovable, OnCacheRemove);
+				CacheItemPriority.NotRemovable, _onCacheRemove);
 		}
 
 		public void CacheItemRemoved(string k, object v, CacheItemRemovedReason r)

@@ -13,6 +13,8 @@ using System.Web.UI.WebControls.WebParts;
 using System.Xml.Linq;
 using System.Xml;
 using System.IO;
+using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
 using umbraco.cms.businesslogic.web;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic;
@@ -31,6 +33,27 @@ namespace umbraco.presentation.preview
         public bool ValidPreviewSet { get; set; }
 
         private int _userId = -1;
+
+        public PreviewContent()
+        {
+            _initialized = false;
+        }
+
+        private readonly object _initLock = new object();
+        private bool _initialized = true;
+
+        public void EnsureInitialized(User user, string previewSet, bool validate, Action initialize)
+        {
+            lock (_initLock)
+            {
+                if (_initialized) return;
+
+                _userId = user.Id;
+                ValidPreviewSet = UpdatePreviewPaths(new Guid(previewSet), validate);
+                initialize();
+                _initialized = true;
+            }
+        }
 
         public PreviewContent(User user)
         {
@@ -99,7 +122,8 @@ namespace umbraco.presentation.preview
             if (validate && !ValidatePreviewPath())
             {
                 // preview cookie failed so we'll log the error and clear the cookie
-                Log.Add(LogTypes.Error, User.GetUser(_userId), -1, string.Format("Preview failed for preview set {0}", previewSet));
+                LogHelper.Debug<PreviewContent>(string.Format("Preview failed for preview set {0} for user {1}", previewSet, _userId));
+
                 PreviewSet = Guid.Empty;
                 PreviewsetPath = String.Empty;
 
@@ -172,9 +196,9 @@ namespace umbraco.presentation.preview
             {
                 file.Delete();
             }
-            catch
+            catch (Exception ex)
             {
-                Log.Add(LogTypes.Error, User.GetUser(userId), -1, String.Format("Couldn't delete preview set: {0}", file.Name));
+                LogHelper.Error<PreviewContent>(string.Format("Couldn't delete preview set: {0} - User {1}", file.Name, userId), ex);
             }
         }
 

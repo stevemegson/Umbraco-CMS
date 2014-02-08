@@ -13,6 +13,7 @@ using umbraco.cms.businesslogic.property;
 using umbraco.cms.businesslogic.template;
 using umbraco.cms.businesslogic.web;
 using umbraco.interfaces;
+using Property = umbraco.cms.businesslogic.property.Property;
 
 namespace umbraco
 {
@@ -86,13 +87,18 @@ namespace umbraco
 		}
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="page"/> class for a published document.
+		/// Initializes a new instance of the <see cref="page"/> class for a published document request.
 		/// </summary>
 		/// <param name="docreq">The <see cref="PublishedContentRequest"/> pointing to the document.</param>
+		/// <remarks>
+		/// The difference between creating the page with PublishedContentRequest vs an IPublishedContent item is 
+		/// that the PublishedContentRequest takes into account how a template is assigned during the routing process whereas
+		/// with an IPublishedContent item, the template id is asssigned purely based on the default.
+		/// </remarks>
 		internal page(PublishedContentRequest docreq)
 		{
 
-			if (!docreq.HasNode)
+			if (!docreq.HasPublishedContent)
 				throw new ArgumentException("Document request has no node.", "docreq");
 			
 			populatePageData(docreq.PublishedContent.Id,
@@ -103,12 +109,35 @@ namespace umbraco
 			if (docreq.HasTemplate)
 			{
 
-				this._template = docreq.Template.Id;
+				this._template = docreq.TemplateModel.Id;
 				_elements["template"] = _template.ToString();				
 			}
 
 			PopulateElementData(docreq.PublishedContent);
 
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the page for a published document
+		/// </summary>
+		/// <param name="doc"></param>
+		internal page(IPublishedContent doc)
+		{
+			if (doc == null) throw new ArgumentNullException("doc");
+			
+			populatePageData(doc.Id,
+				doc.Name, doc.DocumentTypeId, doc.DocumentTypeAlias,
+				doc.WriterName, doc.CreatorName, doc.CreateDate, doc.UpdateDate,
+				doc.Path, doc.Version, doc.Parent == null ? -1 : doc.Parent.Id);
+
+			if (doc.TemplateId > 0)
+			{
+				//set the template to whatever is assigned to the doc
+				_template = doc.TemplateId;
+				_elements["template"] = _template.ToString();	
+			}			
+			
+			PopulateElementData(doc);
 		}
 
 		/// <summary>
@@ -120,18 +149,18 @@ namespace umbraco
 			populatePageData(node);
 
 			// Check for alternative template
-			if (HttpContext.Current.Items["altTemplate"] != null &&
-				HttpContext.Current.Items["altTemplate"].ToString() != String.Empty)
+			if (HttpContext.Current.Items[Constants.Conventions.Url.AltTemplate] != null &&
+				HttpContext.Current.Items[Constants.Conventions.Url.AltTemplate].ToString() != String.Empty)
 			{
 				_template =
 					umbraco.cms.businesslogic.template.Template.GetTemplateIdFromAlias(
-						HttpContext.Current.Items["altTemplate"].ToString());
+						HttpContext.Current.Items[Constants.Conventions.Url.AltTemplate].ToString());
 				_elements.Add("template", _template.ToString());
 			}
-			else if (helper.Request("altTemplate") != String.Empty)
+			else if (helper.Request(Constants.Conventions.Url.AltTemplate) != String.Empty)
 			{
 				_template =
-					umbraco.cms.businesslogic.template.Template.GetTemplateIdFromAlias(helper.Request("altTemplate").ToLower());
+					umbraco.cms.businesslogic.template.Template.GetTemplateIdFromAlias(helper.Request(Constants.Conventions.Url.AltTemplate).ToLower());
 				_elements.Add("template", _template.ToString());
 			}
 			if (_template == 0)
@@ -298,8 +327,6 @@ namespace umbraco
 			{				
 				template templateDesign = new template(templateId);
 			
-				HttpContext.Current.Items["umbPageObject"] = this;
-
 				_pageContentControl = templateDesign.ParseWithControls(this);
 				_pageContent.Append(templateDesign.TemplateContent);
 			}

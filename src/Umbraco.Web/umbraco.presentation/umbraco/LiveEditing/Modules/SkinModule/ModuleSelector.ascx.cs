@@ -4,8 +4,10 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.packager;
+using Umbraco.Core;
 
 namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
 {
@@ -22,7 +24,7 @@ namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            if (User.GetCurrent().GetApplications().Find(t => t.alias.ToLower() == "settings") == null)
+            if (User.GetCurrent().GetApplications().Find(t => string.Equals(t.alias, Constants.Applications.Settings, StringComparison.OrdinalIgnoreCase)) == null)
             {
                 throw new Exception("The current user can't edit skins as the user doesn't have access to the Settings section!");
             }
@@ -41,7 +43,7 @@ namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
                 }
                 catch (Exception exception)
                 {
-                    Log.Add(LogTypes.Debug, -1, exception.ToString());
+                    LogHelper.Error<ModuleSelector>("An error occurred", exception);
                 }
             }
             else

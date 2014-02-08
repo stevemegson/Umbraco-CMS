@@ -14,10 +14,24 @@ namespace Umbraco.Web.Mvc
         /// <returns></returns>
 		internal static string GetControllerName(Type controllerType)
         {
+            if (!controllerType.Name.EndsWith("Controller"))
+            {
+                throw new InvalidOperationException("The controller type " + controllerType + " does not follow conventions, MVC Controller class names must be suffixed with the term 'Controller'");
+            }
             return controllerType.Name.Substring(0, controllerType.Name.LastIndexOf("Controller"));
         }
 
         /// <summary>
+        /// Return the controller name from the controller instance
+        /// </summary>
+        /// <param name="controllerInstance"></param>
+        /// <returns></returns>
+	    internal static string GetControllerName(this IController controllerInstance)
+	    {
+	        return GetControllerName(controllerInstance.GetType());
+	    }
+
+	    /// <summary>
         /// Return the controller name from the controller type
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -108,9 +122,9 @@ namespace Umbraco.Web.Mvc
         /// <param name="controller"></param>
         internal static void EnsureViewObjectDataOnResult(this ControllerBase controller, ViewResultBase result)
         {
-            //when merging we'll create a new dictionary, otherwise you might run into an enumeration error
-            // caused from ModelStateDictionary
-            result.ViewData.ModelState.Merge(new ModelStateDictionary(controller.ViewData.ModelState));
+			//when merging we'll create a new dictionary, otherwise you might run into an enumeration error
+			// caused from ModelStateDictionary
+			result.ViewData.ModelState.Merge(new ModelStateDictionary(controller.ViewData.ModelState));
 
             // Temporarily copy the dictionary to avoid enumerator-modification errors
             var newViewDataDict = new ViewDataDictionary(controller.ViewData);

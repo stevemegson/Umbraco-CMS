@@ -3,10 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Web;
 using System.Xml;
 using System.Configuration;
+using Umbraco.Core;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
 using umbraco.businesslogic;
@@ -25,11 +27,12 @@ using umbraco.BusinessLogic.Utils;
 using umbraco.cms.presentation.Trees;
 using umbraco.BusinessLogic.Actions;
 using umbraco.IO;
+using Umbraco.Core;
 
 
 namespace umbraco
 {
-    [Tree("settings", "scripts", "Scripts", "folder.gif", "folder_o.gif", sortOrder: 2)]
+    [Tree(Constants.Applications.Settings, "scripts", "Scripts", "folder.gif", "folder_o.gif", sortOrder: 2)]
     public class loadScripts : FileSystemTree
 	{
         public loadScripts(string application) : base(application) { }
@@ -52,7 +55,10 @@ namespace umbraco
 
         protected override string FilePath
         {
-            get { return SystemDirectories.Scripts + "/"; }
+            get
+            {
+                return SystemDirectories.Scripts + "/";
+            }
         }
 
         protected override string FileSearchPattern

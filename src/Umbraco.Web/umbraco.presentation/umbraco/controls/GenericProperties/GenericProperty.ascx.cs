@@ -1,9 +1,17 @@
 using System;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Routing;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Web.UI.WebControls;
 using ClientDependency.Core;
+using Umbraco.Core;
 using Umbraco.Core.IO;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
+using umbraco.cms.businesslogic.propertytype;
 
 namespace umbraco.controls.GenericProperties
 {
@@ -14,7 +22,6 @@ namespace umbraco.controls.GenericProperties
 	/// </summary>
 	[ClientDependency(ClientDependencyType.Css, "GenericProperty/genericproperty.css", "UmbracoClient")]
     [ClientDependency(ClientDependencyType.Javascript, "GenericProperty/genericproperty.js", "UmbracoClient")]
-    [ClientDependency(ClientDependencyType.Javascript, "js/UmbracoCasingRules.aspx", "UmbracoRoot")]
     public partial class GenericProperty : System.Web.UI.UserControl
 	{
 
@@ -56,6 +63,7 @@ namespace umbraco.controls.GenericProperties
 
 		public cms.businesslogic.web.DocumentType.TabI[] Tabs 
 		{
+            get { return _tabs; }
 			set 
 			{
 				_tabs = value;
@@ -70,7 +78,7 @@ namespace umbraco.controls.GenericProperties
 		}
 		public string Alias 
 		{
-			get {return tbAlias.Text;}
+            get {return tbAlias.Text;} // FIXME so we blindly trust the UI for safe aliases?!
 		}
 		public string Description 
 		{
@@ -101,7 +109,8 @@ namespace umbraco.controls.GenericProperties
 		}
 
         private int _id;
-        public int Id {
+
+	    public int Id {
             set {
                 _id = value;
             }get{
@@ -114,14 +123,14 @@ namespace umbraco.controls.GenericProperties
 			get {return int.Parse(ddlTypes.SelectedValue);}
 		}
 
-		public void Clear() 
+	    public void Clear() 
 		{
 			tbName.Text = "";
 			tbAlias.Text = "";
 			tbValidation.Text = "";
 			tbDescription.Text = "";
 			ddlTab.SelectedIndex = 0;
-			ddlTypes.SelectedIndex = 0;
+            SetDefaultDocumentTypeProperty();
 			checkMandatory.Checked = false;
 		}
 
@@ -129,10 +138,8 @@ namespace umbraco.controls.GenericProperties
 		{
 			if (!IsPostBack) 
 			{
-
 				UpdateInterface();
 			}
-
 		}
 
         //SD: this is temporary in v4, in v6 we have a proper user control hierarchy
@@ -188,17 +195,28 @@ namespace umbraco.controls.GenericProperties
 			if (_dataTypeDefinitions != null) 
 			{
 				ddlTypes.Items.Clear();
+                var itemSelected = false;
 				foreach(cms.businesslogic.datatype.DataTypeDefinition dt in _dataTypeDefinitions) 
 				{
-					ListItem li = new ListItem(dt.Text, dt.Id.ToString());
-					if (_pt != null && _pt.DataTypeDefinition.Id == dt.Id)
-						li.Selected = true;
+					var li = new ListItem(dt.Text, dt.Id.ToString());
+                    if ((_pt != null && _pt.DataTypeDefinition.Id == dt.Id))
+                    {
+                        li.Selected = true;
+                        itemSelected = true;
+                    }
+
 					ddlTypes.Items.Add(li);
 				}
+
+                // If item not selected from previous edit or load, set to default according to settings
+                if (!itemSelected)
+                {
+                    SetDefaultDocumentTypeProperty();
+                }
 			}
 
 			// tabs
-			if (_tabs != null) 
+            if (_tabs != null) 
 			{
 				ddlTab.Items.Clear();
 				for (int i=0;i<_tabs.Length;i++) 
@@ -219,13 +237,27 @@ namespace umbraco.controls.GenericProperties
 				checkMandatory.Checked = true;
 
 			// validation
-			if (_pt != null && _pt.ValidationRegExp != "")
+			if (_pt != null && string.IsNullOrEmpty(_pt.ValidationRegExp) == false)
 				tbValidation.Text = _pt.ValidationRegExp;
 
 			// description
 			if (_pt != null && _pt.Description != "")
 				tbDescription.Text = _pt.GetRawDescription();
 		}
+
+        private void SetDefaultDocumentTypeProperty()
+        {
+            var itemToSelect = ddlTypes.Items.Cast<ListItem>().FirstOrDefault(item => item.Text.ToLowerInvariant() == UmbracoSettings.DefaultDocumentTypeProperty.ToLowerInvariant());
+            
+            if (itemToSelect != null)
+            {
+                itemToSelect.Selected = true;
+            }
+            else
+            {
+                ddlTypes.SelectedIndex = -1;
+            }
+        }
 
 		protected void defaultDeleteHandler(object sender, System.EventArgs e) 
 		{
@@ -242,6 +274,11 @@ namespace umbraco.controls.GenericProperties
 			base.OnInit(e);
 
 			this.Delete += new System.EventHandler(defaultDeleteHandler);
+
+            // [ClientDependency(ClientDependencyType.Javascript, "js/UmbracoCasingRules.aspx", "UmbracoRoot")]
+		    var loader = ClientDependency.Core.Controls.ClientDependencyLoader.GetInstance(new HttpContextWrapper(Context));
+		    var helper = new UrlHelper(new RequestContext(new HttpContextWrapper(Context), new RouteData()));
+            loader.RegisterDependency(helper.GetCoreStringsControllerPath() + "ServicesJavaScript", ClientDependencyType.Javascript);
 		}
 		
 		/// <summary>

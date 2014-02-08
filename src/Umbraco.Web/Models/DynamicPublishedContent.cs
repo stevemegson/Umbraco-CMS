@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
 using System.Web;
@@ -12,6 +13,7 @@ using Umbraco.Core.PropertyEditors;
 using System.Reflection;
 using System.Xml.Linq;
 using umbraco.cms.businesslogic;
+using ContentType = umbraco.cms.businesslogic.ContentType;
 
 namespace Umbraco.Web.Models
 {
@@ -19,6 +21,7 @@ namespace Umbraco.Web.Models
 	/// <summary>
 	/// The base dynamic model for views
 	/// </summary>
+    [DebuggerDisplay("Content Id: {Id}, Name: {Name}")]
     public class DynamicPublishedContent : DynamicObject, IPublishedContent, IOwnerCollectionAware<IPublishedContent>
 	{
 		protected internal IPublishedContent PublishedContent { get; private set; }
@@ -73,8 +76,8 @@ namespace Umbraco.Web.Models
                     _ownersCollection = value;    
                 }
             }
-        }
-
+        }       
+        
 		public dynamic AsDynamic()
 		{
 			return this;
@@ -233,7 +236,10 @@ namespace Umbraco.Web.Models
 			}
 
 			//get the data type id for the current property
-			var dataType = Umbraco.Core.PublishedContentHelper.GetDataType(userProperty.DocumentTypeAlias, userProperty.Alias);
+			var dataType = Umbraco.Core.PublishedContentHelper.GetDataType(
+                ApplicationContext.Current,
+                userProperty.DocumentTypeAlias, 
+                userProperty.Alias);
 
 			//convert the string value to a known type
 			var converted = Umbraco.Core.PublishedContentHelper.ConvertPropertyValue(result, dataType, userProperty.DocumentTypeAlias, userProperty.Alias);
@@ -337,15 +343,15 @@ namespace Umbraco.Web.Models
 			var context = this;
 			var prop = GetPropertyInternal(alias, PublishedContent);
 
-            while (prop == null || !prop.HasValue())
-            {
-                var parent = ((IPublishedContent)context).Parent;
-                if (parent == null) break;
+			while (prop == null || !prop.HasValue())
+			{
+				var parent = ((IPublishedContent) context).Parent;
+				if (parent == null) break;
 
                 // Update the context before attempting to retrieve the property again.
                 context = parent.AsDynamicPublishedContent();
-                prop = context.GetPropertyInternal(alias, context.PublishedContent);
-            }
+				prop = context.GetPropertyInternal(alias, context.PublishedContent);
+			}
 
 			return prop;
 		}
@@ -573,9 +579,24 @@ namespace Umbraco.Web.Models
 			get { return PublishedContent.Level; }
 		}
 
+		public string Url
+		{
+			get { return PublishedContent.Url; }
+		}
+
+		public PublishedItemType ItemType
+		{
+			get { return PublishedContent.ItemType; }
+		}
+
 		public IEnumerable<IPublishedContentProperty> Properties
 		{
 			get { return PublishedContent.Properties; }
+		}
+
+		public object this[string propertyAlias]
+		{
+			get { return PublishedContent[propertyAlias]; }
 		}
 
 		public DynamicPublishedContentList Children
@@ -790,7 +811,7 @@ namespace Umbraco.Web.Models
 			get { return PublishedContent.Level; }
 		}
 
-		System.Collections.ObjectModel.Collection<IPublishedContentProperty> IPublishedContent.Properties
+		ICollection<IPublishedContentProperty> IPublishedContent.Properties
 		{
 			get { return PublishedContent.Properties; }
 		}

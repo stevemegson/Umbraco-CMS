@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using Umbraco.Core;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.skinning;
@@ -37,10 +38,13 @@ namespace umbraco.cms.presentation.settings
 				new ServiceReference(IOHelper.ResolveUrl(SystemDirectories.Webservices + "/legacyAjaxCalls.asmx")));
 		}
 
+        protected string TemplateTreeSyncPath { get; private set; }
 
 		protected void Page_Load(object sender, EventArgs e)
 		{
 			MasterTemplate.Attributes.Add("onchange", "changeMasterPageFile()");
+
+		    TemplateTreeSyncPath = "-1,init," + _template.Path.Replace("-1,", "");
 
 			if (!IsPostBack)
 			{
@@ -70,7 +74,7 @@ namespace umbraco.cms.presentation.settings
 
 				ClientTools
 					.SetActiveTreeType(TreeDefinitionCollection.Instance.FindTree<loadTemplates>().Tree.Alias)
-					.SyncTree("-1,init," + _template.Path.Replace("-1,", ""), false);
+                    .SyncTree(TemplateTreeSyncPath, false);
 
 				LoadScriptingTemplates();
 				LoadMacros();
@@ -194,7 +198,7 @@ namespace umbraco.cms.presentation.settings
 
 					files.Add(new KeyValuePair<string, string>(
 								  filename,
-								  helper.SpaceCamelCasing(filename.Replace(extension, ""))
+                                  filename.Replace(extension, "").SplitPascalCasing().ToFirstUpperInvariant()
 								  ));
 				}
 			}

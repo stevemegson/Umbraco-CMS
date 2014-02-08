@@ -10,13 +10,16 @@ using System.Web.Compilation;
 using System.Xml.Linq;
 using Umbraco.Core.IO;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Models;
+using Umbraco.Core.Persistence.Mappers;
+using Umbraco.Core.Persistence.Migrations;
+using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.PropertyEditors;
 using umbraco.interfaces;
 using File = System.IO.File;
 
 namespace Umbraco.Core
 {
-
     /// <summary>
     /// Used to resolve all plugin types and cache them and is also used to instantiate plugin types
     /// </summary>
@@ -33,6 +36,7 @@ namespace Umbraco.Core
     internal class PluginManager
     {
         private readonly ApplicationContext _appContext;
+        private const string CacheKey = "umbraco-plugins.list";
 
         /// <summary>
         /// Creates a new PluginManager with an ApplicationContext instance which ensures that the plugin xml 
@@ -141,7 +145,7 @@ namespace Umbraco.Core
                 if (_cachedAssembliesHash != -1)
                     return _cachedAssembliesHash;
 
-                var filePath = Path.Combine(_tempFolder, "umbraco-plugins.hash");
+                var filePath = GetPluginHashFilePath();
                 if (!File.Exists(filePath))
                     return 0;
                 var hash = File.ReadAllText(filePath, Encoding.UTF8);
@@ -189,7 +193,7 @@ namespace Umbraco.Core
         /// </summary>
         private void WriteCachePluginsHash()
         {
-            var filePath = Path.Combine(_tempFolder, "umbraco-plugins.hash");
+            var filePath = GetPluginHashFilePath();
             File.WriteAllText(filePath, CurrentAssembliesHash.ToString(), Encoding.UTF8);
         }
 
@@ -247,7 +251,7 @@ namespace Umbraco.Core
                 XDocument xml;
                 if (_appContext != null)
                 {
-                    xml = _appContext.ApplicationCache.GetCacheItem("umbraco-plugins.list",
+                    xml = _appContext.ApplicationCache.GetCacheItem(CacheKey,
                         new TimeSpan(0, 0, 5, 0),
                         () => XDocument.Load(filePath));
                 }
@@ -283,9 +287,35 @@ namespace Umbraco.Core
             }
         }
 
+        /// <summary>
+        /// Removes cache files and internal cache as well
+        /// </summary>
+        /// <remarks>
+        /// Generally only used for resetting cache, for example during the install process
+        /// </remarks>
+        internal void ClearPluginCache()
+        {
+            var path = GetPluginListFilePath();
+            if (File.Exists(path))
+                File.Delete(path);
+            path = GetPluginHashFilePath();
+            if (File.Exists(path))
+                File.Delete(path);
+
+            if (_appContext != null)
+            {
+               _appContext.ApplicationCache.ClearCacheItem(CacheKey);
+            }
+        }
+        
         private string GetPluginListFilePath()
         {
-            return Path.Combine(_tempFolder, "umbraco-plugins.list");
+            return Path.Combine(_tempFolder, string.Format("umbraco-plugins.{0}.list", NetworkHelper.FileSafeMachineName));
+        }
+
+        private string GetPluginHashFilePath()
+        {
+            return Path.Combine(_tempFolder, string.Format("umbraco-plugins.{0}.hash", NetworkHelper.FileSafeMachineName));
         }
 
         /// <summary>
@@ -395,6 +425,15 @@ namespace Umbraco.Core
         private IEnumerable<Assembly> _assemblies;
 
         /// <summary>
+        /// Returns all available IApplicationStartupHandler objects
+        /// </summary>
+        /// <returns></returns>
+        internal IEnumerable<Type> ResolveApplicationStartupHandlers()
+        {
+            return ResolveTypes<IApplicationStartupHandler>();
+        }
+
+        /// <summary>
         /// Returns all classes attributed with XsltExtensionAttribute attribute
         /// </summary>
         /// <returns></returns>
@@ -446,6 +485,33 @@ namespace Umbraco.Core
         internal IEnumerable<Type> ResolveActions()
         {
             return ResolveTypes<IAction>();
+        }
+
+        /// <summary>
+        /// Returns all mapper types that have a MapperFor attribute defined
+        /// </summary>
+        /// <returns></returns>
+        internal IEnumerable<Type> ResolveAssignedMapperTypes()
+        {
+            return ResolveTypesWithAttribute<BaseMapper, MapperForAttribute>();
+        } 
+
+        /// <summary>
+        /// Returns all available IMigrations in application
+        /// </summary>
+        /// <returns></returns>
+        internal IEnumerable<Type> ResolveMigrationTypes()
+        {
+            return ResolveTypes<IMigration>();
+        }
+
+        /// <summary>
+        /// Returns all SqlSyntaxProviders with the SqlSyntaxProviderAttribute
+        /// </summary>
+        /// <returns></returns>
+        internal IEnumerable<Type> ResolveSqlSyntaxProviders()
+        {
+            return ResolveTypesWithAttribute<ISqlSyntaxProvider, SqlSyntaxProviderAttribute>();
         }
 
         /// <summary>

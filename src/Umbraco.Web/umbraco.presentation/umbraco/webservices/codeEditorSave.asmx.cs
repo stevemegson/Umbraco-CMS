@@ -11,8 +11,11 @@ using System.Web.Services;
 using System.Web.UI;
 using System.Xml;
 using System.Xml.Xsl;
+using Umbraco.Core;
 using Umbraco.Core.IO;
 using Umbraco.Web.WebServices;
+using Umbraco.Web;
+using Umbraco.Web.Cache;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.macro;
@@ -327,6 +330,49 @@ namespace umbraco.presentation.webservices
             return "false";
         }
 
+		//[WebMethod]
+		//public string SavePartialView(string filename, string oldName, string contents)
+		//{
+		//	if (BasePage.ValidateUserContextID(BasePage.umbracoUserContextID))
+		//	{
+		//		var folderPath = SystemDirectories.MvcViews + "/Partials/";
+
+		//		// validate file
+		//		IOHelper.ValidateEditPath(IOHelper.MapPath(folderPath + filename), folderPath);
+		//		// validate extension
+		//		IOHelper.ValidateFileExtension(IOHelper.MapPath(folderPath + filename), new[] {"cshtml"}.ToList());
+
+
+		//		var val = contents;
+		//		string returnValue;
+		//		var saveOldPath = oldName.StartsWith("~/") ? IOHelper.MapPath(oldName) : IOHelper.MapPath(folderPath + oldName);
+		//		var savePath = filename.StartsWith("~/") ? IOHelper.MapPath(filename) : IOHelper.MapPath(folderPath + filename);
+
+		//		//Directory check.. only allow files in script dir and below to be edited
+		//		if (savePath.StartsWith(IOHelper.MapPath(folderPath)))
+		//		{
+		//			//deletes the old file
+		//			if (savePath != saveOldPath)
+		//			{
+		//				if (File.Exists(saveOldPath))
+		//					File.Delete(saveOldPath);
+		//			}
+		//			using (var sw = File.CreateText(savePath))
+		//			{
+		//				sw.Write(val);
+		//			}
+		//			returnValue = "true";
+		//		}
+		//		else
+		//		{
+		//			returnValue = "illegalPath";
+		//		}
+
+		//		return returnValue;
+		//	}
+		//	return "false";
+		//}
+
         [WebMethod]
         public string SaveScript(string filename, string oldName, string contents)
         {
@@ -389,6 +435,7 @@ namespace umbraco.presentation.webservices
             return "false";
         }
         
+		[Obsolete("This method has been superceded by the REST service /Umbraco/RestServices/SaveFile/SaveTemplate which is powered by the SaveFileController.")]
         [WebMethod]
         public string SaveTemplate(string templateName, string templateAlias, string templateContents, int templateID, int masterTemplateID)
         {
@@ -406,13 +453,7 @@ namespace umbraco.presentation.webservices
 
                     _template.Save();
 
-                    retVal = "true";
-
-                    // Clear cache in rutime
-                    if (UmbracoSettings.UseDistributedCalls)
-                        dispatcher.Refresh(new Guid("dd12b6a0-14b9-46e8-8800-c154f74047c8"), _template.Id);
-                    else
-                        template.ClearCachedTemplate(_template.Id);
+                    retVal = "true";                    
                 }
                 return retVal;
             }

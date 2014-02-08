@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using NUnit.Framework;
 using SqlCE4Umbraco;
+using Umbraco.Core;
 using Umbraco.Tests.TestHelpers;
 using umbraco.BusinessLogic;
 using umbraco.DataLayer;
@@ -21,7 +22,8 @@ namespace Umbraco.Tests.BusinessLogic
         public void Dispose()
         {
             ClearDatabase();
-			ConfigurationManager.AppSettings.Set("umbracoDbDSN", "");
+            ConfigurationManager.AppSettings.Set(Core.Configuration.GlobalSettings.UmbracoConnectionName, "");
+            ApplicationContext.Current.DisposeIfDisposable();
         }
 
         /// <summary>
@@ -30,6 +32,7 @@ namespace Umbraco.Tests.BusinessLogic
         [SetUp]
         public void Initialize()
         {
+            ApplicationContext.Current = new ApplicationContext(false){IsReady = true};
             InitializeDatabase();
             InitializeApps();
             InitializeAppConfigFile();
@@ -38,7 +41,9 @@ namespace Umbraco.Tests.BusinessLogic
 
         private void ClearDatabase()
         {
-            var dataHelper = DataLayerHelper.CreateSqlHelper(GlobalSettings.DbDSN) as SqlCEHelper;
+            var databaseSettings = ConfigurationManager.ConnectionStrings[Core.Configuration.GlobalSettings.UmbracoConnectionName];
+            var dataHelper = DataLayerHelper.CreateSqlHelper(databaseSettings.ConnectionString, false) as SqlCEHelper;
+			
             if (dataHelper == null)
                 throw new InvalidOperationException("The sql helper for unit tests must be of type SqlCEHelper, check the ensure the connection string used for this test is set to use SQLCE");
             dataHelper.ClearDatabase();
@@ -48,12 +53,15 @@ namespace Umbraco.Tests.BusinessLogic
 
         private void InitializeDatabase()
         {
-            ConfigurationManager.AppSettings.Set("umbracoDbDSN", @"datalayer=SQLCE4Umbraco.SqlCEHelper,SQLCE4Umbraco;data source=|DataDirectory|\Umbraco.sdf");
+            ConfigurationManager.AppSettings.Set(Core.Configuration.GlobalSettings.UmbracoConnectionName, @"datalayer=SQLCE4Umbraco.SqlCEHelper,SQLCE4Umbraco;data source=|DataDirectory|\UmbracoPetaPocoTests.sdf;Flush Interval=1;");
 
 			ClearDatabase();
 
             AppDomain.CurrentDomain.SetData("DataDirectory", TestHelper.CurrentAssemblyDirectory);
-            var dataHelper = DataLayerHelper.CreateSqlHelper(GlobalSettings.DbDSN);
+
+            var databaseSettings = ConfigurationManager.ConnectionStrings[Core.Configuration.GlobalSettings.UmbracoConnectionName];
+            var dataHelper = DataLayerHelper.CreateSqlHelper(databaseSettings.ConnectionString, false) as SqlCEHelper;
+			
             var installer = dataHelper.Utility.CreateInstaller();
             if (installer.CanConnect)
             {
@@ -63,10 +71,11 @@ namespace Umbraco.Tests.BusinessLogic
 
         private void InitializeApps()
         {
-            Application.Apps = new List<Application>()
-                {
-                    new Application("content", "content", "content", 0)
-                };
+            Application.MakeNew("content", "content", "file", 0);
+            //Application.SetTestApps(new List<Application>()
+            //    {
+            //        new Application(Constants.Applications.Content, "content", "content", 0)
+            //    });
         }
 
         private void InitializeAppConfigFile()

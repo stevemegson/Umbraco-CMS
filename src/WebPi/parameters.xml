@@ -41,11 +41,6 @@
     <parameterEntry type="ProviderPath" scope="setAcl" match="umbraco/css$" />
   </parameter>
   
-  <!-- This is the parameter that is used to set ACLs on the data folder -->
-  <parameter name="SetAclParameter6" description="Sets the ACL on the data folder" defaultValue="{Application Path}/data" tags="Hidden">
-    <parameterEntry type="ProviderPath" scope="setAcl" match="^umbraco/data$" />
-  </parameter>
-  
   <!-- This is the parameter that is used to set ACLs on the masterpages folder -->
   <parameter name="SetAclParameter7" description="Sets the ACL on the masterpages folder" defaultValue="{Application Path}/masterpages" tags="Hidden">
     <parameterEntry type="ProviderPath" scope="setAcl" match="^umbraco/masterpages$" />
@@ -86,6 +81,11 @@
     <parameterEntry type="ProviderPath" scope="setAcl" match="^umbraco/web.config$" />
   </parameter>
 
+  <!-- This is the parameter that is used to set ACLs, it's set to the application path filled in by the user -->
+  <parameter name="SetAclParameter17" description="Sets the ACL on the views folder" defaultValue="{Application Path}/views" tags="Hidden">
+    <parameterEntry type="ProviderPath" scope="setAcl" match="^umbraco/views$" />
+  </parameter>
+
   <!-- Prompts for database server name, this is used in the connection string parameter later -->
   <parameter name="Database Server" description="Location of your database server." defaultValue=".\sqlexpress" tags="DBServer, SQL">
   </parameter>
@@ -105,7 +105,9 @@
 
   <!-- Prompts for the database password and fills it into the database scripts.
 	The SQL tag indicates it is a parameter required for SQL, the DbUserPassword tag indicates this is a Db password -->
-  <parameter name="Database Password" description="Password for the Database Username." tags="New, Password, SQL, DbUserPassword">
+  <parameter name="Database Password" description="Enter Password for the Database Username. Passwords will contain at least 1 upper case letter, at least 1 lower case letter, at least 1 number or special character, and be least 8 characters in length. " 
+             tags="New, Password, SQL, DbUserPassword">
+    <parameterValidation type = "RegularExpression" validationString = "(?=^.{8,}$)((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$" /> 
     <parameterEntry type="TextFile" scope="installSQL1.sql" match="PlaceHolderForPassword" />
     <parameterEntry type="TextFile" scope="installSQL2.sql" match="PlaceHolderForPassword" />
   </parameter>
@@ -121,7 +123,7 @@
 	This is used to create a login and assign permissions. The SQL tags indicates it is a parameter required for SQL. 
 	The DbAdminPassword tag indicates it should be used when the user is creating a new database. 
 	If they're not, it can be filled in with the DbUserPassword value. -->
-  <parameter name="Database Administrator Password" description="Password that is associated with the database administrator account." tags="Password, SQL, DbAdminPassword">
+  <parameter name="Database Administrator Password" description="Password that is associated with the database administrator account." tags="Password, SQL, DbAdminPassword,NoStore">
   </parameter>
 
   <!-- This is the hidden admin connection string used to run the database scripts -->
@@ -130,21 +132,29 @@
   </parameter>
 
   <!-- This is the hidden connection string with the newly created db account that is used in the web.config -->
-  <parameter name="Connection String" description="Connection string to enter into config" defaultValue="server={Database Server};database={Database Name};uid={Database Administrator};Pwd={Database Administrator Password};" tags="Hidden,SQL,SQLConnectionString">
+  <parameter name="Connection String" description="Connection string to enter into config" defaultValue="server={Database Server};database={Database Name};uid={Database Administrator};Pwd={Database Administrator Password};" tags="Hidden,SQL,SQLConnectionString,NoStore">
     <parameterEntry type="ProviderPath" scope="dbfullsql" match="installSQL2.sql" />
   </parameter>
 
-  <parameter name="SQLCE Database Location" defaultValue="datalayer=SQLCE4Umbraco.SqlCEHelper,SQLCE4Umbraco;data source=|DataDirectory|\Umbraco.sdf" 
-             tags="SQLCE, Hidden">
-    <parameterEntry type="XmlFile" scope="\\web.config$" match="//appSettings/add[@key='umbracoDbDSN']/@value" />
+  <parameter name="SQLCE Database Preparation" defaultValue="local" 
+             tags="SQLCE, Hidden,NoStore">
+    <parameterEntry type="XmlFile" scope="\\web.config$" match="//connectionStrings/add/@name" />
   </parameter>
   
   <!-- This is the hidden connection string with the newly created db account that is used in the web.config -->
   <parameter name="Connection String for Config" description="Connection string to enter into config" 
              defaultValue="server={Database Server};database={Database Name};user id={Database Username};password={Database Password}" 
-             tags="SQL, Hidden">
+             tags="SQL, Hidden,NoStore">
     <!-- scope=”web.config” will look for all web.config files under the root directory . Using scope=”\\web.config$” will select only the root web.config -->
-    <parameterEntry type="XmlFile" scope="\\web.config$" match="//appSettings/add[@key='umbracoDbDSN']/@value" />
+    <parameterEntry type="XmlFile" scope="\\web.config$" match="//connectionStrings/add[@name='umbracoDbDSN']/@connectionString" />
+  </parameter>
+
+ <!-- This is the hidden connection string with the newly created db account that is used in the web.config -->
+  <parameter name="Connection String for Config1" description="Connection string to enter into config" 
+             defaultValue="server={Database Server};database={Database Name};user id={Database Username};password={Database Password}" 
+             tags="SQL, Hidden,SQLConnectionString">
+    <!-- scope=”web.config” will look for all web.config files under the root directory . Using scope=”\\web.config$” will select only the root web.config -->
+    <parameterEntry type="XmlFile" scope="\\web.config$" match="//connectionStrings/add[@name='umbracoDbDSN']/@connectionString" />
   </parameter>
 
 </parameters>

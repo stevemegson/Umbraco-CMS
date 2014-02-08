@@ -1,40 +1,33 @@
-using System;
-using System.Collections;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Web;
-using System.Web.SessionState;
+﻿using System;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using System.Web.UI.HtmlControls;
-
 using System.Xml;
-using umbraco.cms.helpers;
+using Umbraco.Core;
 using umbraco.cms.businesslogic.datatype.controls;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using Umbraco.Core.IO;
 using umbraco.cms.businesslogic.property;
+using Umbraco.Core;
 
 namespace umbraco.cms.presentation
 {
-	/// <summary>
-	/// Summary description for editMedia.
-	/// </summary>
-	public partial class editMedia : BasePages.UmbracoEnsuredPage
-	{
+    /// <summary>
+    /// Summary description for editMedia.
+    /// </summary>
+    public partial class editMedia : BasePages.UmbracoEnsuredPage
+    {
         private readonly uicontrols.Pane _mediaPropertiesPane = new uicontrols.Pane();
         private readonly LiteralControl _updateDateLiteral = new LiteralControl();
         private readonly LiteralControl _mediaFileLinksLiteral = new LiteralControl();
 
-	    public editMedia()
-	    {
-	        CurrentApp = BusinessLogic.DefaultApps.media.ToString();
-	    }
+        public editMedia()
+        {
+            CurrentApp = BusinessLogic.DefaultApps.media.ToString();
+        }
 
-		protected uicontrols.TabView TabView1;
+        protected uicontrols.TabView TabView1;
 		protected TextBox documentName;
 		private businesslogic.media.Media _media;
 		controls.ContentControl _contentControl;
@@ -43,7 +36,11 @@ namespace umbraco.cms.presentation
         {
             base.OnInit(e);
 
-            _media = new cms.businesslogic.media.Media(int.Parse(Request.QueryString["id"]));
+            int id = int.Parse(Request.QueryString["id"]);
+
+            //Loading Media via new public service to ensure that the Properties are loaded correct
+            var media = ApplicationContext.Current.Services.MediaService.GetById(id);
+            _media = new cms.businesslogic.media.Media(media);
 
             // Save media on first load
             bool exists = SqlHelper.ExecuteScalar<int>("SELECT COUNT(nodeId) FROM cmsContentXml WHERE nodeId = @nodeId",
@@ -77,16 +74,16 @@ namespace umbraco.cms.presentation
             _contentControl.tpProp.Controls.AddAt(1, _mediaPropertiesPane);                       
         }
 
-		protected void Page_Load(object sender, EventArgs e)
-		{
-			if (!IsPostBack)
-			{
-				ClientTools.SyncTree(_media.Path, false);
-			}			
-		}
+        protected void Page_Load(object sender, System.EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                ClientTools.SyncTree(_media.Path, false);
+            }
+        }
 
 		protected void Save(object sender, EventArgs e) 
-		{
+        {
             // do not continue saving anything if the page is invalid!
             // http://issues.umbraco.org/issue/U4-227
             if (!Page.IsValid)
@@ -109,6 +106,15 @@ namespace umbraco.cms.presentation
                     }
                 }    
 
+            //The value of the properties has been set on IData through IDataEditor in the ContentControl
+            //so we need to 'retrieve' that value and set it on the property of the new IContent object.
+            //NOTE This is a workaround for the legacy approach to saving values through the DataType instead of the Property 
+            //- (The DataType shouldn't be responsible for saving the value - especically directly to the db).
+            foreach (var item in _contentControl.DataTypes)
+            {
+                _media.getProperty(item.Key).Value = item.Value.Data.Value;
+            }
+
                 _media.Save();
 
                 this._updateDateLiteral.Text = _media.VersionDate.ToShortDateString() + " " + _media.VersionDate.ToShortTimeString();
@@ -122,7 +128,7 @@ namespace umbraco.cms.presentation
 
         private void UpdateMediaFileLinksLiteral()
         {
-            var uploadField = new Factory().GetNewObject(new Guid("5032a6e6-69e3-491d-bb28-cd31cd11086c"));
+            var uploadField = new Factory().GetNewObject(new Guid(Constants.PropertyEditors.UploadField));
 
             // always clear, incase the upload file was removed
             this._mediaFileLinksLiteral.Text = string.Empty;
@@ -144,7 +150,7 @@ namespace umbraco.cms.presentation
                     {
                         this._mediaFileLinksLiteral.Text += string.Format("<tr><td>{0}&nbsp;</td><td><a href=\"{1}\" target=\"_blank\">{1}</a></td></tr>", property.PropertyType.Name, property.Value);
                     }
-                    
+
                     this._mediaFileLinksLiteral.Text += "</table>";
                 }
             }
@@ -154,5 +160,32 @@ namespace umbraco.cms.presentation
                 //have deleted it.
             }
         }
-	}
+
+        /// <summary>
+        /// plc control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.PlaceHolder plc;
+
+        /// <summary>
+        /// doSave control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlInputHidden doSave;
+
+        /// <summary>
+        /// doPublish control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlInputHidden doPublish;
+    }
 }

@@ -27,7 +27,6 @@ namespace umbraco.developer
         {
             CurrentApp = DefaultApps.developer.ToString();
         }
-
         protected void Page_Load(object sender, EventArgs e)
         {
 

@@ -1,16 +1,19 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using umbraco.BusinessLogic.Actions;
 using umbraco.businesslogic;
 using umbraco.cms.businesslogic.web;
 using umbraco.cms.presentation.Trees;
 using umbraco.interfaces;
+using Umbraco.Core;
+using Action = umbraco.BusinessLogic.Actions.Action;
 
 namespace umbraco
 {
     /// <summary>
     /// Handles loading the content tree into umbraco's application tree
     /// </summary>
-    [Tree("content", "content", "Content", silent: true)]
+    [Tree(Constants.Applications.Content, "content", "Content", silent: true)]
     public class loadContent : BaseContentTree
     {
 
@@ -50,6 +53,14 @@ namespace umbraco
                 }
 
                 return m_document;
+            }
+        }
+
+        protected override bool LoadMinimalDocument
+        {
+            get
+            {
+                return true;
             }
         }
 

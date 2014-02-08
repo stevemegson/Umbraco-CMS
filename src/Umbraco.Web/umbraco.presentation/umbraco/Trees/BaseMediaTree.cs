@@ -1,24 +1,31 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using System.Text;
+using Umbraco.Core.Logging;
+using Umbraco.Core.Models;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
 using umbraco.BusinessLogic.Actions;
-using umbraco.cms.businesslogic.media;
-using umbraco.cms.businesslogic.property;
+using umbraco.cms.businesslogic.web;
 using umbraco.interfaces;
+using Umbraco.Core;
+using Media = umbraco.cms.businesslogic.media.Media;
+using Property = umbraco.cms.businesslogic.property.Property;
 
 namespace umbraco.cms.presentation.Trees
 {
 	public abstract class BaseMediaTree : BaseTree
 	{
+        private User _user;
+
 		public BaseMediaTree(string application)
 			: base(application)
 		{
 						
 		}
-
-		private User m_user;
 
 		/// <summary>
 		/// Returns the current User. This ensures that we don't instantiate a new User object 
@@ -28,11 +35,10 @@ namespace umbraco.cms.presentation.Trees
 		{
 			get
 			{
-				return (m_user == null ? (m_user = UmbracoEnsuredPage.CurrentUser) : m_user);
+				return (_user == null ? (_user = UmbracoEnsuredPage.CurrentUser) : _user);
 			}
 		}
       		
-
         public override void RenderJS(ref StringBuilder Javascript)
         {
             if (!string.IsNullOrEmpty(this.FunctionToCall))
@@ -54,79 +60,109 @@ function openMedia(id) {
 
         public override void Render(ref XmlTree tree)
         {
-			Media[] docs = new Media(m_id).Children;
 
-            var args = new TreeEventArgs(tree);
-            OnBeforeTreeRender(docs, args);
-
-            foreach (Media dd in docs)
+            if (UseOptimizedRendering == false)
             {
-                XmlTreeNode xNode = XmlTreeNode.Create(this);
-                xNode.NodeID = dd.Id.ToString();
-                xNode.Text = dd.Text;
+                //We cannot run optimized mode since there are subscribers to events/methods that require document instances
+                // so we'll render the original way by looking up the docs.
 
-                // Check for dialog behaviour
-                if (!this.IsDialog)
+                var docs = new Media(m_id).Children;
+
+                var args = new TreeEventArgs(tree);
+                OnBeforeTreeRender(docs, args);
+
+                foreach (var dd in docs)
                 {
-                    if (!this.ShowContextMenu)
-                        xNode.Menu = null;
-                    xNode.Action = "javascript:openMedia(" + dd.Id + ");";
-                }
-                else
-                {
-                    if (this.ShowContextMenu)
-                        xNode.Menu = new List<IAction>(new IAction[] { ActionRefresh.Instance });
-                    else
-                        xNode.Menu = null;
-                    if (this.DialogMode == TreeDialogModes.fulllink)
+                    var e = dd;
+                    var xNode = PerformNodeRender(e.Id, e.Text, e.HasChildren, e.ContentType.IconUrl, e.ContentType.Alias, () => GetLinkValue(e, e.Id.ToString(CultureInfo.InvariantCulture)));
+
+
+                    OnBeforeNodeRender(ref tree, ref xNode, EventArgs.Empty);
+                    if (xNode != null)
                     {
-                        string nodeLink = GetLinkValue(dd, dd.Id.ToString());
-                        if (!String.IsNullOrEmpty(nodeLink))
+                        tree.Add(xNode);
+                        OnAfterNodeRender(ref tree, ref xNode, EventArgs.Empty);
+                    }
+                }
+
+                OnAfterTreeRender(docs, args);
+            }
+            else
+            {
+                //We ARE running in optmized mode, this means we will NOT be raising the BeforeTreeRender or AfterTreeRender 
+                // events  - we've already detected that there are not subscribers or implementations
+                // to call so that is fine.
+
+                var entities = Services.EntityService.GetChildren(m_id, UmbracoObjectTypes.Media).ToArray();
+                
+                foreach (UmbracoEntity entity in entities)
+                {
+                    var e = entity;
+                    var xNode = PerformNodeRender(e.Id, entity.Name, e.HasChildren, e.ContentTypeIcon, e.ContentTypeAlias, () => GetLinkValue(e));
+                    
+                    OnBeforeNodeRender(ref tree, ref xNode, EventArgs.Empty);
+                    if (xNode != null)
+                    {
+                        tree.Add(xNode);
+                        OnAfterNodeRender(ref tree, ref xNode, EventArgs.Empty);
+                    }
+                }
+            }            
+        }
+
+        private XmlTreeNode PerformNodeRender(int nodeId, string nodeName, bool hasChildren, string icon, string contentTypeAlias, Func<string> getLinkValue)
+        {
+            var xNode = XmlTreeNode.Create(this);
+            xNode.NodeID = nodeId.ToString(CultureInfo.InvariantCulture);
+            xNode.Text = nodeName;
+
+            xNode.HasChildren = hasChildren;
+            xNode.Source = this.IsDialog ? GetTreeDialogUrl(nodeId) : GetTreeServiceUrl(nodeId);
+
+            xNode.Icon = icon;
+            xNode.OpenIcon = icon;
+
+            if (IsDialog == false)
+            {
+                if (this.ShowContextMenu == false)
+                    xNode.Menu = null;
+                xNode.Action = "javascript:openMedia(" + nodeId + ");";
+            }
+            else
+            {
+                xNode.Menu = this.ShowContextMenu ? new List<IAction>(new IAction[] { ActionRefresh.Instance }) : null;
+                if (this.DialogMode == TreeDialogModes.fulllink)
+                {
+                    string nodeLink = getLinkValue();
+                    if (string.IsNullOrEmpty(nodeLink) == false)
+                    {
+                        xNode.Action = "javascript:openMedia('" + nodeLink + "');";
+                    }
+                    else
+                    {
+                        if (string.Equals(contentTypeAlias, Constants.Conventions.MediaTypes.Folder, StringComparison.OrdinalIgnoreCase))
                         {
-                            xNode.Action = "javascript:openMedia('" + nodeLink + "');";
+                            //#U4-2254 - Inspiration to use void from here: http://stackoverflow.com/questions/4924383/jquery-object-object-error
+                            xNode.Action = "javascript:void jQuery('.umbTree #" + nodeId.ToString(CultureInfo.InvariantCulture) + "').click();";
                         }
                         else
                         {
-                            if (dd.ContentType.Alias.ToLower() == "folder")
-                            {
-                                xNode.Action = "javascript:jQuery('.umbTree #" + dd.Id.ToString() + "').click();";
-                            }
-                            else
-                            {
-                                xNode.Action = null;
-                                xNode.Style.DimNode();
-                            }
+                            xNode.Action = null;
+                            xNode.Style.DimNode();
                         }
                     }
-                    else
-                    {
-                        xNode.Action = "javascript:openMedia('" + dd.Id.ToString() + "');";
-                    }
                 }
-
-				xNode.HasChildren = dd.HasChildren;
-                if (this.IsDialog)
-                    xNode.Source = GetTreeDialogUrl(dd.Id);
                 else
-                    xNode.Source = GetTreeServiceUrl(dd.Id);                    
-
-                if (dd.ContentType != null)
                 {
-                    xNode.Icon = dd.ContentType.IconUrl;
-                    xNode.OpenIcon = dd.ContentType.IconUrl;                    
-                }
-
-                OnBeforeNodeRender(ref tree, ref xNode, EventArgs.Empty);
-                if (xNode != null)
-                {
-                    tree.Add(xNode);
-                    OnAfterNodeRender(ref tree, ref xNode, EventArgs.Empty);
+                    xNode.Action = "javascript:openMedia('" + nodeId.ToString(CultureInfo.InvariantCulture) + "');";
                 }
             }
-            OnAfterTreeRender(docs, args);
-        }
 
-		/// <summary>
+            return xNode;
+        }
+        
+
+        /// <summary>
 		/// Returns the value for a link in WYSIWYG mode, by default only media items that have a 
 		/// DataTypeUploadField are linkable, however, a custom tree can be created which overrides
 		/// this method, or another GUID for a custom data type can be added to the LinkableMediaDataTypes
@@ -137,15 +173,35 @@ function openMedia(id) {
 		/// <returns></returns>
         public virtual string GetLinkValue(Media dd, string nodeLink)
         {
-            var props = dd.getProperties;
+            var props = dd.GenericProperties;
 			foreach (Property p in props)
 			{				
 				Guid currId = p.PropertyType.DataTypeDefinition.DataType.Id;
-				if (LinkableMediaDataTypes.Contains(currId) &&  !String.IsNullOrEmpty(p.Value.ToString()))
+				if (LinkableMediaDataTypes.Contains(currId) &&  string.IsNullOrEmpty(p.Value.ToString()) == false)
 				{
 					return p.Value.ToString();
 				}
 			}
+            return "";
+        }
+
+        /// <summary>
+        /// NOTE: New implementation of the legacy GetLinkValue. This is however a bit quirky as a media item can have multiple "Linkable DataTypes".
+        /// Returns the value for a link in WYSIWYG mode, by default only media items that have a 
+        /// DataTypeUploadField are linkable, however, a custom tree can be created which overrides
+        /// this method, or another GUID for a custom data type can be added to the LinkableMediaDataTypes
+        /// list on application startup.
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <returns></returns>
+        internal virtual string GetLinkValue(UmbracoEntity entity)
+        {
+            foreach (var property in entity.UmbracoProperties)
+            {
+                if (LinkableMediaDataTypes.Contains(property.DataTypeControlId) &&
+                    string.IsNullOrEmpty(property.Value) == false)
+                    return property.Value;
+            }
             return "";
         }
 
@@ -158,6 +214,27 @@ function openMedia(id) {
 		/// the GUID of a custom data type. The order of property types on the media item definition will determine the output value.
 		/// </summary>
 		public static List<Guid> LinkableMediaDataTypes { get; protected set; }
+
+        /// <summary>
+        /// Returns true if we can use the EntityService to render the tree or revert to the original way 
+        /// using normal documents
+        /// </summary>
+        /// <remarks>
+        /// We determine this by:
+        /// * If there are any subscribers to the events: BeforeTreeRender or AfterTreeRender - then we cannot run optimized
+        /// </remarks>
+        internal bool UseOptimizedRendering
+        {
+            get
+            {
+                if (HasEntityBasedEventSubscribers)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
 
 	}
 }

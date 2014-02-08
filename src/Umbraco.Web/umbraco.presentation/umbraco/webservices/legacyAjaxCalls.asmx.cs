@@ -17,10 +17,13 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Net;
 using System.Web.UI;
+using Umbraco.Core;
+using Umbraco.Core.IO;
+using Umbraco.Web;
+using Umbraco.Web.Cache;
 using Umbraco.Web.WebServices;
 using umbraco.BusinessLogic;
 using umbraco.businesslogic.Exceptions;
-using umbraco.IO;
 using umbraco.cms.businesslogic.web;
 using umbraco.cms.businesslogic.media;
 using umbraco.BasePages;
@@ -64,15 +67,22 @@ namespace umbraco.presentation.webservices
         [ScriptMethod]
         public void Delete(string nodeId, string alias, string nodeType)
         {
-
             AuthorizeRequest(true);
 
             //check which parameters to pass depending on the types passed in
             int intNodeID;
-            if (int.TryParse(nodeId, out intNodeID) && nodeType != "member") // Fix for #26965 - numeric member login gets parsed as nodeId
+            if (nodeType == "memberGroup")
+            {
+                presentation.create.dialogHandler_temp.Delete(nodeType, 0, alias);
+            }
+            else if (int.TryParse(nodeId, out intNodeID) && nodeType != "member") // Fix for #26965 - numeric member login gets parsed as nodeId
+            {
                 presentation.create.dialogHandler_temp.Delete(nodeType, intNodeID, alias);
+            }
             else
+            {
                 presentation.create.dialogHandler_temp.Delete(nodeType, 0, nodeId);
+            }
         }
         
         /// <summary>
@@ -209,19 +219,19 @@ namespace umbraco.presentation.webservices
             {
                 case "xslt":
                     AuthorizeRequest(DefaultApps.developer.ToString(), true);
-                    return saveXslt(fileName, fileContents, ignoreDebug);
+                    return SaveXslt(fileName, fileContents, ignoreDebug);
                 case "python":
                     AuthorizeRequest(DefaultApps.developer.ToString(), true);
                     return "true";
                 case "css":
                     AuthorizeRequest(DefaultApps.settings.ToString(), true);
-                    return saveCss(fileName, fileContents, fileID);
+                    return SaveCss(fileName, fileContents, fileID);
                 case "script":
                     AuthorizeRequest(DefaultApps.settings.ToString(), true);
-                    return saveScript(fileName, fileContents);
+                    return SaveScript(fileName, fileContents);
                 case "template":
                     AuthorizeRequest(DefaultApps.settings.ToString(), true);
-                    return saveTemplate(fileName, fileAlias, fileContents, fileID, masterID);
+                    return SaveTemplate(fileName, fileAlias, fileContents, fileID, masterID);
                 default:
                     throw new ArgumentException(String.Format("Invalid fileType passed: '{0}'", fileType));
             }
@@ -236,38 +246,34 @@ namespace umbraco.presentation.webservices
 
         }
 
-        private string saveCss(string fileName, string fileContents, int fileID)
+        private static string SaveCss(string fileName, string fileContents, int fileID)
         {
-            string returnValue = "false";
-            cms.businesslogic.web.StyleSheet stylesheet = new cms.businesslogic.web.StyleSheet(fileID);
+            string returnValue;
+            var stylesheet = new StyleSheet(fileID) {Content = fileContents, Text = fileName};
 
-            if (stylesheet != null)
-            {
-                stylesheet.Content = fileContents;
-                stylesheet.Text = fileName;
-                try
-                {
-                    stylesheet.saveCssToFile();
-                    returnValue = "true";
-                }
-                catch (Exception ee)
-                {
-                    throw new Exception("Couldn't save file", ee);
-                }
+	        try
+	        {
+		        stylesheet.saveCssToFile();
+		        returnValue = "true";
+	        }
+	        catch (Exception ee)
+	        {
+		        throw new Exception("Couldn't save file", ee);
+	        }
 
-                //this.speechBubble(speechBubbleIcon.save, ui.Text("speechBubbles", "editStylesheetSaved", base.getUser()), "");
-            }
-            return returnValue;
+	        //this.speechBubble(speechBubbleIcon.save, ui.Text("speechBubbles", "editStylesheetSaved", base.getUser()), "");
+	        return returnValue;
         }
 
-        private string saveXslt(string fileName, string fileContents, bool ignoreDebugging)
-        {
-            StreamWriter SW;
-            string tempFileName = IOHelper.MapPath(SystemDirectories.Xslt + "/" + System.DateTime.Now.Ticks + "_temp.xslt");
-            SW = File.CreateText(tempFileName);
-            SW.Write(fileContents);
-            SW.Close();
-
+        private string SaveXslt(string fileName, string fileContents, bool ignoreDebugging)
+        {	        
+			var tempFileName = IOHelper.MapPath(SystemDirectories.Xslt + "/" + System.DateTime.Now.Ticks + "_temp.xslt");
+            using (var sw = File.CreateText(tempFileName))
+            {
+				sw.Write(fileContents);
+				sw.Close();    
+            }
+            
             // Test the xslt
             string errorMessage = "";
             if (!ignoreDebugging)
@@ -371,13 +377,15 @@ namespace umbraco.presentation.webservices
             if (errorMessage == "" && fileName.ToLower().EndsWith(".xslt"))
             {
                 //Hardcoded security-check... only allow saving files in xslt directory... 
-                string savePath = IOHelper.MapPath(SystemDirectories.Xslt + "/" + fileName);
+                var savePath = IOHelper.MapPath(SystemDirectories.Xslt + "/" + fileName);
 
                 if (savePath.StartsWith(IOHelper.MapPath(SystemDirectories.Xslt)))
                 {
-                    SW = File.CreateText(savePath);
-                    SW.Write(fileContents);
-                    SW.Close();
+					using (var sw = File.CreateText(savePath))
+	                {
+						sw.Write(fileContents);
+						sw.Close();
+	                }
                     errorMessage = "true";
                 }
                 else
@@ -386,26 +394,19 @@ namespace umbraco.presentation.webservices
                 }
             }
 
-            System.IO.File.Delete(tempFileName);
+            File.Delete(tempFileName);
 
 
             return errorMessage;
         }
-
-        private string savePython(string filename, string contents)
+		
+        private static string SaveScript(string filename, string contents)
         {
-
-
-            return "true";
-        }
-
-        private string saveScript(string filename, string contents)
-        {
-            string val = contents;
-            string returnValue = "false";
+            var val = contents;
+            string returnValue;
             try
             {
-                string savePath = IOHelper.MapPath(SystemDirectories.Scripts + "/" + filename);
+                var savePath = IOHelper.MapPath(SystemDirectories.Scripts + "/" + filename);
 
                 //Directory check.. only allow files in script dir and below to be edited
                 if (savePath.StartsWith(IOHelper.MapPath(SystemDirectories.Scripts + "/")))
@@ -430,34 +431,21 @@ namespace umbraco.presentation.webservices
             return returnValue;
         }
 
-        private string saveTemplate(string templateName, string templateAlias, string templateContents, int templateID, int masterTemplateID)
+        private static string SaveTemplate(string templateName, string templateAlias, string templateContents, int templateID, int masterTemplateID)
         {
+            var tp = new cms.businesslogic.template.Template(templateID);
+            var retVal = "false";
 
-            cms.businesslogic.template.Template _template = new global::umbraco.cms.businesslogic.template.Template(templateID);
-            string retVal = "false";
+	        tp.Text = templateName;
+	        tp.Alias = templateAlias;
+	        tp.MasterTemplate = masterTemplateID;
+	        tp.Design = templateContents;
 
-            if (_template != null)
-            {
-                _template.Text = templateName;
-                _template.Alias = templateAlias;
-                _template.MasterTemplate = masterTemplateID;
-                _template.Design = templateContents;
+            tp.Save();
 
-                retVal = "true";
+	        retVal = "true";
 
-                // Clear cache in rutime
-                if (UmbracoSettings.UseDistributedCalls)
-                    cache.dispatcher.Refresh(
-                        new Guid("dd12b6a0-14b9-46e8-8800-c154f74047c8"),
-                        _template.Id);
-                else
-                    template.ClearCachedTemplate(_template.Id);
-            }
-            else
-                return "false";
-
-
-            return retVal;
+	        return retVal;
         }
 
         [Obsolete("You should use the AuthorizeRequest methods on the base class of UmbracoAuthorizedWebService and ensure you inherit from that class for umbraco asmx web services")]

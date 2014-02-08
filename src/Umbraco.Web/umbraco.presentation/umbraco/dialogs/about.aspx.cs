@@ -1,18 +1,6 @@
 using System;
-using System.Collections;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Globalization;
-using System.Web;
-using System.Web.SessionState;
-using System.Web.UI;
-using System.Web.UI.WebControls;
-using System.Web.UI.HtmlControls;
-using System.Reflection;
-using System.Diagnostics;
-using Umbraco.Core;
-using umbraco.IO;
+using Umbraco.Core.Configuration;
 
 namespace umbraco.dialogs
 {
@@ -22,18 +10,16 @@ namespace umbraco.dialogs
 	public partial class about : BasePages.UmbracoEnsuredPage
 	{
 
-		protected void Page_Load(object sender, System.EventArgs e)
+		protected void Page_Load(object sender, EventArgs e)
 		{
-			// Put user code to initialize the page here
-			version.Text = GlobalSettings.CurrentVersion;
-            thisYear.Text = DateTime.Now.Year.ToString(CultureInfo.InvariantCulture);
-            
-			// umbraco.dll version
-            var assemblyVersion = new AssemblyName(typeof(ActionsResolver).Assembly.FullName).Version.ToString();
-            version.Text += string.Format(" (Assembly version: {0})", assemblyVersion);
+		    // Put user code to initialize the page here
+			thisYear.Text = DateTime.Now.Year.ToString(CultureInfo.InvariantCulture);
+		    version.Text = string.IsNullOrEmpty(UmbracoVersion.CurrentComment) 
+                ? string.Format("{0} (Assembly version: {1})", UmbracoVersion.Current.ToString(3), UmbracoVersion.AssemblyVersion) 
+                : string.Format("{0}-{1} (Assembly version: {2})", UmbracoVersion.Current.ToString(3), UmbracoVersion.CurrentComment, UmbracoVersion.AssemblyVersion);
 		}
 
-		#region Web Form Designer generated code
+	    #region Web Form Designer generated code
 		override protected void OnInit(EventArgs e)
 		{
 			//

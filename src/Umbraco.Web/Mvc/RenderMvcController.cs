@@ -1,30 +1,43 @@
 using System;
 using System.IO;
 using System.Web.Mvc;
+using Umbraco.Core;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Models;
+using Umbraco.Core.Services;
 using Umbraco.Core.Models;
 using Umbraco.Web.Models;
 using Umbraco.Web.Routing;
 
 namespace Umbraco.Web.Mvc
 {
-	public class RenderMvcController : Controller
+
+    /// <summary>
+    /// A controller to render front-end requests
+    /// </summary>
+    public class RenderMvcController : UmbracoController, IRenderMvcController
 	{
 
 		public RenderMvcController()
 		{
 			ActionInvoker = new RenderActionInvoker();
 		}
+
+        public RenderMvcController(UmbracoContext umbracoContext)
+            : base(umbracoContext)
+        {
+            
+        }
 		
 		private PublishedContentRequest _publishedContentRequest;
 
-		/// <summary>
-		/// Returns the current UmbracoContext
-		/// </summary>
-		protected UmbracoContext UmbracoContext
-		{
-			get { return PublishedContentRequest.RoutingContext.UmbracoContext; }
-		}
+        /// <summary>
+        /// Returns the current UmbracoContext
+        /// </summary>
+        protected new UmbracoContext UmbracoContext
+        {
+            get { return PublishedContentRequest.RoutingContext.UmbracoContext; }
+        }
 
         /// <summary>
         /// Returns the Current published content item for rendering the content
@@ -60,13 +73,13 @@ namespace Umbraco.Web.Mvc
 		/// <returns></returns>
 		protected bool EnsurePhsyicalViewExists(string template)
 		{
-			if (!System.IO.File.Exists(
-				Path.Combine(Server.MapPath(Constants.ViewLocation), template + ".cshtml")))
-			{
-				LogHelper.Warn<RenderMvcController>("No physical template file was found for template " + template);
-				return false;
-			}
-			return true;
+            var result = ViewEngines.Engines.FindView(ControllerContext, template, null);
+            if(result.View == null)
+            {
+                LogHelper.Warn<RenderMvcController>("No physical template file was found for template " + template);
+                return false;
+            }
+            return true;
 		}
 
 		/// <summary>

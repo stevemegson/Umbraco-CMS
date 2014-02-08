@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Web.Mvc;
 using Umbraco.Core;
+using Umbraco.Core.Services;
 
 namespace Umbraco.Web.Mvc
 {
@@ -52,6 +53,22 @@ namespace Umbraco.Web.Mvc
 		}
 
 		/// <summary>
+		/// Returns a ServiceContext
+		/// </summary>
+		public ServiceContext Services
+		{
+			get { return ApplicationContext.Services; }
+		}
+
+		/// <summary>
+		/// Returns a DatabaseContext
+		/// </summary>
+		public DatabaseContext DatabaseContext
+		{
+			get { return ApplicationContext.DatabaseContext; }
+		}
+
+		/// <summary>
 		/// Returns the metadata for this instance
 		/// </summary>
 		internal PluginControllerMetadata Metadata
@@ -66,30 +83,24 @@ namespace Umbraco.Web.Mvc
 		/// <returns></returns>
 		internal static PluginControllerMetadata GetMetadata(Type type)
 		{
-			if (!TypeHelper.IsTypeAssignableFrom<PluginController>(type))
-			{
-				throw new InvalidOperationException("Cannot get metadata from a type that is not a PluginController");
-			}
+            
+		    return MetadataStorage.GetOrAdd(type, type1 =>
+		        {
+                    var attribute = type.GetCustomAttribute<PluginControllerAttribute>(false);
 
-			PluginControllerMetadata meta;
-			if (MetadataStorage.TryGetValue(type, out meta))
-			{
-				return meta;
-			}
+                    var meta = new PluginControllerMetadata()
+                    {
+                        AreaName = attribute == null ? null : attribute.AreaName,
+                        ControllerName = ControllerExtensions.GetControllerName(type),
+                        ControllerNamespace = type.Namespace,
+                        ControllerType = type
+                    };
 
-			var attribute = type.GetCustomAttribute<PluginControllerAttribute>(false);
+                    MetadataStorage.TryAdd(type, meta);
 
-			meta = new PluginControllerMetadata()
-			{
-				AreaName = attribute == null ? null : attribute.AreaName,
-				ControllerName = ControllerExtensions.GetControllerName(type),
-				ControllerNamespace = type.Namespace,
-				ControllerType = type
-			};
+                    return meta;
+		        });
 
-			MetadataStorage.TryAdd(type, meta);
-
-			return meta;
 		}
 	}
 }

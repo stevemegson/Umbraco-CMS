@@ -76,14 +76,22 @@
   </cc2:Pane>
 </asp:Panel>
 
+
 <asp:Panel ID="pnlStructure" runat="server">
+    <cc2:Pane ID="Pane6" runat="server">
+        <cc2:PropertyPanel ID="pp_Root" runat="server" Text="Allow at root <br/><small>Only Content Types with this checked can be created at the root level of Content and Media trees</small>">
+            <asp:CheckBox runat="server" ID="allowAtRoot" Text="Yes" /><br />            
+        </cc2:PropertyPanel>     
+    </cc2:Pane>
   <cc2:Pane ID="Pane5" runat="server">
+ 
     <cc2:PropertyPanel ID="pp_allowedChildren" runat="server" Text="Allowed Child nodetypes">
        <asp:CheckBoxList ID="lstAllowedContentTypes" runat="server" EnableViewState="True"/>
        <asp:PlaceHolder ID="PlaceHolderAllowedContentTypes" runat="server"/>
     </cc2:PropertyPanel>
   </cc2:Pane>
 </asp:Panel>
+
 
 <asp:Panel ID="pnlProperties" runat="server">
   <cc2:Pane ID="PanePropertiesInherited" runat="server" Visible="false">
@@ -97,10 +105,9 @@
       </div>
     </cc2:Pane>
 </asp:Panel>
+<%-- cannot put a <%= block here 'cos it prevents the Controls collection from being modified = use a literal --%>
 <script type="text/javascript">
     $(function () {
-        var mailControlId = '<asp:Literal id="theClientId" runat="server"/>';
-        duplicatePropertyNameAsSafeAlias(mailControlId + '_GenericPropertyNew_control_tbName', mailControlId + '_GenericPropertyNew_control_tbAlias');
-        checkAlias(mailControlId + '_GenericPropertyNew_control_txtAlias');
+        <asp:Literal runat="server" ID="checkTxtAliasJs" />
     });
 </script>

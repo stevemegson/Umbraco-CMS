@@ -21,7 +21,7 @@
         }
         body
         {
-            font-size: 11px;    
+            font-size: 11px;
             width: 100%;
             font-family: Trebuchet MS, verdana, arial, Lucida Grande;
             text-align: center;
@@ -59,7 +59,7 @@
 <body>
     <form id="Form1" method="post" runat="server">
     <cc1:UmbracoPanel Style="text-align: left;" ID="Panel1" runat="server" Height="347px"
-        Width="340px" Text="Umbraco 4 login" AutoResize="false">
+        Width="340px" Text="Umbraco login" AutoResize="false">
         <div style="padding: 70px 0px 0px 0px;">
             <p style="margin: 0px; padding: 5px 0px 20px 0px; color: #999">
                 <asp:Literal ID="TopText" runat="server"></asp:Literal>
@@ -70,7 +70,7 @@
                         <asp:Label ID="username" runat="server" AssociatedControlID="lname"></asp:Label>
                     </td>
                     <td>
-                        <asp:TextBox AutoCompleteType="None" autocomplete="off" ID="lname" Style="padding-left: 3px; background: url(images/gradientBackground.png);
+                        <asp:TextBox ID="lname" Style="padding-left: 3px; background: url(images/gradientBackground.png);
                             _background: none; border-right: #999999 1px solid; border-top: #999999 1px solid;
                             border-left: #999999 1px solid; border-bottom: #999999 1px solid; width: 180px;"
                             runat="server"></asp:TextBox>
@@ -85,7 +85,7 @@
                         <asp:Label ID="password" runat="server" AssociatedControlID="passw"></asp:Label>
                     </td>
                     <td>
-                        <asp:TextBox AutoCompleteType="None" autocomplete="off" ID="passw" Style="padding-left: 3px; background: url(images/gradientBackground.png);
+                        <asp:TextBox ID="passw" Style="padding-left: 3px; background: url(images/gradientBackground.png);
                             _background: none; border-right: #999999 1px solid; border-top: #999999 1px solid;
                             border-left: #999999 1px solid; border-bottom: #999999 1px solid; width: 180px;"
                             runat="server" TextMode="Password"></asp:TextBox>

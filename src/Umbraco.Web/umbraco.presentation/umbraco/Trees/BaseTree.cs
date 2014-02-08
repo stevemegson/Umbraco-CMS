@@ -1,10 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Text;
 using System.Xml;
+using Umbraco.Core;
+using Umbraco.Core.Models.EntityBase;
+using Umbraco.Core.Services;
 using umbraco.BusinessLogic;
 using umbraco.BusinessLogic.Actions;
+using umbraco.cms.businesslogic.media;
+using umbraco.cms.businesslogic.web;
 using umbraco.interfaces;
 
 namespace umbraco.cms.presentation.Trees
@@ -191,6 +197,14 @@ namespace umbraco.cms.presentation.Trees
         private bool m_isInitialized = false;
 
         private XmlTree m_xTree = new XmlTree();
+
+        /// <summary>
+        /// Provides easy access to the ServiceContext
+        /// </summary>
+        protected internal ServiceContext Services
+        {
+            get { return ApplicationContext.Current.Services; }
+        }
 
         /// <summary>
         /// Initializes the class if it hasn't been done already
@@ -458,7 +472,7 @@ namespace umbraco.cms.presentation.Trees
             {
                 ApplicationTree tree = ApplicationTree.getByAlias(alias);
                 if (tree != null)
-                    return helper.SpaceCamelCasing(tree.Title);
+                    return tree.Title.SplitPascalCasing().ToFirstUpperInvariant();
             }
             return treeCaption;
         }
@@ -484,8 +498,11 @@ namespace umbraco.cms.presentation.Trees
         /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
         protected virtual void OnBeforeNodeRender(ref XmlTree sender, ref XmlTreeNode node, EventArgs e)
         {
-            if (BeforeNodeRender != null)
-                BeforeNodeRender(ref sender, ref node, e);
+            if (node != null && node != null)
+            {
+                if (BeforeNodeRender != null)
+                    BeforeNodeRender(ref sender, ref node, e);    
+            }
         }
 
         /// <summary>
@@ -508,6 +525,46 @@ namespace umbraco.cms.presentation.Trees
         {
             if (AfterTreeRender != null)
                 AfterTreeRender(sender, e);
+        }
+
+        [Obsolete("Do not use this method to raise events, it is no longer used and will cause very high performance spikes!")]
+        protected internal virtual void OnBeforeTreeRender(IEnumerable<IUmbracoEntity> sender, TreeEventArgs e, bool isContent)
+        {
+            if (BeforeTreeRender != null)
+            {
+                if (isContent)
+                {
+                    BeforeTreeRender(sender.Select(x => new Document(x, false)).ToArray(), e);
+                }
+                else
+                {
+                    BeforeTreeRender(sender.Select(x => new Media(x, false)).ToArray(), e);
+                }
+            }
+        }
+
+        [Obsolete("Do not use this method to raise events, it is no longer used and will cause very high performance spikes!")]
+        protected internal virtual void OnAfterTreeRender(IEnumerable<IUmbracoEntity> sender, TreeEventArgs e, bool isContent)
+        {
+            if (AfterTreeRender != null)
+            {
+                if (isContent)
+                {
+                    AfterTreeRender(sender.Select(x => new Document(x, false)).ToArray(), e);
+                }
+                else
+                {
+                    AfterTreeRender(sender.Select(x => new Media(x, false)).ToArray(), e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns true if there are subscribers to either BeforeTreeRender or AfterTreeRender
+        /// </summary>
+        internal bool HasEntityBasedEventSubscribers
+        {
+            get { return BeforeTreeRender != null || AfterTreeRender != null; }
         }
 
         /// <summary>

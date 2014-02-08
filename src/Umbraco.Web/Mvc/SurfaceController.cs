@@ -77,13 +77,13 @@ namespace Umbraco.Web.Mvc
         {
             get
             {
-                var routeDefAttempt = TryGetRouteDefinitionFromAncestorViewContexts();
+			    var routeDefAttempt = TryGetRouteDefinitionFromAncestorViewContexts();
                 if (!routeDefAttempt.Success)
                 {
                     throw routeDefAttempt.Error;
                 }
 
-                var routeDef = routeDefAttempt.Result;
+			    var routeDef = routeDefAttempt.Result;
                 return routeDef.PublishedContentRequest.PublishedContent;
             }
         }
@@ -104,7 +104,7 @@ namespace Umbraco.Web.Mvc
                 var currentRouteData = currentContext.RouteData;
                 if (currentRouteData.DataTokens.ContainsKey("umbraco-route-def"))
                 {
-                    return new Attempt<RouteDefinition>(true, (RouteDefinition)currentRouteData.DataTokens["umbraco-route-def"]);
+                    return new Attempt<RouteDefinition>(true, (RouteDefinition) currentRouteData.DataTokens["umbraco-route-def"]);
                 }
                 if (currentContext.IsChildAction)
                 {
@@ -119,8 +119,8 @@ namespace Umbraco.Web.Mvc
             }
             return new Attempt<RouteDefinition>(
                 new InvalidOperationException("Cannot find the Umbraco route definition in the route values, the request must be made in the context of an Umbraco request"));
-        }
-
+        } 
+        
 
     }
 }

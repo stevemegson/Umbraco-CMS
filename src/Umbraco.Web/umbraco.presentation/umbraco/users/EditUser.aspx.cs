@@ -7,9 +7,10 @@ using System.Web.UI;
 using System.Web.UI.HtmlControls;
 using System.Web.UI.WebControls;
 using System.Xml;
-
+using Umbraco.Core.Logging;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
+using umbraco.businesslogic.Exceptions;
 using umbraco.cms.businesslogic.media;
 using umbraco.cms.businesslogic.propertytype;
 using umbraco.cms.businesslogic.web;
@@ -18,6 +19,7 @@ using umbraco.uicontrols;
 using umbraco.providers;
 using umbraco.cms.presentation.Trees;
 using umbraco.IO;
+using Umbraco.Core;
 
 namespace umbraco.cms.presentation.user
 {
@@ -63,20 +65,27 @@ namespace umbraco.cms.presentation.user
 
         protected void Page_Load(object sender, EventArgs e)
         {
+            //if the current user is not an admin they cannot edit a user at all
+            if (CurrentUser.IsAdmin() == false)
+            {
+                throw new UserAuthorizationException("Access denied");
+            }
 
             int UID = int.Parse(Request.QueryString["id"]);
             u = BusinessLogic.User.GetUser(UID);
 
-            // do initial check for edit rights
+            //the true admin can only edit the true admin
             if (u.Id == 0 && CurrentUser.Id != 0)
             {
                 throw new Exception("Only the root user can edit the 'root' user (id:0)");
             }
-            else if (u.IsAdmin() && !CurrentUser.IsAdmin())
+
+            //only another admin can edit another admin (who is not the true admin)
+            if (u.IsAdmin() && CurrentUser.IsAdmin() == false)
             {
                 throw new Exception("Admin users can only be edited by admins");
             }
-
+            
             // check if canvas editing is enabled
             DefaultToLiveEditing.Visible = UmbracoSettings.EnableCanvasEditing;
 
@@ -116,7 +125,7 @@ namespace umbraco.cms.presentation.user
             DefaultToLiveEditing.Checked = u.DefaultToLiveEditing;
 
             PlaceHolder medias = new PlaceHolder();
-            mediaPicker.AppAlias = "media";
+            mediaPicker.AppAlias = Constants.Applications.Media;
             mediaPicker.TreeAlias = "media";
 
             if (u.StartMediaId > 0)
@@ -127,7 +136,7 @@ namespace umbraco.cms.presentation.user
             medias.Controls.Add(mediaPicker);
 
             PlaceHolder content = new PlaceHolder();
-            contentPicker.AppAlias = "content";
+            contentPicker.AppAlias = Constants.Applications.Content;
             contentPicker.TreeAlias = "content";
 
             if (u.StartNodeId > 0)
@@ -245,7 +254,7 @@ namespace umbraco.cms.presentation.user
             // Handle content and media pickers
 
             PlaceHolder medias = new PlaceHolder();
-            cMediaPicker.AppAlias = "media";
+            cMediaPicker.AppAlias = Constants.Applications.Media;
             cMediaPicker.TreeAlias = "media";
 
             if (userChannel.MediaFolder > 0)
@@ -256,7 +265,7 @@ namespace umbraco.cms.presentation.user
             medias.Controls.Add(cMediaPicker);
 
             PlaceHolder content = new PlaceHolder();
-            cContentPicker.AppAlias = "content";
+            cContentPicker.AppAlias = Constants.Applications.Content;
             cContentPicker.TreeAlias = "content";
 
             if (userChannel.StartNode > 0)
@@ -347,16 +356,14 @@ namespace umbraco.cms.presentation.user
                 }
             }
         }
-
-        #region Web Form Designer generated code
-
+        
         protected override void OnInit(EventArgs e)
         {
-            //
-            // CODEGEN: This call is required by the ASP.NET Web Form Designer.
-            //
-            InitializeComponent();
             base.OnInit(e);
+
+            //lapps.SelectionMode = ListSelectionMode.Multiple;
+            lapps.RepeatLayout = RepeatLayout.Flow;
+            lapps.RepeatDirection = RepeatDirection.Vertical;
         }
 
         protected override void OnPreRender(EventArgs e)
@@ -365,22 +372,8 @@ namespace umbraco.cms.presentation.user
 
             ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/CMSNode.asmx"));
             //      ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/legacyAjaxCalls.asmx"));
-
-
+            
         }
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            //lapps.SelectionMode = ListSelectionMode.Multiple;
-            lapps.RepeatLayout = RepeatLayout.Flow;
-            lapps.RepeatDirection = RepeatDirection.Vertical;
-        }
-
-        #endregion
 
         /// <summary>
         /// Handles the Click event of the saveUser control.
@@ -493,25 +486,25 @@ namespace umbraco.cms.presentation.user
                         c.DocumentTypeAlias = cDocumentType.SelectedValue;
 
                         //
-                        c.MediaTypeAlias = "image";
-                        c.MediaTypeFileProperty = "umbracoFile";
+                        c.MediaTypeAlias = Constants.Conventions.MediaTypes.Image; // [LK:2013-03-22] This was previously lowercase; unsure if using const will cause an issue.
+                        c.MediaTypeFileProperty = Constants.Conventions.Media.File;
                         c.ImageSupport = true;
 
                         c.Save();
 
                     }
 
-                    speechBubble(speechBubbleIcon.save, ui.Text("speechBubbles", "editUserSaved", base.getUser()), "");
+                    ClientTools.ShowSpeechBubble(speechBubbleIcon.save, ui.Text("speechBubbles", "editUserSaved", base.getUser()), "");
                 }
                 catch (Exception ex)
                 {
-                    speechBubble(speechBubbleIcon.error, ui.Text("speechBubbles", "editUserError", base.getUser()), "");
-                    Log.Add(LogTypes.Error, 0, ex.Message);
+                    ClientTools.ShowSpeechBubble(speechBubbleIcon.error, ui.Text("speechBubbles", "editUserError", base.getUser()), "");
+                    LogHelper.Error<EditUser>("Exception", ex);
                 }
             }
             else
             {
-                speechBubble(speechBubbleIcon.error, ui.Text("speechBubbles", "editUserError", base.getUser()), "");
+                ClientTools.ShowSpeechBubble(speechBubbleIcon.error, ui.Text("speechBubbles", "editUserError", base.getUser()), "");
             }
         }
     }

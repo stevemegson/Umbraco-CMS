@@ -1,5 +1,9 @@
+using System;
+using System.Text;
 using System.Web.Mvc;
 using Umbraco.Core;
+using Umbraco.Core.Configuration;
+using Umbraco.Core.IO;
 using Umbraco.Web.Routing;
 
 namespace Umbraco.Web.Mvc
@@ -93,24 +97,68 @@ namespace Umbraco.Web.Mvc
             get { return _helper ?? (_helper = new UmbracoHelper(UmbracoContext)); }
         }
 
+		/// <summary>
+		/// Ensure that the current view context is added to the route data tokens so we can extract it if we like
+		/// </summary>
+		/// <remarks>
+		/// Currently this is required by mvc macro engines
+		/// </remarks>
+		protected override void InitializePage()
+		{
+			base.InitializePage();
+			if (!ViewContext.IsChildAction)
+			{
+				if (!ViewContext.RouteData.DataTokens.ContainsKey(Constants.DataTokenCurrentViewContext))
+				{
+					ViewContext.RouteData.DataTokens.Add(Constants.DataTokenCurrentViewContext, this.ViewContext);		
+				}
+			}
+			
+		}
+
         /// <summary>
-        /// Ensure that the current view context is added to the route data tokens so we can extract it if we like
+        /// This will detect the end /body tag and insert the preview badge if in preview mode
         /// </summary>
-        /// <remarks>
-        /// Currently this is required by mvc macro engines
-        /// </remarks>
-        protected override void InitializePage()
+        /// <param name="value"></param>
+        public override void WriteLiteral(object value)
         {
-            base.InitializePage();
-            if (!ViewContext.IsChildAction)
+            // filter / add preview banner
+            if (Response.ContentType.InvariantEquals("text/html")) // ASP.NET default value
             {
-                if (!ViewContext.RouteData.DataTokens.ContainsKey(Constants.DataTokenCurrentViewContext))
+                if (UmbracoContext.Current.IsDebug || UmbracoContext.Current.InPreviewMode)
                 {
-                    ViewContext.RouteData.DataTokens.Add(Constants.DataTokenCurrentViewContext, this.ViewContext);
+                    var text = value.ToString().ToLowerInvariant();
+                    var pos = text.IndexOf("</body>", StringComparison.InvariantCultureIgnoreCase);
+                    
+                    if (pos > -1)
+                    {
+                        string markupToInject;
+
+                        if (UmbracoContext.Current.InPreviewMode)
+                        {
+                            // creating previewBadge markup
+                            markupToInject =
+                                String.Format(UmbracoSettings.PreviewBadge,
+                                    IOHelper.ResolveUrl(SystemDirectories.Umbraco),
+                                    IOHelper.ResolveUrl(SystemDirectories.UmbracoClient),
+                                    Server.UrlEncode(UmbracoContext.Current.HttpContext.Request.Path));
+                        }
+                        else
+                        {
+                            // creating mini-profiler markup
+                            markupToInject = Html.RenderProfiler().ToHtmlString();
+                        }
+
+                        var sb = new StringBuilder(text);
+                        sb.Insert(pos, markupToInject);
+
+                        base.WriteLiteral(sb.ToString());
+                        return;
+                    }
                 }
             }
 
+            base.WriteLiteral(value);
         }
-
     }
 }

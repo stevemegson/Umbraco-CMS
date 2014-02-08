@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Web;
 using System.Reflection;
 using Umbraco.Core;
+using Umbraco.Core.Logging;
 using umbraco.BasePages;
 using umbraco.BusinessLogic.Utils;
 using umbraco.cms;
@@ -52,16 +53,18 @@ namespace umbraco.BusinessLogic.Actions
 		{
 			lock (Lock)
 			{
+                using (Umbraco.Core.ObjectResolution.Resolution.DirtyBackdoorToConfiguration)
+                {
+                    //TODO: Based on the above, this is a big hack as types should all be cleared on package install!
+                    ActionsResolver.Reset();
+                    ActionHandlers.Clear();
 
-				//TODO: Based on the above, this is a big hack as types should all be cleared on package install!
-				ActionsResolver.Reset();
-				ActionHandlers.Clear();
+                    //TODO: Based on the above, this is a big hack as types should all be cleared on package install!
+                    ActionsResolver.Current = new ActionsResolver(
+					    () => TypeFinder.FindClassesOfType<IAction>(PluginManager.Current.AssembliesToScan));
 
-				//TODO: Based on the above, this is a big hack as types should all be cleared on package install!
-				ActionsResolver.Current = new ActionsResolver(
-					() => TypeFinder.FindClassesOfType<IAction>(PluginManager.Current.AssembliesToScan));
-
-				RegisterIActionHandlers();
+                    RegisterIActionHandlers();
+                }
 			}
 		}
 
@@ -103,8 +106,7 @@ namespace umbraco.BusinessLogic.Actions
                 }
                 catch (Exception iaExp)
                 {
-                    Log.Add(LogTypes.Error, User.GetUser(0), -1, string.Format("Error loading actionhandler '{0}': {1}",
-                        ia.HandlerName(), iaExp));
+	                LogHelper.Error<Action>(string.Format("Error loading actionhandler '{0}'", ia.HandlerName()), iaExp);
                 }
             }
 
@@ -185,7 +187,7 @@ namespace umbraco.BusinessLogic.Actions
                     }
                     catch (Exception ee)
                     {
-                        Log.Add(LogTypes.Error, -1, "Error registrering action to javascript: " + ee.ToString());
+	                    LogHelper.Error<Action>("Error registrering action to javascript", ee);
                     }
                 }
 

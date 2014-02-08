@@ -1,6 +1,7 @@
 using System.Configuration;
 using System.Web.Routing;
 using NUnit.Framework;
+using Umbraco.Core.Configuration;
 using Umbraco.Core.IO;
 using Umbraco.Tests.TestHelpers;
 using System.Web.Mvc;
@@ -10,10 +11,10 @@ namespace Umbraco.Tests
 	[TestFixture]
 	public class GlobalSettingsTests : BaseWebTest
 	{
-		protected override bool RequiresDbSetup
-		{
-			get { return false; }
-		}
+        protected override DatabaseBehavior DatabaseTestBehavior
+        {
+            get { return DatabaseBehavior.NoDatabasePerFixture; }
+        }
 
 		public override void Initialize()
 		{            
@@ -30,6 +31,13 @@ namespace Umbraco.Tests
 			base.TearDown();
 			
 		}
+
+        [Ignore]
+        [Test]
+        public void Is_Version_From_Assembly_Correct()
+        {
+            Assert.That(UmbracoVersion.Current.ToString(3), Is.EqualTo("6.0.0"));
+        }
 
         [TestCase("~/umbraco", "/", "umbraco")]
         [TestCase("~/umbraco", "/MyVirtualDir", "umbraco")]

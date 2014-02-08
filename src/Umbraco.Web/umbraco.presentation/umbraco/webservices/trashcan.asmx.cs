@@ -1,19 +1,11 @@
 using System;
-using System.Data;
-using System.Threading;
-using System.Web;
-using System.Collections;
 using System.Web.Script.Services;
 using System.Web.Services;
-using System.Web.Services.Protocols;
 using System.ComponentModel;
 using Umbraco.Web.WebServices;
 using umbraco.BasePages;
 using umbraco.BusinessLogic;
-using umbraco.BusinessLogic.console;
 using umbraco.cms.businesslogic;
-using umbraco.cms.businesslogic.web;
-using umbraco.cms.businesslogic.media;
 
 namespace umbraco.presentation.webservices
 {

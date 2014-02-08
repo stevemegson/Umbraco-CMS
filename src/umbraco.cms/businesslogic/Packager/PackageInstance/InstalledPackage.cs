@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Web;
+using Umbraco.Core.Logging;
 using umbraco.IO;
 
 namespace umbraco.cms.businesslogic.packager {
-    public class InstalledPackage {
+    public class InstalledPackage
+    {
+
+        private int _saveHitCount = 0;
 
         public static InstalledPackage GetById(int id) {
             InstalledPackage pack = new InstalledPackage();
@@ -26,7 +28,12 @@ namespace umbraco.cms.businesslogic.packager {
             return pack;
         }
 
-        public void Save() {
+        public void Save()
+        {
+#if DEBUG
+            _saveHitCount++;
+            LogHelper.Info<InstalledPackage>("The InstalledPackage class save method has been hit " + _saveHitCount + " times.");
+#endif
             this.FireBeforeSave(EventArgs.Empty);
             data.Save(this.Data, IOHelper.MapPath(Settings.InstalledPackagesSettings));
             this.FireAfterSave(EventArgs.Empty);
@@ -60,15 +67,18 @@ namespace umbraco.cms.businesslogic.packager {
         }
 
         public static bool isPackageInstalled(string packageGuid) {
-            try {
-                if (data.GetFromGuid(packageGuid, IOHelper.MapPath(Settings.InstalledPackagesSettings), true) == null)
-                    return false;
-                else
-                    return true;
-            } catch (Exception ex) {
-                BusinessLogic.Log.Add(BusinessLogic.LogTypes.Error, 0, ex.ToString());
-                return false;
-            }
+			try
+			{
+				if (data.GetFromGuid(packageGuid, IOHelper.MapPath(Settings.InstalledPackagesSettings), true) == null)
+					return false;
+				else
+					return true;
+			}
+			catch (Exception ex)
+			{
+				LogHelper.Error<InstalledPackage>("An error occured in isPackagedInstalled", ex);
+				return false;
+			}
         }
 
         //EVENTS

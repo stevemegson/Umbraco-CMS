@@ -30,7 +30,7 @@ using umbraco.cms.businesslogic.skinning;
 
 namespace umbraco
 {
-    [Tree("settings", "templates", "Templates", sortOrder: 1)]
+    [Tree(Constants.Applications.Settings, "templates", "Templates", sortOrder: 1)]
     public class loadTemplates : BaseTree
     {
         public loadTemplates(string application) : base(application) {}
@@ -52,7 +52,7 @@ namespace umbraco
                 }   
                 
                  function openView(id) {
-                    UmbClientMgr.contentFrame('settings/views/editView.aspx?templateID=' + id);
+                    UmbClientMgr.contentFrame('settings/views/editView.aspx?treeType=templates&templateID=' + id);
 			    }
 
                 function openSkin(id) {

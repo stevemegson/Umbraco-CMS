@@ -1,6 +1,13 @@
 @ECHO OFF
-set version=4.11.10
-%windir%\Microsoft.NET\Framework\v4.0.30319\msbuild.exe "Build.proj" /p:BUILD_RELEASE=%version%
+SET release=6.1.6
+SET comment=
+SET version=%release%
+
+IF [%comment%] EQU [] (SET version=%release%) ELSE (SET version=%release%-%comment%)
+
+ReplaceIISExpressPortNumber.exe ..\src\Umbraco.Web.UI\Umbraco.Web.UI.csproj %release%
+
+%windir%\Microsoft.NET\Framework\v4.0.30319\msbuild.exe "Build.proj" /p:BUILD_RELEASE=%release% /p:BUILD_COMMENT=%comment%
 
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\App_Code\dummy.txt
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\App_Data\dummy.txt
@@ -11,15 +18,16 @@ echo This file is only here so that the containing folder will be included in th
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\media\dummy.txt
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\scripts\dummy.txt
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\usercontrols\dummy.txt
+echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\Views\Partials\dummy.txt
+echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\Views\MacroPartials\dummy.txt
 echo This file is only here so that the containing folder will be included in the NuGet package, it is safe to delete. > .\_BuildOutput\WebApp\xslt\dummy.txt
 
-NuGet.exe pack NuSpecs\UmbracoCms.Core.nuspec -Version %version%
-NuGet.exe pack NuSpecs\UmbracoCms.nuspec -Version %version%
+..\src\.nuget\NuGet.exe pack NuSpecs\UmbracoCms.Core.nuspec -Version %version%
+..\src\.nuget\NuGet.exe pack NuSpecs\UmbracoCms.nuspec -Version %version%
 
+IF ERRORLEVEL 1 GOTO :showerror
 
-if ERRORLEVEL 1 goto :showerror
-
-goto :EOF
+GOTO :EOF
 
 :showerror
-pause
+PAUSE

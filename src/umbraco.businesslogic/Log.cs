@@ -1,10 +1,11 @@
 using System;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
-using System.Web.UI.WebControls;
 using Umbraco.Core;
+using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
+using Umbraco.Core.Persistence;
 using umbraco.DataLayer;
 using System.Collections.Generic;
 using System.Reflection;
@@ -18,33 +19,31 @@ namespace umbraco.BusinessLogic
     public class Log
     {
         #region Statics
-        private Interfaces.ILog m_externalLogger = null;
-        private bool m_externalLoggerInitiated = false;
+        private Interfaces.ILog _externalLogger;
+        private bool _externalLoggerInitiated;
 
         internal Interfaces.ILog ExternalLogger
         {
             get
             {
-                if (!m_externalLoggerInitiated)
+                if (!_externalLoggerInitiated)
                 {
-                    m_externalLoggerInitiated = true;
-                    if (!String.IsNullOrEmpty(UmbracoSettings.ExternalLoggerAssembly)
-                         && !String.IsNullOrEmpty(UmbracoSettings.ExternalLoggerType))
+                    _externalLoggerInitiated = true;
+                    if (!string.IsNullOrEmpty(UmbracoSettings.ExternalLoggerAssembly) && !string.IsNullOrEmpty(UmbracoSettings.ExternalLoggerType))
                     {
                         try
                         {
-                            string assemblyPath = IO.IOHelper.MapPath(UmbracoSettings.ExternalLoggerAssembly);
-                            m_externalLogger = Assembly.LoadFrom(assemblyPath).CreateInstance(UmbracoSettings.ExternalLoggerType) as Interfaces.ILog;
+                            var assemblyPath = IOHelper.MapPath(UmbracoSettings.ExternalLoggerAssembly);
+                            _externalLogger = Assembly.LoadFrom(assemblyPath).CreateInstance(UmbracoSettings.ExternalLoggerType) as Interfaces.ILog;
                         }
                         catch (Exception ee)
                         {
-                            Log.AddLocally(LogTypes.Error, User.GetUser(0), -1,
-                                "Error loading external logger: " + ee.ToString());
+							LogHelper.Error<Log>("Error loading external logger", ee);
                         }
                     }
                 }
 
-                return m_externalLogger;
+                return _externalLogger;
             }
         }
 
@@ -76,8 +75,7 @@ namespace umbraco.BusinessLogic
             {
                 Instance.ExternalLogger.Add(type, user, nodeId, comment);
 
-                // Audit trail too?
-                if (!UmbracoSettings.ExternalLoggerLogAuditTrail && type.GetType().GetField(type.ToString()).GetCustomAttributes(typeof(AuditTrailLogItem), true) != null)
+                if (!UmbracoSettings.ExternalLoggerLogAuditTrail)
                 {
                     AddLocally(type, user, nodeId, comment);
                 }
@@ -104,6 +102,7 @@ namespace umbraco.BusinessLogic
             }
         }
 
+		[Obsolete("Use LogHelper to log exceptions/errors")]
         public void AddException(Exception ee)
         {
             if (ExternalLogger != null)
@@ -112,15 +111,12 @@ namespace umbraco.BusinessLogic
             }
             else
             {
-                Exception ex2 = ee;
-                string error = String.Empty;
-                string errorMessage = string.Empty;
+                var ex2 = ee;
                 while (ex2 != null)
                 {
-                    error += ex2.ToString();
                     ex2 = ex2.InnerException;
                 }
-                Add(LogTypes.Error, -1, error);
+				LogHelper.Error<Log>("An error occurred", ee);
             }
         }
 
@@ -166,38 +162,54 @@ namespace umbraco.BusinessLogic
         /// <param name="comment">The comment.</param>
         public static void AddSynced(LogTypes type, int userId, int nodeId, string comment)
         {
-            try
+            var logTypeIsAuditType = type.GetType().GetField(type.ToString()).GetCustomAttributes(typeof(AuditTrailLogItem), true).Length != 0;
+
+            if (logTypeIsAuditType)
             {
-                SqlHelper.ExecuteNonQuery(
-                    "insert into umbracoLog (userId, nodeId, logHeader, logComment) values (@userId, @nodeId, @logHeader, @comment)",
-                    SqlHelper.CreateParameter("@userId", userId),
-                    SqlHelper.CreateParameter("@nodeId", nodeId),
-                    SqlHelper.CreateParameter("@logHeader", type.ToString()),
-                    SqlHelper.CreateParameter("@comment", comment));
+                try
+                {
+                    SqlHelper.ExecuteNonQuery(
+                        "insert into umbracoLog (userId, nodeId, logHeader, logComment) values (@userId, @nodeId, @logHeader, @comment)",
+                        SqlHelper.CreateParameter("@userId", userId),
+                        SqlHelper.CreateParameter("@nodeId", nodeId),
+                        SqlHelper.CreateParameter("@logHeader", type.ToString()),
+                        SqlHelper.CreateParameter("@comment", comment));
+                }
+                catch (Exception e)
+                {
+					LogHelper.Error<Log>("An error occurred adding an audit trail log to the umbracoLog table", e);
+                }
+
+				//Because 'Custom' log types are also Audit trail (for some wacky reason) but we also want these logged normally so we have to check for this:
+				if (type != LogTypes.Custom)
+				{
+					return;
+				}
+
             }
-            catch (Exception e)
-            {
-                Debug.WriteLine(e.ToString(), "Error");
-                Trace.WriteLine(e.ToString());
-            }
+
+			//if we've made it this far it means that the log type is not an audit trail log or is a custom log.
+			LogHelper.Info<Log>(
+				"Redirected log call (please use Umbraco.Core.Logging.LogHelper instead of umbraco.BusinessLogic.Log) | Type: {0} | User: {1} | NodeId: {2} | Comment: {3}",
+				() => type.ToString(), () => userId, () => nodeId.ToString(CultureInfo.InvariantCulture), () => comment);            
         }
 
         public List<LogItem> GetAuditLogItems(int NodeId)
         {
             if (UmbracoSettings.ExternalLoggerLogAuditTrail && ExternalLogger != null)
                 return ExternalLogger.GetAuditLogReader(NodeId);
-            else
-                return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
-                    "select userId, nodeId, logHeader, DateStamp, logComment from umbracoLog where nodeId = @id and logHeader not in ('open','system') order by DateStamp desc",
-                    SqlHelper.CreateParameter("@id", NodeId)));
+            
+            return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
+                "select userId, nodeId, logHeader, DateStamp, logComment from umbracoLog where nodeId = @id and logHeader not in ('open','system') order by DateStamp desc",
+                SqlHelper.CreateParameter("@id", NodeId)));
         }
 
         public List<LogItem> GetLogItems(LogTypes type, DateTime sinceDate)
         {
             if (ExternalLogger != null)
                 return ExternalLogger.GetLogItems(type, sinceDate);
-            else
-                return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
+            
+            return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
                 "select userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where logHeader = @logHeader and DateStamp >= @dateStamp order by dateStamp desc",
                 SqlHelper.CreateParameter("@logHeader", type.ToString()),
                 SqlHelper.CreateParameter("@dateStamp", sinceDate)));
@@ -207,8 +219,8 @@ namespace umbraco.BusinessLogic
         {
             if (ExternalLogger != null)
                 return ExternalLogger.GetLogItems(nodeId);
-            else
-                return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
+            
+            return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
                 "select userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where id = @id order by dateStamp desc",
                 SqlHelper.CreateParameter("@id", nodeId)));
         }
@@ -217,8 +229,8 @@ namespace umbraco.BusinessLogic
         {
             if (ExternalLogger != null)
                 return ExternalLogger.GetLogItems(user, sinceDate);
-            else
-                return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
+            
+            return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
                 "select userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where UserId = @user and DateStamp >= @dateStamp order by dateStamp desc",
                 SqlHelper.CreateParameter("@user", user.Id),
                 SqlHelper.CreateParameter("@dateStamp", sinceDate)));
@@ -228,8 +240,8 @@ namespace umbraco.BusinessLogic
         {
             if (ExternalLogger != null)
                 return ExternalLogger.GetLogItems(user, type, sinceDate);
-            else
-                return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
+            
+            return LogItem.ConvertIRecordsReader(SqlHelper.ExecuteReader(
                 "select userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where UserId = @user and logHeader = @logHeader and DateStamp >= @dateStamp order by dateStamp desc",
                 SqlHelper.CreateParameter("@logHeader", type.ToString()),
                 SqlHelper.CreateParameter("@user", user.Id),
@@ -249,7 +261,8 @@ namespace umbraco.BusinessLogic
 
                     SqlHelper.ExecuteNonQuery("delete from umbracoLog where datestamp < @oldestPermittedLogEntry and logHeader in ('open','system')",
                         SqlHelper.CreateParameter("@oldestPermittedLogEntry", formattedDate));
-                    Add(LogTypes.System, -1, "Log scrubbed.  Removed all items older than " + formattedDate);
+
+                    LogHelper.Info<Log>(string.Format("Log scrubbed.  Removed all items older than {0}", formattedDate));
                 }
                 catch (Exception e)
                 {
@@ -322,16 +335,16 @@ namespace umbraco.BusinessLogic
         /// </summary>
         /// <param name="user">The user.</param>
         /// <param name="Type">The type of log message.</param>
-        /// <param name="sinceDate">The since date.</param>
+        /// <param name="SinceDate">The since date.</param>
         /// <returns>A reader for the log.</returns>
         [Obsolete("Use the Instance.GetLogItems method which return a list of LogItems instead")]
-        public static IRecordsReader GetLogReader(User user, LogTypes Type, DateTime sinceDate)
+        public static IRecordsReader GetLogReader(User user, LogTypes Type, DateTime SinceDate)
         {
             return SqlHelper.ExecuteReader(
                 "select userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where UserId = @user and logHeader = @logHeader and DateStamp >= @dateStamp order by dateStamp desc",
                 SqlHelper.CreateParameter("@logHeader", Type.ToString()),
                 SqlHelper.CreateParameter("@user", user.Id),
-                SqlHelper.CreateParameter("@dateStamp", sinceDate));
+                SqlHelper.CreateParameter("@dateStamp", SinceDate));
         }
 
         /// <summary>
@@ -346,156 +359,23 @@ namespace umbraco.BusinessLogic
         internal static IRecordsReader GetLogReader(User user, LogTypes type, DateTime sinceDate, int numberOfResults)
         {
             var query = "select {0} userId, NodeId, DateStamp, logHeader, logComment from umbracoLog where UserId = @user and logHeader = @logHeader and DateStamp >= @dateStamp order by dateStamp desc {1}";
-            
-            query = SqlHelper.GetType().ToString().ToLowerInvariant().Contains("MySql.MySqlHelper".ToLowerInvariant())
-                ? string.Format(query, string.Empty, "limit 0," + numberOfResults)
+
+            query = ApplicationContext.Current.DatabaseContext.DatabaseProvider == DatabaseProviders.MySql 
+                ? string.Format(query, string.Empty, "limit 0," + numberOfResults) 
                 : string.Format(query, "top " + numberOfResults, string.Empty);
 
-            return SqlHelper.ExecuteReader(query,
-                SqlHelper.CreateParameter("@logHeader", type.ToString()),
-                SqlHelper.CreateParameter("@user", user.Id),
-                SqlHelper.CreateParameter("@dateStamp", sinceDate));
+            return SqlHelper.ExecuteReader(query, 
+                                           SqlHelper.CreateParameter("@logHeader", type.ToString()), 
+                                           SqlHelper.CreateParameter("@user", user.Id), 
+                                           SqlHelper.CreateParameter("@dateStamp", sinceDate));
         }
+
         #endregion
 
         #endregion
     }
 
-    /// <summary>
-    /// The collection of available log types.
-    /// </summary>
-    public enum LogTypes
-    {
-        /// <summary>
-        /// Used when new nodes are added
-        /// </summary>
-        [AuditTrailLogItem]
-        New,
-        /// <summary>
-        /// Used when nodes are saved
-        /// </summary>
-        [AuditTrailLogItem]
-        Save,
-        /// <summary>
-        /// Used when nodes are opened
-        /// </summary>
-        [AuditTrailLogItem]
-        Open,
-        /// <summary>
-        /// Used when nodes are deleted
-        /// </summary>
-        [AuditTrailLogItem]
-        Delete,
-        /// <summary>
-        /// Used when nodes are published
-        /// </summary>
-        [AuditTrailLogItem]
-        Publish,
-        /// <summary>
-        /// Used when nodes are send to publishing
-        /// </summary>
-        [AuditTrailLogItem]
-        SendToPublish,
-        /// <summary>
-        /// Used when nodes are unpublished
-        /// </summary>
-        [AuditTrailLogItem]
-        UnPublish,
-        /// <summary>
-        /// Used when nodes are moved
-        /// </summary>
-        [AuditTrailLogItem]
-        Move,
-        /// <summary>
-        /// Used when nodes are copied
-        /// </summary>
-        [AuditTrailLogItem]
-        Copy,
-        /// <summary>
-        /// Used when nodes are assígned a domain
-        /// </summary>
-        [AuditTrailLogItem]
-        AssignDomain,
-        /// <summary>
-        /// Used when public access are changed for a node
-        /// </summary>
-        [AuditTrailLogItem]
-        PublicAccess,
-        /// <summary>
-        /// Used when nodes are sorted
-        /// </summary>
-        [AuditTrailLogItem]
-        Sort,
-        /// <summary>
-        /// Used when a notification are send to a user
-        /// </summary>
-        [AuditTrailLogItem]
-        Notify,
-        /// <summary>
-        /// Used when a user logs into the umbraco back-end
-        /// </summary>
-        Login,
-        /// <summary>
-        /// Used when a user logs out of the umbraco back-end
-        /// </summary>
-        Logout,
-        /// <summary>
-        /// Used when a user login fails
-        /// </summary>
-        LoginFailure,
-        /// <summary>
-        /// General system notification
-        /// </summary>
-        [AuditTrailLogItem]
-        System,
-        /// <summary>
-        /// System debugging notification
-        /// </summary>
-        Debug,
-        /// <summary>
-        /// System error notification
-        /// </summary>
-        Error,
-        /// <summary>
-        /// Notfound error notification
-        /// </summary>
-        NotFound,
-        /// <summary>
-        /// Used when a node's content is rolled back to a previous version
-        /// </summary>
-        [AuditTrailLogItem]
-        RollBack,
-        /// <summary>
-        /// Used when a package is installed
-        /// </summary>
-        [AuditTrailLogItem]
-        PackagerInstall,
-        /// <summary>
-        /// Used when a package is uninstalled
-        /// </summary>
-        [AuditTrailLogItem]
-        PackagerUninstall,
-        /// <summary>
-        /// Used when a ping is send to/from the system
-        /// </summary>
-        Ping,
-        /// <summary>
-        /// Used when a node is send to translation
-        /// </summary>
-        [AuditTrailLogItem]
-        SendToTranslate,
-        /// <summary>
-        /// Notification from a Scheduled task.
-        /// </summary>
-        ScheduledTask,
-        /// <summary>
-        /// Use this log action for custom log messages that should be shown in the audit trail
-        /// </summary>
-        [AuditTrailLogItem]
-        Custom
-    }
-
-    public class LogItem
+	public class LogItem
     {
         public int UserId { get; set; }
         public int NodeId { get; set; }
@@ -519,14 +399,14 @@ namespace umbraco.BusinessLogic
 
         public static List<LogItem> ConvertIRecordsReader(IRecordsReader reader)
         {
-            List<LogItem> items = new List<LogItem>();
+            var items = new List<LogItem>();
             while (reader.Read())
             {
                 items.Add(new LogItem(
                     reader.GetInt("userId"),
                     reader.GetInt("nodeId"),
                     reader.GetDateTime("DateStamp"),
-                    convertLogHeader(reader.GetString("logHeader")),
+                    ConvertLogHeader(reader.GetString("logHeader")),
                     reader.GetString("logComment")));
             }
 
@@ -534,7 +414,7 @@ namespace umbraco.BusinessLogic
 
         }
 
-        private static LogTypes convertLogHeader(string logHeader)
+        private static LogTypes ConvertLogHeader(string logHeader)
         {
             try
             {
@@ -549,11 +429,5 @@ namespace umbraco.BusinessLogic
 
     public class AuditTrailLogItem : Attribute
     {
-        public AuditTrailLogItem()
-        {
-
-        }
     }
-
-
 }

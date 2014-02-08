@@ -14,6 +14,7 @@ using umbraco.BasePages;
 using umbraco.BusinessLogic;
 using umbraco.businesslogic.Exceptions;
 using umbraco.cms.businesslogic.media;
+using Umbraco.Core;
 
 namespace umbraco.presentation.umbraco.webservices
 {
@@ -185,12 +186,12 @@ namespace umbraco.presentation.umbraco.webservices
                     scripts.SyncTree(parentNode.Path, true);
 
                     // log succes
-                    LogHelper.Info<MediaUploader>(string.Format("Successful upload to parent ID: {0}", parentNodeId));
+                    LogHelper.Info<MediaUploader>(string.Format("Success uploading to parent {0}", parentNodeId));
                 }
                 catch (Exception e)
                 {
                     // log error
-                    LogHelper.Error<MediaUploader>(string.Format("Error uploading to parent ID {0}", parentNodeId), e);
+                    LogHelper.Error<MediaUploader>(string.Format("Error uploading to parent {0}", parentNodeId), e);
                 }
             }
             else
@@ -222,7 +223,7 @@ namespace umbraco.presentation.umbraco.webservices
                 if (mp != null && mp.ValidateUser(username, password))
                 {
                     var user = new User(username);
-                    isValid = user.Applications.Any(app => app.alias == "media");
+                    isValid = user.Applications.Any(app => app.alias == Constants.Applications.Media);
 
                     if (isValid)
                         AuthenticatedUser = user;
@@ -234,7 +235,7 @@ namespace umbraco.presentation.umbraco.webservices
                 var user = new User(username);
 
                 if (t != null)
-                isValid = user.LoginName.ToLower() == t.Name.ToLower() && user.Applications.Any(app => app.alias == "media");
+                isValid = user.LoginName.ToLower() == t.Name.ToLower() && user.Applications.Any(app => app.alias == Constants.Applications.Media);
 
                 if (isValid)
                     AuthenticatedUser = user;
@@ -254,7 +255,7 @@ namespace umbraco.presentation.umbraco.webservices
 
         private void CreateMediaTree(IEnumerable<Media> nodes, FolderListItem folder)
         {
-            foreach (var media in nodes.Where(media => media != null && media.ContentType != null && media.ContentType.Alias == "Folder"))
+            foreach (var media in nodes.Where(media => media != null && media.ContentType != null && media.ContentType.Alias == Constants.Conventions.MediaTypes.Folder))
             {
                 var subFolder = new FolderListItem
                 {
@@ -307,7 +308,7 @@ namespace umbraco.presentation.umbraco.webservices
                 }
             }
 
-            var media = Media.MakeNew(name, MediaType.GetByAlias("Folder"), User.GetUser(0), parent.Id);
+            var media = Media.MakeNew(name, MediaType.GetByAlias(Constants.Conventions.MediaTypes.Folder), User.GetUser(0), parent.Id);
             media.sortOrder = 0;
             media.Save();
 

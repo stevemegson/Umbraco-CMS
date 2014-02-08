@@ -10,7 +10,11 @@ using System.Web.UI;
 using System.Xml;
 using System.Xml.XPath;
 using Umbraco.Core;
+using Umbraco.Core.Cache;
+using Umbraco.Core.Logging;
 using Umbraco.Web;
+using Umbraco.Web.Cache;
+using Umbraco.Web.PublishedCache;
 using Umbraco.Web.Routing;
 using Umbraco.Web.Templates;
 using umbraco.BusinessLogic;
@@ -70,8 +74,6 @@ namespace umbraco
         public static DateTime PublishStart;
         private page _page;
         private static readonly object libraryCacheLock = new object();
-        private const string GETMEDIA_CACHE_KEY = "GetMedia";
-        private const string GETMEMBER_CACHE_KEY = "GetMember";
 
         #endregion
 
@@ -160,55 +162,16 @@ namespace umbraco
 
         #region Publish Helper Methods
 
-        // Esben Carlsen: Commented out, not referenced anywhere
-        ///// <summary>
-        ///// Updates nodes and eventually subnodes, making the latest version the one to be published.
-        ///// Should always be used with library.rePublishNodes(), to ensure that the xml source is
-        ///// updated
-        ///// </summary>
-        ///// <param name="publishChildren">Publish childnodes as well</param>
-        ///// <returns></returns>
-        //public static void PublishDocument(Guid nodeID, bool publishChildren, User u)
-        //{
-        //    Document d = new Document(nodeID, true);
-        //    d.Publish(u);
-        //    NodesPublished++;
-
-        //    if(publishChildren)
-        //        foreach(Document dc in d.Children)
-        //        {
-        //            PublishDocument(dc.UniqueId, true, u);
-        //        }
-        //}
-
+        
         /// <summary>
         /// Unpublish a node, by removing it from the runtime xml index. Note, prior to this the Document should be 
         /// marked unpublished by setting the publish property on the document object to false
         /// </summary>
         /// <param name="DocumentId">The Id of the Document to be unpublished</param>
+        [Obsolete("This method is no longer used, a document's cache will be removed automatically when the document is deleted or unpublished")]
         public static void UnPublishSingleNode(int DocumentId)
-        {            
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.Remove(
-                    new Guid("27ab3022-3dfa-47b6-9119-5945bc88fd66"),
-                    DocumentId);
-            else
-                content.Instance.ClearDocumentCache(DocumentId);
-        }
-
-        /// <summary>
-        /// Unpublish a node, by removing it from the runtime xml index. Note, prior to this the Document should be 
-        /// marked unpublished by setting the publish property on the document object to false
-        /// </summary>
-        /// <param name="document">The Document to be unpublished</param>
-        internal static void UnPublishSingleNode(Document document)
         {
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.Remove(
-                    new Guid("27ab3022-3dfa-47b6-9119-5945bc88fd66"),
-                    document.Id);
-            else
-                content.Instance.ClearDocumentCache(document);
+            DistributedCache.Instance.RemovePageCache(DocumentId);
         }
 
         /// <summary>
@@ -216,32 +179,11 @@ namespace umbraco
         /// marked published by calling Publish(User u) on the document object.
         /// </summary>
         /// <param name="documentId">The Id of the Document to be published</param>
+        [Obsolete("This method is no longer used, a document's cache will be updated automatically when the document is published")]
         public static void UpdateDocumentCache(int documentId)
         {
-            var d = new Document(documentId);
-            UpdateDocumentCache(d);
+            DistributedCache.Instance.RefreshPageCache(documentId);
         }
-
-        /// <summary>
-        /// Publishes a Document by adding it to the runtime xml index. Note, prior to this the Document should be 
-        /// marked published by calling Publish(User u) on the document object.
-        /// </summary>
-        /// <param name="doc"></param>
-        /// <remarks>
-        /// NOTE: This method was created because before it was always calling the method with the documentId as a parameter 
-        /// which means we have to re-look up the document in the db again when we already have it, this should save on a few 
-        /// dozen sql calls when publishing.
-        /// </remarks>
-        internal static void UpdateDocumentCache(Document doc)
-        {
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.Refresh(
-                    new Guid("27ab3022-3dfa-47b6-9119-5945bc88fd66"),
-                    doc.Id);
-            else
-                content.Instance.UpdateDocumentCache(doc);
-        }
-
 
         /// <summary>
         /// Publishes the single node, this method is obsolete
@@ -252,23 +194,13 @@ namespace umbraco
         {
             UpdateDocumentCache(DocumentId);
         }
-
-
-
+        
         /// <summary>
         /// Refreshes the xml cache for all nodes
         /// </summary>
         public static void RefreshContent()
         {
-
-            if (UmbracoSettings.UseDistributedCalls)
-            {
-                dispatcher.RefreshAll(new Guid("27ab3022-3dfa-47b6-9119-5945bc88fd66"));
-            }
-            else
-            {
-                content.Instance.RefreshContentFromDatabaseAsync();
-            }
+            DistributedCache.Instance.RefreshAllPageCache();
         }
 
         /// <summary>
@@ -278,13 +210,7 @@ namespace umbraco
         [Obsolete("Please use: umbraco.library.RefreshContent")]
         public static string RePublishNodes(int nodeID)
         {
-            //PPH - added dispatcher support to this call..
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.RefreshAll(new Guid("27ab3022-3dfa-47b6-9119-5945bc88fd66"));
-            else
-            {
-                content.Instance.RefreshContentFromDatabaseAsync();
-            }
+            DistributedCache.Instance.RefreshAllPageCache();
 
             return string.Empty;
         }
@@ -296,58 +222,9 @@ namespace umbraco
         [Obsolete("Please use: umbraco.library.RefreshContent")]
         public static void RePublishNodesDotNet(int nodeID)
         {
-            content.Instance.RefreshContentFromDatabaseAsync();
+            DistributedCache.Instance.RefreshAllPageCache();
         }
 
-        //private static Hashtable parents = new Hashtable();
-        //private static Hashtable nodes = new Hashtable();
-        //private static int nodeRepublishCounter = 0;
-        //public static void RePublishNodesDotNet(int nodeID)
-        //{
-        //    RePublishNodesDotNet(nodeID, true);
-        //}
-        // Esben Carlsen: Commented out, is not referenced anywhere
-        //public static void _RePublishNodesDotNet(int nodeID, bool SaveToDisk)
-        //{
-        //    content.isInitializing = true;
-        //    content.Instance.XmlContent = null;
-        //    BusinessLogic.Log.Add(BusinessLogic.LogTypes.Debug, BusinessLogic.User.GetUser(0), -1, "Republishing starting");
-        //    cms.businesslogic.cache.Cache.ClearAllCache();
-        //    XmlDocument xmlDoc = new XmlDocument();
-        //    // Create id -1 attribute
-        //    xmlDoc.LoadXml("<root id=\"-1\"/>");
-        //    XmlNode n = xmlDoc.DocumentElement;
-        //    buildNodes(ref xmlDoc, ref n, -1);
-        //    content.Instance.XmlContent.Load(n.OuterXml);
-        //    // reload xml
-        //    n = null;
-        //    xmlDoc = null;
-        //    if (SaveToDisk)
-        //        content.SaveCacheToDisk(false);
-        //    // Reload content
-        //    requestHandler.ClearProcessedRequests();
-        //    content.clearContentCache();
-        //    BusinessLogic.Log.Add(BusinessLogic.LogTypes.Debug, BusinessLogic.User.GetUser(0), -1, "Republishing done");
-        //    content.isInitializing = false;
-        //}
-        //        private static void buildNodes(ref XmlDocument Xd, ref XmlNode CurrentElement, int ParentId)
-        //        {
-        //            string sql =
-        //                @"select umbracoNode.id, umbracoNode.sortOrder, cmsContentXml.xml from umbracoNode 
-        //            inner join cmsContentXml on cmsContentXml.nodeId = umbracoNode.id and umbracoNode.nodeObjectType = 'C66BA18E-EAF3-4CFF-8A22-41B16D66A972'
-        //            and umbracoNode.parentId = @parentId 
-        //            order by umbracoNode.sortOrder";
-        //            IRecordsReader dr =
-        //                SqlHelper.ExecuteReader(sql, SqlHelper.CreateParameter("@parentId", ParentId));
-        //            while(dr.Read())
-        //            {
-        //                int currentId = int.Parse(dr["id"].ToString());
-        //                XmlNode n = xmlHelper.ImportXmlNodeFromText(dr["xml"].ToString(), ref Xd);
-        //                CurrentElement.AppendChild(n);
-        //                buildNodes(ref Xd, ref n, currentId);
-        //            }
-        //            dr.Close();
-        //        }
         /// <summary>
         /// Refreshes the runtime xml index. 
         /// Note: This *doesn't* mark any non-published document objects as published
@@ -357,7 +234,7 @@ namespace umbraco
         [Obsolete("Please use: content.Instance.RefreshContentFromDatabaseAsync")]
         public static void RePublishNodesDotNet(int nodeID, bool SaveToDisk)
         {
-            content.Instance.RefreshContentFromDatabaseAsync();
+            DistributedCache.Instance.RefreshAllPageCache();
         }
 
         #endregion
@@ -450,9 +327,7 @@ namespace umbraco
         /// <returns>Returns a string with the data from the given element of a node</returns>
         public static string GetItem(int nodeID, String alias)
         {
-	        var doc = PublishedContentStoreResolver.Current.PublishedContentStore.GetDocumentById(
-		        Umbraco.Web.UmbracoContext.Current,
-		        nodeID);
+	        var doc = Umbraco.Web.UmbracoContext.Current.ContentCache.GetById(nodeID);
 
 			if (doc == null)
                     return string.Empty;
@@ -588,13 +463,11 @@ namespace umbraco
             {
                 if (UmbracoSettings.UmbracoLibraryCacheDuration > 0)
                 {
-                    XPathNodeIterator retVal = Cache.GetCacheItem<XPathNodeIterator>(String.Format(
-                        "UL_{0}_{1}_{2}", GETMEDIA_CACHE_KEY, MediaId, Deep), libraryCacheLock,
+                    XPathNodeIterator retVal = ApplicationContext.Current.ApplicationCache.GetCacheItem(
+                        string.Format(
+                            "{0}_{1}_{2}", CacheKeys.MediaCacheKey, MediaId, Deep),
                         TimeSpan.FromSeconds(UmbracoSettings.UmbracoLibraryCacheDuration),
-                        delegate
-                        {
-                            return getMediaDo(MediaId, Deep);
-                        });
+                        () => getMediaDo(MediaId, Deep));
 
                     if (retVal != null)
                         return retVal;
@@ -641,13 +514,11 @@ namespace umbraco
             {
                 if (UmbracoSettings.UmbracoLibraryCacheDuration > 0)
                 {
-                    XmlDocument retVal = Cache.GetCacheItem<XmlDocument>(String.Format(
-                        "UL_{0}_{1}", GETMEMBER_CACHE_KEY, MemberId), libraryCacheLock,
+                    var retVal = ApplicationContext.Current.ApplicationCache.GetCacheItem(
+                        string.Format(
+                            "{0}_{1}", CacheKeys.MemberLibraryCacheKey, MemberId),
                         TimeSpan.FromSeconds(UmbracoSettings.UmbracoLibraryCacheDuration),
-                        delegate
-                        {
-                            return getMemberDo(MemberId);
-                        });
+                        () => getMemberDo(MemberId));
 
                     if (retVal != null)
                         return retVal.CreateNavigator().Select("/");
@@ -1459,25 +1330,6 @@ namespace umbraco
             }
 
         /// <summary>
-        /// Returns the ID of the current language.
-        /// </summary>
-        /// <returns>The ID of the current language, or 0 if it could not be determined.</returns>
-        private static int GetCurrentLanguageId()
-        {
-            int languageId = 0;
-
-            string pageId = HttpContext.Current.Items["pageID"] as string;
-            if (pageId != null)
-            {
-                Domain[] domains = GetCurrentDomains(int.Parse(pageId));
-                if (domains != null && domains.Length >= 0)
-                    languageId = domains[0].Language.id;
-            }
-
-            return languageId;
-        }
-
-        /// <summary>
         /// Gets the current page.
         /// </summary>
         /// <returns>An XpathNodeIterator containing the current page as Xml.</returns>
@@ -1485,9 +1337,9 @@ namespace umbraco
         {
             try
             {
-                XPathNavigator xp = UmbracoContext.Current.GetXml().CreateNavigator();
-                xp.MoveToId(HttpContext.Current.Items["pageID"].ToString());
-                return xp.Select(".");
+                var nav = Umbraco.Web.UmbracoContext.Current.ContentCache.GetXPathNavigator();
+                nav.MoveToId(HttpContext.Current.Items["pageID"].ToString());
+                return nav.Select(".");
             }
             catch
             {
@@ -1711,7 +1563,7 @@ namespace umbraco
             }
             catch (Exception ee)
             {
-                Log.Add(LogTypes.Error, -1, string.Format("umbraco.library.SendMail: Error sending mail. Exception: {0}", ee));
+                LogHelper.Error<library>("umbraco.library.SendMail: Error sending mail.", ee);
             }
         }
 
@@ -1902,49 +1754,28 @@ namespace umbraco
             return new CMSNode(NodeId).Relations;
         }
 
-
-
+        [Obsolete("Use DistributedCache.Instance.RemoveMediaCache instead")]
         public static void ClearLibraryCacheForMedia(int mediaId)
         {
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.Refresh(
-                    new Guid("B29286DD-2D40-4DDB-B325-681226589FEC"),
-                    mediaId);
-            else
-                ClearLibraryCacheForMediaDo(mediaId);
+            DistributedCache.Instance.RemoveMediaCache(mediaId);      
         }
 
+        [Obsolete("Use DistributedCache.Instance.RemoveMediaCache instead")]
         public static void ClearLibraryCacheForMediaDo(int mediaId)
         {
-            Media m = new Media(mediaId);
-            if (m.nodeObjectType == Media._objectType)
-            {
-                foreach (string id in m.Path.Split(','))
-                {
-                    Cache.ClearCacheByKeySearch(String.Format("UL_{0}_{1}_True", GETMEDIA_CACHE_KEY, id));
-
-                    // Also clear calls that only query this specific item!
-                    if (id == m.Id.ToString())
-                        Cache.ClearCacheByKeySearch(String.Format("UL_{0}_{1}", GETMEDIA_CACHE_KEY, id));
-
-                }
-            }
+            DistributedCache.Instance.RemoveMediaCache(mediaId);
         }
 
+        [Obsolete("Use DistributedCache.Instance.RefreshMemberCache instead")]
         public static void ClearLibraryCacheForMember(int mediaId)
         {
-            if (UmbracoSettings.UseDistributedCalls)
-                dispatcher.Refresh(
-                    new Guid("E285DF34-ACDC-4226-AE32-C0CB5CF388DA"),
-                    mediaId);
-            else
-                ClearLibraryCacheForMemberDo(mediaId);
+            DistributedCache.Instance.RefreshMemberCache(mediaId);
         }
 
-
+        [Obsolete("Use DistributedCache.Instance.RefreshMemberCache instead")]
         public static void ClearLibraryCacheForMemberDo(int memberId)
         {
-            Cache.ClearCacheByKeySearch(String.Format("UL_{0}_{1}", GETMEMBER_CACHE_KEY, memberId));
+            DistributedCache.Instance.RefreshMemberCache(memberId);
         }
 
         /// <summary>

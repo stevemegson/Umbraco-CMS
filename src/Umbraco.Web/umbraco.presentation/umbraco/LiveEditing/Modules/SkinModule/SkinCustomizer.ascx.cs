@@ -4,6 +4,7 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using Umbraco.Core.Logging;
 using umbraco.cms.businesslogic.skinning;
 using System.Xml;
 using System.Text;
@@ -14,6 +15,7 @@ using umbraco.BusinessLogic;
 using umbraco.NodeFactory;
 using umbraco.cms.businesslogic.packager;
 using System.IO;
+using Umbraco.Core;
 
 namespace umbraco.presentation.LiveEditing.Modules.SkinModule
 {
@@ -90,6 +92,7 @@ namespace umbraco.presentation.LiveEditing.Modules.SkinModule
                 sw.Close();
             }
 
+            //NOTE: This seems excessive to have to re-load all content from the database here!?
             library.RefreshContent();
         }
 
@@ -184,7 +187,7 @@ namespace umbraco.presentation.LiveEditing.Modules.SkinModule
                 }
                 catch (Exception exception)
                 {
-                    Log.Add(LogTypes.Debug, -1, exception.ToString());
+                    LogHelper.Error<SkinCustomizer>("An error occurred", exception);
                 }
             }
             else
@@ -225,7 +228,7 @@ namespace umbraco.presentation.LiveEditing.Modules.SkinModule
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            if (User.GetCurrent().GetApplications().Find(t => t.alias.ToLower() == "settings") == null)
+            if (User.GetCurrent().GetApplications().Find(t => string.Equals(t.alias, Constants.Applications.Settings, StringComparison.OrdinalIgnoreCase)) == null)
             {
                 throw new Exception("The current user can't edit skins as the user doesn't have access to the Settings section!");
             }
@@ -315,6 +318,7 @@ namespace umbraco.presentation.LiveEditing.Modules.SkinModule
                     installer2.InstallFiles(packageId, tempDir);
                     installer2.InstallBusinessLogic(packageId, tempDir);
                     installer2.InstallCleanUp(packageId, tempDir);
+                    //NOTE: This seems excessive to have to re-load all content from the database here!?
                     library.RefreshContent();
                     Skinning.ActivateAsCurrentSkin(Skin.CreateFromName(((Button)sender).CommandName));
                     this.Page.Response.Redirect(library.NiceUrl(int.Parse(UmbracoContext.Current.PageId.ToString())) + "?umbSkinning=true");

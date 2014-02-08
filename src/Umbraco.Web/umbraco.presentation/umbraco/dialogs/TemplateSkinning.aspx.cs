@@ -4,6 +4,7 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.skinning;
 using umbraco.cms.businesslogic.template;
@@ -80,7 +81,7 @@ namespace umbraco.presentation.umbraco.dialogs
                     }
                     catch (Exception ex)
                     {
-                        BusinessLogic.Log.Add(BusinessLogic.LogTypes.Debug, -1, ex.ToString());
+						LogHelper.Error<TemplateSkinning>("An error occurred", ex);
 
                         //ShowConnectionError();
                     }
@@ -127,6 +128,7 @@ namespace umbraco.presentation.umbraco.dialogs
                     p.InstallBusinessLogic(pId, tempFile);
                     p.InstallCleanUp(pId, tempFile);
 
+                    //NOTE: This seems excessive to have to re-load all content from the database here!?
                     library.RefreshContent();
 
                     if (Skinning.GetAllSkins().Count > 0)

@@ -60,23 +60,23 @@ namespace Umbraco.Web.Macros
             get { return EngineName; }
         }
 
-        //NOTE: We do not return any supported extensions because we don't want the MacroEngineFactory to return this
-        // macro engine when searching for engines via extension. Those types of engines are reserved for files that are
-        // stored in the ~/macroScripts folder and each engine must support unique extensions. This is a total Hack until 
-        // we rewrite how macro engines work.
-        public IEnumerable<string> SupportedExtensions
-        {
-            get { return Enumerable.Empty<string>(); }
-        }
+		//NOTE: We do not return any supported extensions because we don't want the MacroEngineFactory to return this
+		// macro engine when searching for engines via extension. Those types of engines are reserved for files that are
+		// stored in the ~/macroScripts folder and each engine must support unique extensions. This is a total Hack until 
+		// we rewrite how macro engines work.
+		public IEnumerable<string> SupportedExtensions
+		{
+			get { return Enumerable.Empty<string>(); }		
+		}
 
-        //NOTE: We do not return any supported extensions because we don't want the MacroEngineFactory to return this
-        // macro engine when searching for engines via extension. Those types of engines are reserved for files that are
-        // stored in the ~/macroScripts folder and each engine must support unique extensions. This is a total Hack until 
-        // we rewrite how macro engines work.
-        public IEnumerable<string> SupportedUIExtensions
-        {
-            get { return Enumerable.Empty<string>(); }
-        }
+		//NOTE: We do not return any supported extensions because we don't want the MacroEngineFactory to return this
+		// macro engine when searching for engines via extension. Those types of engines are reserved for files that are
+		// stored in the ~/macroScripts folder and each engine must support unique extensions. This is a total Hack until 
+		// we rewrite how macro engines work.
+		public IEnumerable<string> SupportedUIExtensions
+		{
+			get { return Enumerable.Empty<string>(); }
+		}
         public Dictionary<string, IMacroGuiRendering> SupportedProperties
         {
             get { throw new NotSupportedException(); }
@@ -102,8 +102,8 @@ namespace Umbraco.Web.Macros
         {
             if (macro == null) throw new ArgumentNullException("macro");
             if (currentPage == null) throw new ArgumentNullException("currentPage");
-            if (macro.ScriptName.IsNullOrWhiteSpace()) throw new ArgumentException("The ScriptName property of the macro object cannot be null or empty");
-
+			if (macro.ScriptName.IsNullOrWhiteSpace()) throw new ArgumentException("The ScriptName property of the macro object cannot be null or empty");
+		
             if (!macro.ScriptName.StartsWith(SystemDirectories.MvcViews + "/MacroPartials/")
                 && (!Regex.IsMatch(macro.ScriptName, "~/App_Plugins/.+?/Views/MacroPartials", RegexOptions.Compiled)))
             {
@@ -117,32 +117,32 @@ namespace Umbraco.Web.Macros
             routeVals.Values.Add("action", "Index");
             routeVals.DataTokens.Add("umbraco-context", umbCtx); //required for UmbracoViewPage
 
-            //lets render this controller as a child action if we are currently executing using MVC 
-            //(otherwise don't do this since we're using webforms)
-            var mvcHandler = http.CurrentHandler as MvcHandler;
-            var viewContext = new ViewContext { ViewData = new ViewDataDictionary() }; ;
-            if (mvcHandler != null)
-            {
-                //try and extract the current view context from the route values, this would be set in the UmbracoViewPage.
-                if (mvcHandler.RequestContext.RouteData.DataTokens.ContainsKey(Constants.DataTokenCurrentViewContext))
-                {
-                    viewContext = (ViewContext)mvcHandler.RequestContext.RouteData.DataTokens[Constants.DataTokenCurrentViewContext];
-                }
-                routeVals.DataTokens.Add("ParentActionViewContext", viewContext);
-            }
+			//lets render this controller as a child action if we are currently executing using MVC 
+			//(otherwise don't do this since we're using webforms)
+			var mvcHandler = http.CurrentHandler as MvcHandler;
+			var viewContext = new ViewContext {ViewData = new ViewDataDictionary()};;
+			if (mvcHandler != null)
+			{
+				//try and extract the current view context from the route values, this would be set in the UmbracoViewPage.
+				if (mvcHandler.RequestContext.RouteData.DataTokens.ContainsKey(Umbraco.Web.Mvc.Constants.DataTokenCurrentViewContext))
+				{
+					viewContext = (ViewContext) mvcHandler.RequestContext.RouteData.DataTokens[Umbraco.Web.Mvc.Constants.DataTokenCurrentViewContext];
+				}
+				routeVals.DataTokens.Add("ParentActionViewContext", viewContext);
+			}
 
             var request = new RequestContext(http, routeVals);
             string output;
             using (var controller = new PartialViewMacroController(umbCtx, macro, currentPage))
             {
-                //bubble up the model state from the main view context to our custom controller.
-                //when merging we'll create a new dictionary, otherwise you might run into an enumeration error
-                // caused from ModelStateDictionary
-                controller.ModelState.Merge(new ModelStateDictionary(viewContext.ViewData.ModelState));
-                controller.ControllerContext = new ControllerContext(request, controller);
-                //call the action to render
+				//bubble up the model state from the main view context to our custom controller.
+				//when merging we'll create a new dictionary, otherwise you might run into an enumeration error
+				// caused from ModelStateDictionary
+				controller.ModelState.Merge(new ModelStateDictionary(viewContext.ViewData.ModelState));
+				controller.ControllerContext = new ControllerContext(request, controller);
+				//call the action to render
                 var result = controller.Index();
-                output = controller.RenderViewResultAsString(result);
+				output = controller.RenderViewResultAsString(result);
             }
 
             return output;

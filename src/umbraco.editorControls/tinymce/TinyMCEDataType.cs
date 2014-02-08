@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Umbraco.Core;
 
 namespace umbraco.editorControls.tinymce
 {
@@ -31,12 +32,12 @@ namespace umbraco.editorControls.tinymce
 		}
 		public override Guid Id
 		{
-			get { return new Guid("{83722133-F80C-4273-BDB6-1BEFAA04A612}"); }
+			get { return new Guid(Constants.PropertyEditors.TinyMCE); }
 		}
 
 		public override string DataTypeName
 		{
-			get { return "TinyMCE wysiwyg (deprecated, upgrade to tinymce v3!)"; }
+			get { return "TinyMCE wysiwyg (Obsolete, upgrade to tinymce v3!)"; }
 		}
 
 		public override umbraco.interfaces.IDataPrevalue PrevalueEditor

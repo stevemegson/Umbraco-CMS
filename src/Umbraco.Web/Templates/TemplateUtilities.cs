@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using Umbraco.Core;
 using Umbraco.Core.IO;
 using Umbraco.Core.Logging;
-using umbraco;
 using UmbracoSettings = Umbraco.Core.Configuration.UmbracoSettings;
 
 namespace Umbraco.Web.Templates
@@ -29,7 +28,7 @@ namespace Umbraco.Web.Templates
 				return text;
 			}
 
-			var niceUrlsProvider = UmbracoContext.Current.NiceUrlProvider;
+			var urlProvider = UmbracoContext.Current.UrlProvider;
 
 			// Parse internal links
 			MatchCollection tags = Regex.Matches(text, @"href=""[/]?(?:\{|\%7B)localLink:([0-9]+)(?:\}|\%7D)", RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
@@ -37,7 +36,7 @@ namespace Umbraco.Web.Templates
 				if (tag.Groups.Count > 0)
 				{
 					string id = tag.Groups[1].Value; //.Remove(tag.Groups[1].Value.Length - 1, 1);
-					string newLink = niceUrlsProvider.GetNiceUrl(int.Parse(id));
+					string newLink = urlProvider.GetUrl(int.Parse(id));
 					text = text.Replace(tag.Value.ToString(), "href=\"" + newLink);
 				}
 			return text;

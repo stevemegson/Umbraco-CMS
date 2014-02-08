@@ -16,7 +16,7 @@ namespace Umbraco.Core.Configuration
 	// we have this two tasks logged:
 	// http://issues.umbraco.org/issue/U4-58
 	// http://issues.umbraco.org/issue/U4-115	
-	
+
 	//TODO:  Replace checking for if the app settings exist and returning an empty string, instead return the defaults!
 
     /// <summary>
@@ -26,10 +26,8 @@ namespace Umbraco.Core.Configuration
     {
 
         #region Private static fields
-        
-		// CURRENT UMBRACO VERSION ID
-    	private const string CurrentUmbracoVersion = "4.11.10";
 
+        private static Version _version;
         private static readonly object Locker = new object();
         //make this volatile so that we can ensure thread safety with a double check lock
     	private static volatile string _reservedUrlsCache;
@@ -44,13 +42,22 @@ namespace Umbraco.Core.Configuration
         #endregion
 
         /// <summary>
-        /// used for unit tests
+        /// Used in unit testing to reset all config items that were set with property setters (i.e. did not come from config)
         /// </summary>
-        internal static void ResetCache()
+        private static void ResetInternal()
         {
             _reservedUrlsCache = null;
             _reservedPaths = null;
             _reservedUrls = null;
+        }
+
+    	/// <summary>
+        /// Resets settings that were set programmatically, to their initial values.
+        /// </summary>
+        /// <remarks>To be used in unit tests.</remarks>
+        internal static void Reset()
+        {
+            ResetInternal();
         }
 
     	/// <summary>
@@ -111,10 +118,10 @@ namespace Umbraco.Core.Configuration
         public static string ContentXmlFile
         {
             get
-            {                
+            {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoContentXML")
 					? ConfigurationManager.AppSettings["umbracoContentXML"]
-					: string.Empty;	                    
+                    : string.Empty;
             }
         }
 
@@ -128,7 +135,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoStorageDirectory")
 					? ConfigurationManager.AppSettings["umbracoStorageDirectory"]
-					: string.Empty;	                    
+                    : string.Empty;
             }
         }
 
@@ -142,7 +149,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoPath")
 					? IOHelper.ResolveUrl(ConfigurationManager.AppSettings["umbracoPath"])
-					: string.Empty;	                
+                    : string.Empty;
             }
         }
 
@@ -162,8 +169,8 @@ namespace Umbraco.Core.Configuration
 		/// </remarks>
     	internal static string UmbracoMvcArea
     	{
-    		get 
-			{ 
+            get
+            {
 				if (Path.IsNullOrWhiteSpace())
 				{
 					throw new InvalidOperationException("Cannot create an MVC Area path without the umbracoPath specified");
@@ -190,22 +197,43 @@ namespace Umbraco.Core.Configuration
         /// Gets the database connection string
         /// </summary>
         /// <value>The database connection string.</value>
+        [Obsolete("Use System.ConfigurationManager.ConnectionStrings to get the connection with the key Umbraco.Core.Configuration.GlobalSettings.UmbracoConnectionName instead")]
         public static string DbDsn
         {
             get
             {
-				return ConfigurationManager.AppSettings.ContainsKey("umbracoDbDSN")
-					? ConfigurationManager.AppSettings["umbracoDbDSN"]
-					: string.Empty;	          				
+                var settings = ConfigurationManager.ConnectionStrings[UmbracoConnectionName];
+                var connectionString = string.Empty;
+
+                if (settings != null)
+                {
+                    connectionString = settings.ConnectionString;
+
+                    // The SqlCe connectionString is formatted slightly differently, so we need to updat it
+                    if (settings.ProviderName.Contains("SqlServerCe"))
+                        connectionString = string.Format("datalayer=SQLCE4Umbraco.SqlCEHelper,SQLCE4Umbraco;{0}", connectionString);
+            }
+
+                return connectionString;
             }
             set
             {
                 if (DbDsn != value)
                 {
-                    SaveSetting("umbracoDbDSN", value);
+                    if (value.ToLower().Contains("SQLCE4Umbraco.SqlCEHelper".ToLower()))
+                    {
+                        ApplicationContext.Current.DatabaseContext.ConfigureEmbeddedDatabaseConnection();
                 }
+                    else
+                    {
+                        ApplicationContext.Current.DatabaseContext.ConfigureDatabaseConnection(value);
+                    } 
             }
         }
+        }
+
+        public const string UmbracoConnectionName = "umbracoDbDSN";
+        public const string UmbracoMigrationName = "Umbraco";
 
         /// <summary>
         /// Gets or sets the configuration status. This will return the version number of the currently installed umbraco instance.
@@ -217,13 +245,14 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoConfigurationStatus")
 					? ConfigurationManager.AppSettings["umbracoConfigurationStatus"]
-					: string.Empty;	        
+                    : string.Empty;
             }
             set
             {
                 SaveSetting("umbracoConfigurationStatus", value);
             }
         }
+
         
         /// <summary>
         /// Saves a setting into the configuration file.
@@ -232,30 +261,55 @@ namespace Umbraco.Core.Configuration
         /// <param name="value">Value of the setting to be saved.</param>
         internal static void SaveSetting(string key, string value)
         {
-            var webConfig = new WebConfigurationFileMap();
-            var vDirs = webConfig.VirtualDirectories;
-            var physicalPathToRoot = FullpathToRoot;
-            foreach (VirtualDirectoryMapping v in webConfig.VirtualDirectories)
-            {
-                if (v.IsAppRoot)
-                {
-                    physicalPathToRoot = v.PhysicalDirectory;
-                }
-            }
+            var fileName = GetFullWebConfigFileName();
+            var xml = XDocument.Load(fileName, LoadOptions.PreserveWhitespace);
 
-            string fileName = System.IO.Path.Combine(physicalPathToRoot, "web.config");
-            var xml = XDocument.Load(fileName);
             var appSettings = xml.Root.Descendants("appSettings").Single();
 
             // Update appSetting if it exists, or else create a new appSetting for the given key and value
-            var setting = appSettings.Descendants("add").Where(s => s.Attribute("key").Value == key).FirstOrDefault();
+            var setting = appSettings.Descendants("add").FirstOrDefault(s => s.Attribute("key").Value == key);
             if (setting == null)
                 appSettings.Add(new XElement("add", new XAttribute("key", key), new XAttribute("value", value)));
             else
                 setting.Attribute("value").Value = value;
 
-            xml.Save(fileName);
+            xml.Save(fileName, SaveOptions.DisableFormatting);
             ConfigurationManager.RefreshSection("appSettings");
+        }
+
+        /// <summary>
+        /// Removes a setting from the configuration file.
+        /// </summary>
+        /// <param name="key">Key of the setting to be removed.</param>
+        internal static void RemoveSetting(string key)
+        {
+            var fileName = GetFullWebConfigFileName();
+            var xml = XDocument.Load(fileName, LoadOptions.PreserveWhitespace);
+
+            var appSettings = xml.Root.Descendants("appSettings").Single();
+            var setting = appSettings.Descendants("add").FirstOrDefault(s => s.Attribute("key").Value == key);
+
+            if (setting != null)
+            {
+                setting.Remove();
+                xml.Save(fileName, SaveOptions.DisableFormatting);
+                ConfigurationManager.RefreshSection("appSettings");
+            }
+        }
+
+        private static string GetFullWebConfigFileName()
+        {
+            var webConfig = new WebConfigurationFileMap();
+            var vDir = FullpathToRoot;
+
+            foreach (VirtualDirectoryMapping v in webConfig.VirtualDirectories)
+            {
+                if (v.IsAppRoot)
+                    vDir = v.PhysicalDirectory;
+            }
+
+            var fileName = System.IO.Path.Combine(vDir, "web.config");
+            return fileName;
         }
 
         /// <summary>
@@ -297,14 +351,14 @@ namespace Umbraco.Core.Configuration
                 try
                 {
                     string configStatus = ConfigurationStatus;
-                    string currentVersion = CurrentVersion;
+                    string currentVersion = UmbracoVersion.Current.ToString(3);
 
 
                     if (currentVersion != configStatus)
                     {
-                    	LogHelper.Debug<GlobalSettings>("CurrentVersion different from configStatus: '" + currentVersion + "','" + configStatus + "'");                    	
+                        LogHelper.Debug<GlobalSettings>("CurrentVersion different from configStatus: '" + currentVersion + "','" + configStatus + "'");
                     }
-                        
+
 
                     return (configStatus == currentVersion);
                 }
@@ -371,7 +425,7 @@ namespace Umbraco.Core.Configuration
 				}
             }
         }
-        
+
         /// <summary>
         /// Returns a string value to determine if umbraco should disbable xslt extensions
         /// </summary>
@@ -382,7 +436,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoDisableXsltExtensions")
 					? ConfigurationManager.AppSettings["umbracoDisableXsltExtensions"]
-					: string.Empty;	   
+                    : string.Empty;
             }
         }
 
@@ -396,7 +450,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoEditXhtmlMode")
 					? ConfigurationManager.AppSettings["umbracoEditXhtmlMode"]
-					: string.Empty;	   
+                    : string.Empty;
             }
         }
 
@@ -410,7 +464,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoDefaultUILanguage")
 					? ConfigurationManager.AppSettings["umbracoDefaultUILanguage"]
-					: string.Empty;	   
+                    : string.Empty;
             }
         }
 
@@ -424,7 +478,7 @@ namespace Umbraco.Core.Configuration
             {
 				return ConfigurationManager.AppSettings.ContainsKey("umbracoProfileUrl")
 					? ConfigurationManager.AppSettings["umbracoProfileUrl"]
-					: string.Empty;	   
+                    : string.Empty;
             }
         }
 
@@ -453,12 +507,12 @@ namespace Umbraco.Core.Configuration
         /// Gets the current version.
         /// </summary>
         /// <value>The current version.</value>
+        [Obsolete("Use Umbraco.Core.Configuration.UmbracoVersion.Current instead", false)]
         public static string CurrentVersion
         {
             get
             {
-                // change this to be hardcoded in the binary
-                return CurrentUmbracoVersion;
+                return UmbracoVersion.Current.ToString(3);
             }
         }
 
@@ -466,12 +520,12 @@ namespace Umbraco.Core.Configuration
         /// Gets the major version number.
         /// </summary>
         /// <value>The major version number.</value>
+        [Obsolete("Use Umbraco.Core.Configuration.UmbracoVersion.Current instead", false)]
         public static int VersionMajor
         {
             get
             {
-                string[] version = CurrentVersion.Split(".".ToCharArray());
-                return int.Parse(version[0]);
+                return UmbracoVersion.Current.Major;
             }
         }
 
@@ -479,12 +533,12 @@ namespace Umbraco.Core.Configuration
         /// Gets the minor version number.
         /// </summary>
         /// <value>The minor version number.</value>
+        [Obsolete("Use Umbraco.Core.Configuration.UmbracoVersion.Current instead", false)]
         public static int VersionMinor
         {
             get
             {
-                string[] version = CurrentVersion.Split(".".ToCharArray());
-                return int.Parse(version[1]);
+                return UmbracoVersion.Current.Minor;
             }
         }
 
@@ -492,12 +546,12 @@ namespace Umbraco.Core.Configuration
         /// Gets the patch version number.
         /// </summary>
         /// <value>The patch version number.</value>
+        [Obsolete("Use Umbraco.Core.Configuration.UmbracoVersion.Current instead", false)]
         public static int VersionPatch
         {
             get
             {
-                string[] version = CurrentVersion.Split(".".ToCharArray());
-                return int.Parse(version[2]);
+                return UmbracoVersion.Current.Build;
             }
         }
 
@@ -505,15 +559,12 @@ namespace Umbraco.Core.Configuration
         /// Gets the version comment (like beta or RC).
         /// </summary>
         /// <value>The version comment.</value>
+        [Obsolete("Use Umbraco.Core.Configuration.UmbracoVersion.Current instead", false)]
         public static string VersionComment
         {
             get
             {
-                string[] version = CurrentVersion.Split(".".ToCharArray());
-                if (version.Length > 3)
-                    return version[3];
-                else
-                    return "";
+                return Umbraco.Core.Configuration.UmbracoVersion.CurrentComment;
             }
         }
 
@@ -529,6 +580,16 @@ namespace Umbraco.Core.Configuration
         }
 
         public static bool RequestIsLiveEditRedirector(HttpContext context)
+        {
+            return context.Request.Path.ToLower().IndexOf(SystemDirectories.Umbraco.ToLower() + "/liveediting.aspx") > -1;
+        }
+
+        public static bool RequestIsInUmbracoApplication(HttpContextBase context)
+        {
+            return context.Request.Path.ToLower().IndexOf(IOHelper.ResolveUrl(SystemDirectories.Umbraco).ToLower()) > -1;
+        }
+
+        public static bool RequestIsLiveEditRedirector(HttpContextBase context)
         {
             return context.Request.Path.ToLower().IndexOf(SystemDirectories.Umbraco.ToLower() + "/liveediting.aspx") > -1;
         }
@@ -623,7 +684,7 @@ namespace Umbraco.Core.Configuration
         /// 	<c>true</c> if the specified URL is reserved; otherwise, <c>false</c>.
         /// </returns>
         public static bool IsReservedPathOrUrl(string url)
-        {			
+        {
             if (_reservedUrlsCache == null)
             {
                 lock (Locker)
@@ -771,5 +832,5 @@ namespace Umbraco.Core.Configuration
 
 
 
-    
+
 }

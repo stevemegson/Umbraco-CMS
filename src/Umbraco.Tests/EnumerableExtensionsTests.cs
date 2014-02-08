@@ -7,16 +7,34 @@ using umbraco.BusinessLogic;
 
 namespace Umbraco.Tests
 {
-	[TestFixture]
+    [TestFixture]
     public class EnumerableExtensionsTests
     {
 
-	    [Test]
-	    public void Flatten_List()
-	    {
-	        var hierarchy = new TestItem()
-	            {
-	                Children = new List<TestItem>()
+        [Test]
+        public void Flatten_List_2()
+        {
+            var hierarchy = new TestItem()
+                {
+                    Children = new List<TestItem>()
+                        {
+                            new TestItem(),
+                            new TestItem(),
+                            new TestItem()
+                        }
+                };
+
+            var flattened = hierarchy.Children.FlattenList(x => x.Children);
+
+            Assert.AreEqual(3, flattened.Count());
+        }
+
+        [Test]
+        public void Flatten_List()
+        {
+            var hierarchy = new TestItem()
+                {
+                    Children = new List<TestItem>()
 	                    {
 	                        new TestItem()
 	                            {
@@ -65,12 +83,12 @@ namespace Umbraco.Tests
 	                                    }
 	                            },
 	                    }
-	            };
+                };
 
-	        var flattened = hierarchy.Children.FlattenList(x => x.Children);
+            var flattened = hierarchy.Children.FlattenList(x => x.Children);
 
             Assert.AreEqual(10, flattened.Count());
-	    }
+        }
 
         private class TestItem
         {
@@ -78,10 +96,10 @@ namespace Umbraco.Tests
             {
                 Children = Enumerable.Empty<TestItem>();
             }
-            public IEnumerable<TestItem> Children { get; set; } 
+            public IEnumerable<TestItem> Children { get; set; }
         }
 
-        [Test]
+	    [Test]
         public void InGroupsOf_ReturnsAllElements()
         {
             var integers = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };

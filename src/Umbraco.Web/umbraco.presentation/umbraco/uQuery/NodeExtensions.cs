@@ -22,7 +22,7 @@ namespace umbraco
         /// <returns>Returns an ancestor node by path level.</returns>
         public static Node GetAncestorByPathLevel(this Node node, int level)
         {
-            return (Node) GetAncestorByPathLevel((INode) node, level);
+            return (Node)GetAncestorByPathLevel((INode)node, level);
         }
 
         /// <summary>
@@ -206,7 +206,7 @@ namespace umbraco
         /// <returns>Node as IEnumerable</returns>
         public static IEnumerable<Node> GetDescendantNodes(this Node node)
         {
-            return GetDescendantNodes((INode) node).Cast<Node>();
+            return GetDescendantNodes((INode)node).Cast<Node>();
         }
 
         /// <summary>
@@ -374,7 +374,7 @@ namespace umbraco
         /// <returns>null or Node</returns>
         public static Node GetChildNodeByName(this Node parentNode, string nodeName)
         {
-            return (Node) GetChildNodeByName((INode)parentNode, nodeName);
+            return (Node)GetChildNodeByName((INode)parentNode, nodeName);
         }
 
         /// <summary>
@@ -479,16 +479,16 @@ namespace umbraco
                 }
 
 //                // umbraco.MacroEngines DynamicXml
-//                else if (typeof(T) == typeof(DynamicXml))
-//                {
-//                    try
-//                    {
-//                        return (T)((object)new DynamicXml(node.GetPropertyAsString(propertyAlias)));
-//                    }
-//                    catch
-//                    {
-//                    }
-//                }
+                //                else if (typeof(T) == typeof(DynamicXml))
+                //                {
+                //                    try
+                //                    {
+                //                        return (T)((object)new DynamicXml(node.GetPropertyAsString(propertyAlias)));
+                //                    }
+                //                    catch
+                //                    {
+                //                    }
+                //                }
                 else
                 {
                     try
@@ -603,7 +603,7 @@ namespace umbraco
         /// <returns>Returns an <c>XmlNode</c> for the selected Node</returns>
         public static XmlNode ToXml(this Node node)
         {
-            return ToXml((INode) node);
+            return ToXml((INode)node);
         }
 
         /// <summary>
@@ -678,7 +678,7 @@ namespace umbraco
         /// <returns>the same node object on which this is an extension method</returns>
         public static Node SetProperty(this Node node, string propertyAlias, object value)
         {
-            return (Node) SetProperty((INode)node, propertyAlias, value);
+            return (Node)SetProperty((INode)node, propertyAlias, value);
         }
 
         /// <summary>
@@ -705,7 +705,7 @@ namespace umbraco
         /// <returns>the same node object on which this is an extension method</returns>
         public static Node Publish(this Node node, bool useAdminUser)
         {
-            return (Node) Publish((INode)node, useAdminUser);
+            return (Node)Publish((INode)node, useAdminUser);
         }
 
         /// <summary>

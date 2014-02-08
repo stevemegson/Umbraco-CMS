@@ -10,6 +10,7 @@ using Umbraco.Core.IO;
 using umbraco.interfaces;
 using Umbraco.Core;
 using Content = umbraco.cms.businesslogic.Content;
+using Umbraco.Core;
 
 namespace umbraco.editorControls
 {
@@ -17,17 +18,16 @@ namespace umbraco.editorControls
     public class uploadField : HtmlInputFile, IDataEditor
     {
         private const string Thumbnailext = ".jpg";
-        private readonly cms.businesslogic.datatype.DefaultData _data;
+		private readonly cms.businesslogic.datatype.FileHandlerData _data;
         private readonly string _thumbnails;
         private string _text;
-        private CustomValidator _customValidator;
-
         private readonly MediaFileSystem _fs; 
+        private CustomValidator _customValidator;
 
         public uploadField(IData Data, string ThumbnailSizes)
         {
             _fs = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
-            _data = (cms.businesslogic.datatype.DefaultData) Data;
+            _data = (cms.businesslogic.datatype.FileHandlerData) Data; //this is always FileHandlerData
             _thumbnails = ThumbnailSizes;
         }
 
@@ -127,8 +127,8 @@ namespace umbraco.editorControls
                 _text = "";
                 _data.Value = _text;
 
-
-                foreach (var prop in "umbracoExtension,umbracoBytes,umbracoWidth,umbracoHeight".Split(','))
+                var props = new[] { Constants.Conventions.Media.Bytes, Constants.Conventions.Media.Extension, Constants.Conventions.Media.Height, Constants.Conventions.Media.Width };
+                foreach (var prop in props)
                 {
                     try
                     {
@@ -161,56 +161,38 @@ namespace umbraco.editorControls
             // we update additional properties post image upload
             if (_data.Value != DBNull.Value && string.IsNullOrEmpty(_data.Value.ToString()) == false)
             {
-                var content = Content.GetContentFromVersion(_data.Version);
+                //check the FileHandlerData to see if it already loaded in the content item and set it's properties.
+                //if not, then the properties haven't changed so skip.
+                if (_data.LoadedContentItem != null)
+                {
+                    var content = _data.LoadedContentItem;
 
-                // update extension in UI
-                try
-                {
-                    var extensionControl = FindControlRecursive<noEdit>(Page, "prop_umbracoExtension");
-                    if (extensionControl != null)
-                    {
-                        extensionControl.RefreshLabel(content.getProperty("umbracoExtension").Value.ToString());
-                    }
-                }
-                catch
-                {
-                }
-
-
-                // update file size in UI
-                try
-                {
-                    var bytesControl = FindControlRecursive<noEdit>(Page, "prop_umbracoBytes");
-                    if (bytesControl != null)
-                    {
-                        bytesControl.RefreshLabel(content.getProperty("umbracoBytes").Value.ToString());
-                    }
-                }
-                catch
-                {
+						// update extension in UI
+						UpdateLabelValue(Constants.Conventions.Media.Extension, "prop_umbracoExtension", Page, content);
+                    // update file size in UI
+						UpdateLabelValue(Constants.Conventions.Media.Bytes, "prop_umbracoBytes", Page, content);
+						UpdateLabelValue(Constants.Conventions.Media.Width, "prop_umbracoWidth", Page, content);
+						UpdateLabelValue(Constants.Conventions.Media.Height, "prop_umbracoHeight", Page, content);
                 }
 
-                try
-                {
-                    var widthControl = FindControlRecursive<noEdit>(Page, "prop_umbracoWidth");
-                    if (widthControl != null)
-                    {
-                        widthControl.RefreshLabel(content.getProperty("umbracoWidth").Value.ToString());
-                    }
-                    var heightControl = FindControlRecursive<noEdit>(Page, "prop_umbracoHeight");
-                    if (heightControl != null)
-                    {
-                        heightControl.RefreshLabel(content.getProperty("umbracoHeight").Value.ToString());
-                    }
-                }
-                catch
-                {
-                }
             }
             Text = _data.Value.ToString();
         }
 
+
         #endregion
+
+        private static void UpdateLabelValue(string propAlias, string controlId, Page controlPage, Content content)
+        {
+            var extensionControl = FindControlRecursive<noEdit>(controlPage, controlId);
+            if (extensionControl != null)
+            {
+                if (content.getProperty(propAlias) != null && content.getProperty(propAlias).Value != null)
+                {
+                    extensionControl.RefreshLabel(content.getProperty(propAlias).Value.ToString());
+                }
+            }
+        }
 
         [Obsolete("This method is now obsolete due to a change in the way that files are handled.  If you need to check if a URL for an uploaded file is safe you should implement your own as this method will be removed in a future version", false)]
         public string SafeUrl(string url)
@@ -333,8 +315,8 @@ namespace umbraco.editorControls
             {
                 var relativeFilePath = _fs.GetRelativePath(_text);
                 var ext = relativeFilePath.Substring(relativeFilePath.LastIndexOf(".") + 1, relativeFilePath.Length - relativeFilePath.LastIndexOf(".") - 1);
-                var relativeThumbFilePath = relativeFilePath.Replace("." + ext, "_thumb.jpg");
-                var hasThumb = false;
+                var relativeThumbFilePath = relativeFilePath.Replace("." + ext, "_thumb.jpg");	            
+				var hasThumb = false;
                 try
                 {
                     hasThumb = _fs.FileExists(relativeThumbFilePath);

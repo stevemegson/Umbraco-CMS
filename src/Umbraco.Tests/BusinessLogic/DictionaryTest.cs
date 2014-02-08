@@ -16,7 +16,7 @@ namespace Umbraco.Tests.BusinessLogic
     ///This is a test class for Dictionary_DictionaryItemTest and is intended
     ///to contain all Dictionary_DictionaryItemTest Unit Tests
     ///</summary>
-    [TestFixture]
+    [TestFixture, NUnit.Framework.Ignore]
     public class DictionaryTest : BaseWebTest
     {
 		public override void Initialize()
@@ -25,8 +25,7 @@ namespace Umbraco.Tests.BusinessLogic
 
 			CreateNew();
 		}
-
-        [Ignore]
+        
         [Test()]
         public void Dictionary_Get_Top_Level_Items()
         {
@@ -43,7 +42,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// Creates a new dictionary entry, adds values for all languages assigned, then deletes the 
         /// entry and ensure that all other data is gone too.
         ///</summary>
-        [Ignore]
 		[Test()]
         public void Dictionary_Create_Add_Text_And_Delete()
         {
@@ -66,7 +64,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         ///A test for IsTopMostItem
         ///</summary>
-        [Ignore]
 		[Test()]
         public void Dictionary_IsTopMostItem()
         {
@@ -88,7 +85,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         /// Test the Parent and Children properties and ensures that the relationships work both ways
         ///</summary>
-        [Ignore]
 		[Test()]
         public void Dictionary_Parent_Child_Relationship()
         {
@@ -119,7 +115,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         /// Deletes a parent with existing children and ensures they are all gone.
         /// </summary>
-        [Ignore]
         [Test()]
         public void Dictionary_Delete_Parent_With_Children()
         {
@@ -171,7 +166,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         /// Guid constructor test
         ///</summary>
-        [Ignore]
         [Test()]
         public void Dictionary_Contructor_Guid()
         {
@@ -189,7 +183,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         /// key constructor test
         /// </summary>
-        [Ignore]
         [Test()]
         public void Dictionary_Contructor_Key()
         {
@@ -207,7 +200,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         ///A test for ToXml
         ///</summary>
-        [Ignore]
         [Test()]
         public void Dictionary_ToXml()
         {
@@ -235,7 +227,6 @@ namespace Umbraco.Tests.BusinessLogic
         /// <summary>
         ///A test to change the key of an element
         ///</summary>
-        [Ignore]
         [Test()]
         public void Dictionary_Change_Key()
         {
@@ -247,6 +238,7 @@ namespace Umbraco.Tests.BusinessLogic
             var newKey = "NEWKEY" + Guid.NewGuid().ToString("N");
             
             d.key = newKey;
+            d.Save();
             Assert.AreNotEqual(oldKey, d.key);
             Assert.AreEqual(newKey, d.key);
 

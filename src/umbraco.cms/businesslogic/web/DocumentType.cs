@@ -1,22 +1,23 @@
 using System;
 using System.Collections;
-using System.Data;
 using System.Text;
 using System.Xml;
 using System.Linq;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Models;
+using Umbraco.Core.Persistence.Caching;
 using umbraco.BusinessLogic;
-using umbraco.cms.businesslogic.propertytype;
 using umbraco.DataLayer;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-
+using Umbraco.Core;
+using PropertyType = umbraco.cms.businesslogic.propertytype.PropertyType;
 
 namespace umbraco.cms.businesslogic.web
 {
     /// <summary>
     /// Summary description for DocumentType.
     /// </summary>
+    [Obsolete("Obsolete, Use Umbraco.Core.Models.ContentType", false)]
     public class DocumentType : ContentType
     {
         #region Constructors
@@ -27,15 +28,21 @@ namespace umbraco.cms.businesslogic.web
 
         public DocumentType(int id, bool noSetup) : base(id, noSetup) { }
 
+        internal DocumentType(IContentType contentType)
+            : base(contentType)
+        {
+            SetupNode(contentType);
+        }
+
         #endregion
 
         #region Constants and Static members
 
-        public static Guid _objectType = new Guid("a2cb7800-f571-4787-9638-bc48539a0efb");
+        public static Guid _objectType = new Guid(Constants.ObjectTypes.DocumentType);
 
         new internal const string m_SQLOptimizedGetAll = @"
             SELECT id, createDate, trashed, parentId, nodeObjectType, nodeUser, level, path, sortOrder, uniqueID, text,
-                masterContentType,Alias,icon,thumbnail,description,
+                allowAtRoot, isContainer, Alias,icon,thumbnail,description,
                 templateNodeId, IsDefault
             FROM umbracoNode 
             INNER JOIN cmsContentType ON umbracoNode.id = cmsContentType.nodeId
@@ -50,6 +57,7 @@ namespace umbraco.cms.businesslogic.web
         private int _defaultTemplate;
         private bool _hasChildrenInitialized = false;
         private bool _hasChildren;
+        private IContentType _contentType;
 
         #endregion
 
@@ -59,6 +67,7 @@ namespace umbraco.cms.businesslogic.web
         /// Generates the complete (simplified) XML DTD 
         /// </summary>
         /// <returns>The DTD as a string</returns>
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.GetDtd()", false)]
         public static string GenerateDtd()
         {
             StringBuilder dtd = new StringBuilder();
@@ -73,6 +82,7 @@ namespace umbraco.cms.businesslogic.web
             return dtd.ToString();
         }
 
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.GetContentTypesDtd()", false)]
         public static string GenerateXmlDocumentType()
         {
             StringBuilder dtd = new StringBuilder();
@@ -105,8 +115,7 @@ namespace umbraco.cms.businesslogic.web
                 }
                 catch (Exception exception)
                 {
-                    // Note, Log.Add quietly swallows the exception if it can't write to the database
-                    Log.Add(LogTypes.System, -1, string.Format("{0} while trying to build DTD for Xml schema; is Umbraco installed correctly and the connection string configured?", exception.Message));
+                    LogHelper.Error<DocumentType>("Exception while trying to build DTD for Xml schema; is Umbraco installed correctly and the connection string configured?", exception);
                 }
 
             }
@@ -114,15 +123,13 @@ namespace umbraco.cms.businesslogic.web
 
         }
 
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.GetContentType()", false)]
         public new static DocumentType GetByAlias(string Alias)
         {
             try
             {
-                return
-                    new DocumentType(
-                            SqlHelper.ExecuteScalar<int>(@"SELECT nodeid from cmsContentType INNER JOIN umbracoNode on cmsContentType.nodeId = umbracoNode.id WHERE nodeObjectType=@nodeObjectType AND alias=@alias",
-                                SqlHelper.CreateParameter("@nodeObjectType", DocumentType._objectType),
-                                SqlHelper.CreateParameter("@alias", Alias)));
+                var contentType = ApplicationContext.Current.Services.ContentTypeService.GetContentType(Alias);
+                return new DocumentType(contentType.Id);
             }
             catch
             {
@@ -130,15 +137,12 @@ namespace umbraco.cms.businesslogic.web
             }
         }
 
+        [Obsolete("Obsolete, Use Umbraco.Core.Models.ContentType and Umbraco.Core.Services.ContentTypeService.Save()", false)]
         public static DocumentType MakeNew(User u, string Text)
         {
-            int ParentId = -1;
-            int level = 1;
-            Guid uniqueId = Guid.NewGuid();
-            CMSNode n = MakeNew(ParentId, _objectType, u.Id, level, Text, uniqueId);
-
-            Create(n.Id, Text, "");
-            DocumentType newDt = new DocumentType(n.Id);
+            var contentType = new Umbraco.Core.Models.ContentType(-1) { Name = Text, Alias = Text, CreatorId = u.Id, Thumbnail = "folder.png", Icon = "folder.gif" };
+            ApplicationContext.Current.Services.ContentTypeService.Save(contentType, u.Id);
+            var newDt = new DocumentType(contentType);
 
             //event
             NewEventArgs e = new NewEventArgs();
@@ -156,53 +160,26 @@ namespace umbraco.cms.businesslogic.web
             }
         }
 
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.GetAllContentTypes()", false)]
         public static List<DocumentType> GetAllAsList()
         {
-
-            var documentTypes = new List<DocumentType>();
-
-            using (IRecordsReader dr =
-                SqlHelper.ExecuteReader(m_SQLOptimizedGetAll.Trim(), SqlHelper.CreateParameter("@nodeObjectType", DocumentType._objectType)))
-            {
-                while (dr.Read())
-                {
-                    //check if the document id has already been added
-                    if (documentTypes.Any(x => x.Id == dr.Get<int>("id")) == false)
-                    {
-                        //create the DocumentType object without setting up
-                        DocumentType dt = new DocumentType(dr.Get<int>("id"), true);
-                        //populate it's CMSNode properties
-                        dt.PopulateCMSNodeFromReader(dr);
-                        //populate it's ContentType properties
-                        dt.PopulateContentTypeNodeFromReader(dr);
-                        //populate from it's DocumentType properties
-                        dt.PopulateDocumentTypeNodeFromReader(dr);
-
-                        documentTypes.Add(dt);
-                    }
-                    else
-                    {
-                        //we've already created the document type with this id, so we'll add the rest of it's templates to itself
-                        var dt = documentTypes.Single(x => x.Id == dr.Get<int>("id"));
-                        dt.PopulateDocumentTypeNodeFromReader(dr);
-                    }
-                }
-            }
+            var contentTypes = ApplicationContext.Current.Services.ContentTypeService.GetAllContentTypes();
+            var documentTypes = contentTypes.Select(x => new DocumentType(x));
 
             return documentTypes.OrderBy(x => x.Text).ToList();
-
         }
 
         #endregion
 
         #region Public Properties
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.HasChildren()", false)]
         public override bool HasChildren
         {
             get
             {
-                if (!_hasChildrenInitialized)
+                if (_hasChildrenInitialized == false)
                 {
-                    HasChildren = SqlHelper.ExecuteScalar<int>("select count(NodeId) as tmp from cmsContentType where masterContentType = " + Id) > 0;
+                    HasChildren = ApplicationContext.Current.Services.ContentTypeService.HasChildren(Id);
                 }
                 return _hasChildren;
             }
@@ -213,6 +190,7 @@ namespace umbraco.cms.businesslogic.web
             }
         }
 
+        [Obsolete("Obsolete, Use SetDefaultTemplate() on Umbraco.Core.Models.ContentType", false)]
         public int DefaultTemplate
         {
             get { return _defaultTemplate; }
@@ -220,15 +198,19 @@ namespace umbraco.cms.businesslogic.web
             {
                 RemoveDefaultTemplate();
                 _defaultTemplate = value;
+
                 if (_defaultTemplate != 0)
-                    SqlHelper.ExecuteNonQuery("update cmsDocumentType set IsDefault = 1 where contentTypeNodeId = " +
-                                              Id.ToString() + " and TemplateNodeId = " + value.ToString());
+                {
+                    var template = ApplicationContext.Current.Services.FileService.GetTemplate(_defaultTemplate);
+                    _contentType.SetDefaultTemplate(template);
+                }
             }
         }
 
         /// <summary>
         /// Gets/sets the allowed templates for this document type.
         /// </summary>
+        [Obsolete("Obsolete, Use AllowedTemplates property on Umbraco.Core.Models.ContentType", false)]
         public template.Template[] allowedTemplates
         {
             get
@@ -247,12 +229,15 @@ namespace umbraco.cms.businesslogic.web
             set
             {
                 clearTemplates();
+                var templates = new List<ITemplate>();
                 foreach (template.Template t in value)
                 {
-                    SqlHelper.ExecuteNonQuery("Insert into cmsDocumentType (contentTypeNodeId, templateNodeId) values (" +
-                                              Id + "," + t.Id + ")");
+                    var template = ApplicationContext.Current.Services.FileService.GetTemplate(t.Id);
+                    templates.Add(template);
+
                     _templateIds.Add(t.Id);
                 }
+                _contentType.AllowedTemplates = templates;
             }
         }
 
@@ -301,29 +286,49 @@ namespace umbraco.cms.businesslogic.web
         /// This will return all PUBLISHED content Ids that are of this content type or any descendant types as well.
         /// </summary>
         /// <returns></returns>
+        /// <remarks>
+        /// This will also work if we have multiple child content types (if one day we support that)
+        /// </remarks>
         internal override IEnumerable<int> GetContentIdsForContentType()
         {
             var ids = new List<int>();
-            int? currentContentTypeId = this.Id;
-            while (currentContentTypeId != null)
+
+            var currentContentTypeIds = new[] { this.Id };
+            while (currentContentTypeIds.Any())
             {
-                //get all the content item ids of the current content type
-                using (var dr = SqlHelper.ExecuteReader(@"SELECT DISTINCT cmsDocument.nodeId FROM cmsDocument
+                var childContentTypeIds = new List<int>();
+
+                //loop through each content type id
+                foreach (var currentContentTypeId in currentContentTypeIds)
+                {
+                    //get all the content item ids of the current content type
+                    using (var dr = SqlHelper.ExecuteReader(@"SELECT DISTINCT cmsDocument.nodeId FROM cmsDocument
                                                         INNER JOIN cmsContent ON cmsContent.nodeId = cmsDocument.nodeId
                                                         INNER JOIN cmsContentType ON cmsContent.contentType = cmsContentType.nodeId
                                                         WHERE cmsContentType.nodeId = @contentTypeId AND cmsDocument.published = 1",
-                                                        SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId)))
-                {
-                    while (dr.Read())
+                                                            SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId)))
                     {
-                        ids.Add(dr.GetInt("nodeId"));
+                        while (dr.Read())
+                        {
+                            ids.Add(dr.GetInt("nodeId"));
+                        }
+                        dr.Close();
                     }
-                    dr.Close();
+
+                    //lookup the child content types if there are any and add the ids to the content type ids array
+                    using (var reader = SqlHelper.ExecuteReader("SELECT childContentTypeId FROM cmsContentType2ContentType WHERE parentContentTypeId=@contentTypeId",
+                                                                SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId)))
+                    {
+                        while (reader.Read())
+                        {
+                            childContentTypeIds.Add(reader.GetInt("childContentTypeId"));
+                        }
+                    }
+      
                 }
 
-                //lookup the child content type if there is one
-                currentContentTypeId = SqlHelper.ExecuteScalar<int?>("SELECT nodeId FROM cmsContentType WHERE masterContentType=@contentTypeId",
-                                                                     SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+                currentContentTypeIds = childContentTypeIds.ToArray();       
+                
             }
             return ids;
         } 
@@ -372,29 +377,45 @@ namespace umbraco.cms.businesslogic.web
         /// Clears all xml structures in the cmsContentXml table for the current content type and any of it's descendant types
         /// </summary>
         /// <remarks>
-        /// This is not thread safe
+        /// This is not thread safe.
+        /// This will also work if we have multiple child content types (if one day we support that)
         /// </remarks>
         internal override void ClearXmlStructuresForContent()
         {
-            int? currentContentTypeId = this.Id;
-            while (currentContentTypeId != null)
+            var currentContentTypeIds = new[] {this.Id};
+            while (currentContentTypeIds.Any())
             {
-                //Remove all items from the cmsContentXml table that are of this current content type
-                SqlHelper.ExecuteNonQuery(@"DELETE FROM cmsContentXml WHERE nodeId IN
+                var childContentTypeIds = new List<int>();
+
+                //loop through each content type id
+                foreach (var currentContentTypeId in currentContentTypeIds)
+                {
+                    //Remove all items from the cmsContentXml table that are of this current content type
+                    SqlHelper.ExecuteNonQuery(@"DELETE FROM cmsContentXml WHERE nodeId IN
                                         (SELECT DISTINCT cmsContent.nodeId FROM cmsContent 
                                             INNER JOIN cmsContentType ON cmsContent.contentType = cmsContentType.nodeId 
                                             WHERE cmsContentType.nodeId = @contentTypeId)",
-                                          SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+                                              SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
 
-                //lookup the child content type if there is one
-                currentContentTypeId = SqlHelper.ExecuteScalar<int?>("SELECT nodeId FROM cmsContentType WHERE masterContentType=@contentTypeId",
-                                                                     SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+                    //lookup the child content types if there are any and add the ids to the content type ids array
+                    using (var reader = SqlHelper.ExecuteReader("SELECT childContentTypeId FROM cmsContentType2ContentType WHERE parentContentTypeId=@contentTypeId",
+                                                                SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId)))
+                    {                        
+                        while (reader.Read())
+                        {
+                            childContentTypeIds.Add(reader.GetInt("childContentTypeId"));
+                        }                        
+                    }      
+
+                }
+
+                currentContentTypeIds = childContentTypeIds.ToArray();                          
             }
-            
         } 
 
         #endregion
 
+        [Obsolete("Obsolete, Use RemoveTemplate() on Umbraco.Core.Models.ContentType", false)]
         public void RemoveTemplate(int templateId)
         {
             // remove if default template
@@ -406,9 +427,10 @@ namespace umbraco.cms.businesslogic.web
             // remove from list of document type templates
             if (_templateIds.Contains(templateId))
             {
-                SqlHelper.ExecuteNonQuery("delete from cmsDocumentType where contentTypeNodeId = @id and templateNodeId = @templateId",
-                    SqlHelper.CreateParameter("@id", this.Id), SqlHelper.CreateParameter("@templateId", templateId)
-                    );
+                var template = _contentType.AllowedTemplates.FirstOrDefault(x => x.Id == templateId);
+                if (template != null)
+                    _contentType.RemoveTemplate(template);
+
                 _templateIds.Remove(templateId);
             }
         }
@@ -417,30 +439,26 @@ namespace umbraco.cms.businesslogic.web
         /// 
         /// </summary>
         /// <exception cref="ArgumentException">Throws an exception if trying to delete a document type that is assigned as a master document type</exception>
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.Delete()", false)]
         public override void delete()
         {
             DeleteEventArgs e = new DeleteEventArgs();
             FireBeforeDelete(e);
 
-            if (!e.Cancel)
+            if (e.Cancel == false)
             {
                 // check that no document types uses me as a master
-                foreach (DocumentType dt in DocumentType.GetAllAsList())
+                if (GetAllAsList().Any(dt => dt.MasterContentTypes.Contains(this.Id)))
                 {
-                    if (dt.MasterContentType == this.Id)
-                    {
-                        //this should be InvalidOperationException (or something other than ArgumentException)!
-                        throw new ArgumentException("Can't delete a Document Type used as a Master Content Type. Please remove all references first!");
-                    }
+                    throw new ArgumentException("Can't delete a Document Type used as a Master Content Type. Please remove all references first!");
                 }
 
-                // delete all documents of this type
-                Document.DeleteFromType(this);
+                // Remove from cache
+                FlushFromCache(Id);
+
+                ApplicationContext.Current.Services.ContentTypeService.Delete(_contentType);
 
                 clearTemplates();
-
-                // Delete contentType
-                base.delete();
 
                 FireAfterDelete(e);
             }
@@ -448,7 +466,7 @@ namespace umbraco.cms.businesslogic.web
 
         public void clearTemplates()
         {
-            SqlHelper.ExecuteNonQuery("Delete from cmsDocumentType where contentTypeNodeId =" + Id);
+            _contentType.AllowedTemplates = new List<ITemplate>();
             _templateIds.Clear();
         }
 
@@ -459,38 +477,40 @@ namespace umbraco.cms.businesslogic.web
             // info section
             XmlElement info = xd.CreateElement("Info");
             doc.AppendChild(info);
-            info.AppendChild(xmlHelper.addTextNode(xd, "Name", Text));
-            info.AppendChild(xmlHelper.addTextNode(xd, "Alias", Alias));
-            info.AppendChild(xmlHelper.addTextNode(xd, "Icon", IconUrl));
-            info.AppendChild(xmlHelper.addTextNode(xd, "Thumbnail", Thumbnail));
-            info.AppendChild(xmlHelper.addTextNode(xd, "Description", Description));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "Name", GetRawText()));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "Alias", Alias));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "Icon", IconUrl));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "Thumbnail", Thumbnail));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "Description", GetRawDescription()));
+            info.AppendChild(XmlHelper.AddTextNode(xd, "AllowAtRoot", AllowAtRoot.ToString()));
 
+            //TODO: Add support for mixins!
             if (this.MasterContentType > 0)
             {
                 DocumentType dt = new DocumentType(this.MasterContentType);
 
                 if (dt != null)
-                    info.AppendChild(xmlHelper.addTextNode(xd, "Master", dt.Alias));
+                    info.AppendChild(XmlHelper.AddTextNode(xd, "Master", dt.Alias));
             }
 
 
             // templates
             XmlElement allowed = xd.CreateElement("AllowedTemplates");
             foreach (template.Template t in allowedTemplates)
-                allowed.AppendChild(xmlHelper.addTextNode(xd, "Template", t.Alias));
+                allowed.AppendChild(XmlHelper.AddTextNode(xd, "Template", t.Alias));
             info.AppendChild(allowed);
             if (DefaultTemplate != 0)
                 info.AppendChild(
-                    xmlHelper.addTextNode(xd, "DefaultTemplate", new template.Template(DefaultTemplate).Alias));
+                    XmlHelper.AddTextNode(xd, "DefaultTemplate", new template.Template(DefaultTemplate).Alias));
             else
-                info.AppendChild(xmlHelper.addTextNode(xd, "DefaultTemplate", ""));
+                info.AppendChild(XmlHelper.AddTextNode(xd, "DefaultTemplate", ""));
 
             // structure
             XmlElement structure = xd.CreateElement("Structure");
             doc.AppendChild(structure);
 
             foreach (int cc in AllowedChildContentTypeIDs.ToList())
-                structure.AppendChild(xmlHelper.addTextNode(xd, "DocumentType", new DocumentType(cc).Alias));
+                structure.AppendChild(XmlHelper.AddTextNode(xd, "DocumentType", new DocumentType(cc).Alias));
 
             // generic properties
             XmlElement pts = xd.CreateElement("GenericProperties");
@@ -500,44 +520,46 @@ namespace umbraco.cms.businesslogic.web
                 if (pt.ContentTypeId == this.Id)
                 {
                     XmlElement ptx = xd.CreateElement("GenericProperty");
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Name", pt.Name));
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Alias", pt.Alias));
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Type", pt.DataTypeDefinition.DataType.Id.ToString()));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Name", pt.GetRawName()));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Alias", pt.Alias));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Type", pt.DataTypeDefinition.DataType.Id.ToString()));
 
                     //Datatype definition guid was added in v4 to enable datatype imports
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Definition", pt.DataTypeDefinition.UniqueId.ToString()));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Definition", pt.DataTypeDefinition.UniqueId.ToString()));
 
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Tab", Tab.GetCaptionById(pt.TabId)));
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Mandatory", pt.Mandatory.ToString()));
-                    ptx.AppendChild(xmlHelper.addTextNode(xd, "Validation", pt.ValidationRegExp));
-                    ptx.AppendChild(xmlHelper.addCDataNode(xd, "Description", pt.Description));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Tab", Tab.GetRawCaptionById(pt.TabId)));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Mandatory", pt.Mandatory.ToString()));
+                    ptx.AppendChild(XmlHelper.AddTextNode(xd, "Validation", pt.ValidationRegExp));
+                    ptx.AppendChild(XmlHelper.AddCDataNode(xd, "Description", pt.GetRawDescription()));
                     pts.AppendChild(ptx);
                 }
             }
             doc.AppendChild(pts);
 
             // tabs
-            XmlElement tabs = xd.CreateElement("Tabs");
-            foreach (TabI t in getVirtualTabs.ToList())
+            var tabs = xd.CreateElement("Tabs");
+
+            foreach (var propertyTypeGroup in PropertyTypeGroups)
             {
                 //only add tabs that aren't from a master doctype
-                if (t.ContentType == this.Id)
+                if (propertyTypeGroup.ContentTypeId == this.Id)
                 {
-                    XmlElement tabx = xd.CreateElement("Tab");
-                    tabx.AppendChild(xmlHelper.addTextNode(xd, "Id", t.Id.ToString()));
-                    tabx.AppendChild(xmlHelper.addTextNode(xd, "Caption", t.Caption));
+                    var tabx = xd.CreateElement("Tab");
+                    tabx.AppendChild(XmlHelper.AddTextNode(xd, "Id", propertyTypeGroup.Id.ToString()));
+                    tabx.AppendChild(XmlHelper.AddTextNode(xd, "Caption", propertyTypeGroup.Name));
                     tabs.AppendChild(tabx);
                 }
             }
+
             doc.AppendChild(tabs);
             return doc;
         }
 
+        [Obsolete("Obsolete, Use SetDefaultTemplate(null) on Umbraco.Core.Models.ContentType", false)]
         public void RemoveDefaultTemplate()
         {
             _defaultTemplate = 0;
-            SqlHelper.ExecuteNonQuery("update cmsDocumentType set IsDefault = 0 where contentTypeNodeId = " +
-                                      Id.ToString());
+            _contentType.SetDefaultTemplate(null);
         }
 
         public bool HasTemplate()
@@ -548,13 +570,32 @@ namespace umbraco.cms.businesslogic.web
         /// <summary>
         /// Used to persist object changes to the database. In Version3.0 it's just a stub for future compatibility
         /// </summary>
+        [Obsolete("Obsolete, Use Umbraco.Core.Services.ContentTypeService.Save()", false)]
         public override void Save()
         {
-            SaveEventArgs e = new SaveEventArgs();
+            var e = new SaveEventArgs();
             FireBeforeSave(e);
 
             if (!e.Cancel)
             {
+                if (MasterContentType != 0)
+                    _contentType.ParentId = MasterContentType;
+
+                foreach (var masterContentType in MasterContentTypes)
+                {
+                    var contentType = ApplicationContext.Current.Services.ContentTypeService.GetContentType(masterContentType);
+                    _contentType.AddContentType(contentType);
+                }
+
+                var current = User.GetCurrent();
+                int userId = current == null ? 0 : current.Id;
+                ApplicationContext.Current.Services.ContentTypeService.Save(_contentType, userId);
+
+                //Ensure that DocumentTypes are reloaded from db by clearing cache.
+                //NOTE Would be nice if we could clear cache by type instead of emptying the entire cache.
+                InMemoryCacheProvider.Current.Clear();
+                RuntimeCacheProvider.Current.Clear();//Runtime cache is used for Content, so we clear that as well
+
                 base.Save();
                 FireAfterSave(e);
             }
@@ -564,6 +605,7 @@ namespace umbraco.cms.businesslogic.web
 
         #region Protected Methods
 
+        [Obsolete("Depreated, No longer needed nor used")]
         protected void PopulateDocumentTypeNodeFromReader(IRecordsReader dr)
         {
             if (!dr.IsNull("templateNodeId"))
@@ -581,29 +623,27 @@ namespace umbraco.cms.businesslogic.web
 
         protected override void setupNode()
         {
-            base.setupNode();
-
-            using (IRecordsReader dr = SqlHelper.ExecuteReader("Select templateNodeId, IsDefault from cmsDocumentType where contentTypeNodeId = @id",
-                SqlHelper.CreateParameter("@id", Id)))
-            {
-                while (dr.Read())
-                {
-                    PopulateDocumentTypeNodeFromReader(dr);
-                }
-            }
-
+            var contentType = ApplicationContext.Current.Services.ContentTypeService.GetContentType(Id);
+            SetupNode(contentType);
         }
 
         #endregion
 
         #region Private Methods
-
-        [Obsolete("Use the overridden setupNode instead. This method now calls the setupNode method")]
-        private void setupDocumentType()
+        private void SetupNode(IContentType contentType)
         {
-            setupNode();
-        }
+            _contentType = contentType;
+            foreach (var template in _contentType.AllowedTemplates.Where(t => t != null))
+            {
+                _templateIds.Add(template.Id);
+            }
 
+            if (_contentType.DefaultTemplate != null)
+                _defaultTemplate = _contentType.DefaultTemplate.Id;
+
+            base.PopulateContentTypeFromContentTypeBase(_contentType);
+            base.PopulateCMSNodeFromUmbracoEntity(_contentType, _objectType);
+        }
         #endregion
 
         #region Events
@@ -645,7 +685,12 @@ namespace umbraco.cms.businesslogic.web
         protected virtual void FireAfterSave(SaveEventArgs e)
         {
             if (AfterSave != null)
-                AfterSave(this, e);
+            {
+                var updated = this._contentType == null
+                                  ? new DocumentType(this.Id)
+                                  : new DocumentType(this._contentType);
+                AfterSave(updated, e);
+            }
         }
 
         /// <summary>
