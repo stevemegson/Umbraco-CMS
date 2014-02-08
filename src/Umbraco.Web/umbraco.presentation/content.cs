@@ -77,7 +77,7 @@ namespace umbraco
             get
             {
                 return LazyInstance.Value;
-        }
+            }
         }
 
         #endregion
@@ -260,7 +260,7 @@ namespace umbraco
 			var doctype = xmlDoc.DocumentType;
 			var subset = doctype.InternalSubset;
 			if (!subset.Contains(string.Format("<!ATTLIST {0} id ID #REQUIRED>", docTypeAlias)))
-            {
+			{
 				subset = string.Format("<!ELEMENT {0} ANY>\r\n<!ATTLIST {0} id ID #REQUIRED>\r\n{1}", docTypeAlias, subset);
 				var xmlDoc2 = new XmlDocument();
 				doctype = xmlDoc2.CreateDocumentType("root", null, null, subset);
@@ -270,7 +270,7 @@ namespace umbraco
 
 				// apply
 				xmlDoc = xmlDoc2;
-            }
+			}
 
 			return xmlDoc;
         }
@@ -374,17 +374,17 @@ namespace umbraco
                         else
                         {
                             Log.Add(LogTypes.Error, d.Id, "Can't update Sitemap Provider due to empty Url in node");
-                }
-            }
+                        }
+                    }
                     catch (Exception ee)
                     {
                         Log.Add(LogTypes.Error, d.Id, string.Format("Error adding node to Sitemap Provider in PublishNodeDo(): {0}", ee));
-        }
+                    }
                 }
             }
 
 			return xmlContentCopy;
-        }
+		}
 
         public static XmlDocument AppendDocumentXml(int id, int level, int parentId, XmlNode docNode, XmlDocument xmlContentCopy)
         {
@@ -395,11 +395,11 @@ namespace umbraco
 			// we must make sure that its document type exists in the schema
             var xmlContentCopy2 = xmlContentCopy;
 			if (currentNode == null && UmbracoSettings.UseLegacyXmlSchema == false)
-            {
+			{
 				xmlContentCopy = ValidateSchema(docNode.Name, xmlContentCopy);
 				if (xmlContentCopy != xmlContentCopy2)
 					docNode = xmlContentCopy.ImportNode(docNode, true);
-            }
+			}
 
             // Find the parent (used for sortering and maybe creation of new node)
             XmlNode parentNode = level == 1
@@ -1153,7 +1153,7 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                                 // check if a listener has canceled the event
                                 if (!e1.Cancel)
                                 {
-                                // and parse it into a DOM node
+                                    // and parse it into a DOM node
                                     xmlDoc.LoadXml(xml);
                                     XmlNode node = xmlDoc.FirstChild;
                                     // same event handler loader form the xml node
@@ -1167,18 +1167,18 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                                         // verify if either of the handlers canceled the children to load
                                         if (!e1.CancelChildren && !e2.CancelChildren)
                                         {
-                                // Build the content hierarchy
-                                List<int> children;
-                                if (!hierarchy.TryGetValue(parentId, out children))
-                                {
-                                    // No children for this parent, so add one
-                                    children = new List<int>();
-                                    hierarchy.Add(parentId, children);
+                                            // Build the content hierarchy
+                                            List<int> children;
+                                            if (!hierarchy.TryGetValue(parentId, out children))
+                                            {
+                                                // No children for this parent, so add one
+                                                children = new List<int>();
+                                                hierarchy.Add(parentId, children);
+                                            }
+                                            children.Add(currentId);
+                                        }
+                                    }
                                 }
-                                children.Add(currentId);
-                            }
-                        }
-                    }
                             }
                         }
                     }

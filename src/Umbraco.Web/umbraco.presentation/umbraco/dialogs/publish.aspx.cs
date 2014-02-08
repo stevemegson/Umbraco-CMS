@@ -21,7 +21,7 @@ namespace umbraco.dialogs
         public static string pageName = "";
 
 	    public publish()
-		{
+	    {
 	        CurrentApp = DefaultApps.content.ToString();
 	    }
 
@@ -155,10 +155,10 @@ namespace umbraco.dialogs
 
 	    protected override void OnPreRender(EventArgs e)
 	    {
-            base.OnPreRender(e);
+	        base.OnPreRender(e);
 
-            ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/publication.asmx"));
-            ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/legacyAjaxCalls.asmx"));
-        }
-		}
+	        ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/publication.asmx"));
+	        ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/legacyAjaxCalls.asmx"));
+	    }
+	}
 }
