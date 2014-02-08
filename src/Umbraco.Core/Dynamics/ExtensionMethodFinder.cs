@@ -13,7 +13,9 @@ namespace Umbraco.Core.Dynamics
 	/// Utility class for finding extension methods on a type to execute
 	/// </summary>
     internal static class ExtensionMethodFinder
-    {	
+    {
+        private static Dictionary<Tuple<Type, string, int, bool>, MethodInfo[]> _cache = new Dictionary<Tuple<Type, string, int, bool>, MethodInfo[]>();
+
 		/// <summary>
 		/// Returns all extension methods found matching the definition
 		/// </summary>
@@ -189,9 +191,21 @@ namespace Umbraco.Core.Dynamics
             if (thisType.IsGenericType)
             {
                 genericType = thisType.GetGenericArguments()[0];
-            }			
+            }
 
-        	var methods = GetAllExtensionMethods(thisType, name, args.Length, argsContainsThis).ToArray();
+            MethodInfo[] methods;
+
+            var cacheKey = new Tuple<Type, string, int, bool>(thisType, name, args.Length, argsContainsThis);
+            if (_cache.ContainsKey(cacheKey))
+            {
+                methods = _cache[cacheKey];
+            }
+            else
+            {
+                methods = GetAllExtensionMethods(thisType, name, args.Length, argsContainsThis).ToArray();
+                _cache[cacheKey] = methods;
+            }
+
 			return DetermineMethodFromParams(methods, genericType, args);
         }
     }
