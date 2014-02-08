@@ -232,7 +232,7 @@ namespace umbraco.NodeFactory
         {
             get
             {
-                return library.NiceUrl(_id);
+                return Url;
             }
         }
 
