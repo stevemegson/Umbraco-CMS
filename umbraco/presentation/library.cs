@@ -1216,7 +1216,7 @@ namespace umbraco
             }
             catch (Exception ee)
             {
-                return string.Format("<!-- Error generating macroContent: '{0}' -->", ee);
+                return string.Format("<!-- Error generating macroContent -->", ee);
             }
         }
 
