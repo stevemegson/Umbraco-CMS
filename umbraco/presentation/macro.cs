@@ -153,36 +153,36 @@ namespace umbraco
         public static macro GetMacro(string alias)
         {
 
-            return cms.businesslogic.cache.Cache.GetCacheItem(GetCacheKey(alias), macroRuntimeCacheSyncLock,
-                          TimeSpan.FromMinutes(60),
-                          delegate
-                          {
-                              try
-                              {
+            //return cms.businesslogic.cache.Cache.GetCacheItem(GetCacheKey(alias), macroRuntimeCacheSyncLock,
+            //              TimeSpan.FromMinutes(60),
+            //              delegate
+            //              {
+            //                  try
+            //                  {
                                   return new macro(alias);
-                              }
-                              catch
-                              {
-                                  return null;
-                              }
-                          });
+            //                  }
+            //                  catch
+            //                  {
+            //                      return null;
+            //                  }
+            //              });
         }
 
         public static macro GetMacro(int id)
         {
-            return cms.businesslogic.cache.Cache.GetCacheItem(GetCacheKey(string.Format("by_id_{0}", id)), macroRuntimeCacheSyncLock,
-                          TimeSpan.FromMinutes(60),
-                          delegate
-                          {
-                              try
-                              {
+            //return cms.businesslogic.cache.Cache.GetCacheItem(GetCacheKey(string.Format("by_id_{0}", id)), macroRuntimeCacheSyncLock,
+            //              TimeSpan.FromMinutes(60),
+            //              delegate
+            //              {
+            //                  try
+            //                  {
                                   return new macro(id);
-                              }
-                              catch
-                              {
-                                  return null;
-                              }
-                          });
+            //                  }
+            //                  catch
+            //                  {
+            //                      return null;
+            //                  }
+            //              });
         }
 
         #endregion
@@ -194,8 +194,8 @@ namespace umbraco
 
         private static readonly object _xsltExtensionsSyncLock = new object();
 
-        private static readonly Lazy<CacheDependency> _xsltExtensionsDependency =
-            new Lazy<CacheDependency>(() => new CacheDependency(_xsltExtensionsConfig));
+        private static readonly Func<CacheDependency> _xsltExtensionsDependency =
+            () => new CacheDependency(_xsltExtensionsConfig);
 
         /// <summary>
         /// Creates an empty macro object.
@@ -469,7 +469,7 @@ namespace umbraco
 
         private bool cacheMacroAsString(MacroModel model)
         {
-            return model.MacroType == MacroTypes.XSLT || model.MacroType == MacroTypes.Python;
+            return model.MacroType == MacroTypes.XSLT || model.MacroType == MacroTypes.Python || model.MacroType == MacroTypes.Script;
         }
 
         public static XslCompiledTransform getXslt(string XsltFile)
@@ -735,7 +735,7 @@ namespace umbraco
                 _xsltExtensionsCacheKey, _xsltExtensionsSyncLock,
                 CacheItemPriority.NotRemovable, // NH 4.7.1, Changing to NotRemovable
                 null, // no refresh action
-                _xsltExtensionsDependency.Value, // depends on the .config file
+                _xsltExtensionsDependency(), // depends on the .config file
                 TimeSpan.FromDays(1), // expires in 1 day (?)
                 () => { return GetXsltExtensionsImpl(); });
         }
