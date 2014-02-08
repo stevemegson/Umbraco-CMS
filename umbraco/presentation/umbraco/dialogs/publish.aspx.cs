@@ -3,6 +3,7 @@ using System.Collections;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Linq;
 using System.Web;
 using System.Web.SessionState;
 using System.Web.UI;
@@ -37,12 +38,12 @@ namespace umbraco.dialogs
             masterPagePrefix.Text = prefix;
 
             // by default we only count the published ones
-			int TotalNodesToPublish = cms.businesslogic.web.Document.CountSubs(nodeId, true);
+			int TotalNodesToPublish = cms.businesslogic.web.Document.CountSubs(d.Path, true);
             try
             {
                 Application.Lock();
                 // We add both all nodes and only published nodes to the application variables so we can ajax query depending on checkboxes
-                Application["publishTotalAll" + nodeId.ToString()] = cms.businesslogic.CMSNode.CountSubs(nodeId).ToString();
+                Application["publishTotalAll" + nodeId.ToString()] = cms.businesslogic.CMSNode.CountSubs(d.Path).ToString();
                 Application["publishTotal" + nodeId.ToString()] = TotalNodesToPublish.ToString();
                 Application["publishDone" + nodeId.ToString()] = "0";
             }
@@ -78,13 +79,7 @@ namespace umbraco.dialogs
 
                     //PPH added load balancing...
                     //content.Instance.PublishNode(documents);
-                    foreach (cms.businesslogic.web.Document doc in documents)
-                    {
-                        if (doc.Published)
-                        {
-                            library.UpdateDocumentCache(doc.Id);
-                        }
-                    }
+                    content.Instance.UpdateDocumentCache(documents.FindAll(doc => doc.Published));
 
                     Application.Lock();
                     Application["publishTotal" + nodeId.ToString()] = 0;
