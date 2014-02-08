@@ -161,6 +161,24 @@ namespace umbraco.presentation.templateControls
                     else
                         System.Web.HttpContext.Current.Trace.Warn("Template", "Cache attribute is in incorect format (should be an integer).");
                 }
+                if (!String.IsNullOrEmpty(Attributes["CacheByPage"]))
+                {
+                    bool cacheByPage;
+                    if (bool.TryParse(Attributes["CacheByPage"], out cacheByPage))
+                        tempMacro.Model.CacheByPage = cacheByPage;
+                    else
+                        System.Web.HttpContext.Current.Trace.Warn("Template", "CacheByPage attribute is in incorect format (should be a boolean).");
+                }
+                if (!String.IsNullOrEmpty(Attributes["CacheByMember"]))
+                {
+                    bool cacheByMember;
+                    if (bool.TryParse(Attributes["CacheByMember"], out cacheByMember))
+                        tempMacro.Model.CacheByMember = cacheByMember;
+                    else
+                        System.Web.HttpContext.Current.Trace.Warn("Template", "CacheByMember attribute is in incorect format (should be a boolean).");
+                }
+
+
                 var c = tempMacro.renderMacro((Hashtable)Context.Items["pageElements"], pageId);
                 if (c != null)
                 {
