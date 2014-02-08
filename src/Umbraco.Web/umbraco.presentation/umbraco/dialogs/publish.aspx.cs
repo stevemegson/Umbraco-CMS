@@ -21,7 +21,7 @@ namespace umbraco.dialogs
         public static string pageName = "";
 
 	    public publish()
-	    {
+		{
 	        CurrentApp = DefaultApps.content.ToString();
 	    }
 
@@ -46,12 +46,12 @@ namespace umbraco.dialogs
             masterPagePrefix.Text = prefix;
 
             // by default we only count the published ones
-			var totalNodesToPublish = cms.businesslogic.web.Document.CountSubs(_nodeId, true);
+			var totalNodesToPublish = cms.businesslogic.web.Document.CountSubs(d.Path, true);
             try
             {
                 Application.Lock();
                 // We add both all nodes and only published nodes to the application variables so we can ajax query depending on checkboxes
-                Application["publishTotalAll" + _nodeId.ToString()] = cms.businesslogic.CMSNode.CountSubs(_nodeId).ToString();
+                Application["publishTotalAll" + _nodeId.ToString()] = cms.businesslogic.CMSNode.CountSubs(d.Path).ToString();
                 Application["publishTotal" + _nodeId.ToString()] = totalNodesToPublish.ToString();
                 Application["publishDone" + _nodeId.ToString()] = "0";
             }
@@ -87,13 +87,7 @@ namespace umbraco.dialogs
 
                     //PPH added load balancing...
                     //content.Instance.PublishNode(documents);
-                    foreach (var doc in _documents)
-                    {
-                        if (doc.Published)
-                        {
-                            library.UpdateDocumentCache(doc);
-                        }
-                    }
+                    content.Instance.UpdateDocumentCache(documents.FindAll(doc => doc.Published));
 
                     Application.Lock();
                     Application["publishTotal" + _nodeId.ToString()] = 0;
@@ -161,10 +155,10 @@ namespace umbraco.dialogs
 
 	    protected override void OnPreRender(EventArgs e)
 	    {
-	        base.OnPreRender(e);
+            base.OnPreRender(e);
 
-	        ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/publication.asmx"));
-	        ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/legacyAjaxCalls.asmx"));
-	    }
-	}
+            ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/publication.asmx"));
+            ScriptManager.GetCurrent(Page).Services.Add(new ServiceReference("../webservices/legacyAjaxCalls.asmx"));
+        }
+		}
 }

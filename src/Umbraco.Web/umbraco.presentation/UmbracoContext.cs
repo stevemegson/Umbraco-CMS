@@ -51,7 +51,7 @@ namespace umbraco.presentation
             get
             {
                 if (HttpContext.Current != null)
-                    return (UmbracoContext)HttpContext.Current.Items["UmbracoContext"];
+                return (UmbracoContext)HttpContext.Current.Items["UmbracoContext"];
 
                 return null;
             }
@@ -104,11 +104,11 @@ namespace umbraco.presentation
             get
             {
                 string currentUrl = Request.Url.AbsolutePath;
-                // zb-00004 #29956 : refactor cookies names & handling
-                return
-                    StateHelper.Cookies.Preview.HasValue // has preview cookie
-                    && UmbracoUser != null // has user
-                    && !currentUrl.StartsWith(IO.IOHelper.ResolveUrl(IO.SystemDirectories.Umbraco)); // is not in admin UI
+				// zb-00004 #29956 : refactor cookies names & handling
+				return
+					StateHelper.Cookies.Preview.HasValue // has preview cookie
+					&& UmbracoUser != null // has user
+					&& !currentUrl.StartsWith(IO.IOHelper.ResolveUrl(IO.SystemDirectories.Umbraco)); // is not in admin UI
             }
         }
 

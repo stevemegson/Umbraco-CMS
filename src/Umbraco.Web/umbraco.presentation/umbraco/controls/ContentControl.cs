@@ -209,6 +209,8 @@ namespace umbraco.controls
             {
 
                 NameTxt.ID = "NameTxt";
+                NameTxt.CssClass = "umbEditorTextField";
+
                 if (!Page.IsPostBack)
                 {
                     NameTxt.Text = _content.Text;

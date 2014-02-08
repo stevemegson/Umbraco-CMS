@@ -77,7 +77,7 @@ namespace umbraco
             get
             {
                 return LazyInstance.Value;
-            }
+        }
         }
 
         #endregion
@@ -260,7 +260,7 @@ namespace umbraco
 			var doctype = xmlDoc.DocumentType;
 			var subset = doctype.InternalSubset;
 			if (!subset.Contains(string.Format("<!ATTLIST {0} id ID #REQUIRED>", docTypeAlias)))
-			{
+            {
 				subset = string.Format("<!ELEMENT {0} ANY>\r\n<!ATTLIST {0} id ID #REQUIRED>\r\n{1}", docTypeAlias, subset);
 				var xmlDoc2 = new XmlDocument();
 				doctype = xmlDoc2.CreateDocumentType("root", null, null, subset);
@@ -270,7 +270,7 @@ namespace umbraco
 
 				// apply
 				xmlDoc = xmlDoc2;
-			}
+            }
 
 			return xmlDoc;
         }
@@ -374,17 +374,17 @@ namespace umbraco
                         else
                         {
                             Log.Add(LogTypes.Error, d.Id, "Can't update Sitemap Provider due to empty Url in node");
-                        }
-                    }
+                }
+            }
                     catch (Exception ee)
                     {
                         Log.Add(LogTypes.Error, d.Id, string.Format("Error adding node to Sitemap Provider in PublishNodeDo(): {0}", ee));
-                    }
+        }
                 }
             }
 
 			return xmlContentCopy;
-		}
+        }
 
         public static XmlDocument AppendDocumentXml(int id, int level, int parentId, XmlNode docNode, XmlDocument xmlContentCopy)
         {
@@ -395,11 +395,11 @@ namespace umbraco
 			// we must make sure that its document type exists in the schema
             var xmlContentCopy2 = xmlContentCopy;
 			if (currentNode == null && UmbracoSettings.UseLegacyXmlSchema == false)
-			{
+            {
 				xmlContentCopy = ValidateSchema(docNode.Name, xmlContentCopy);
 				if (xmlContentCopy != xmlContentCopy2)
 					docNode = xmlContentCopy.ImportNode(docNode, true);
-			}
+            }
 
             // Find the parent (used for sortering and maybe creation of new node)
             XmlNode parentNode = level == 1
@@ -418,7 +418,15 @@ namespace umbraco
                     TransferValuesFromDocumentXmlToPublishedXml(docNode, currentNode);
                 }
 
-                // TODO: Update with new schema!
+                EnsureChildrenSortOrder(x, parentNode);
+            }
+
+			return xmlContentCopy;
+        }
+
+        private static void EnsureChildrenSortOrder(XmlNode x, XmlNode parentNode)
+        {
+            // TODO: Update with new schema!
                 var xpath = UmbracoSettings.UseLegacyXmlSchema
                                 ? "./node"
                                 : "./* [@id]";
@@ -426,22 +434,22 @@ namespace umbraco
                 var childNodes = parentNode.SelectNodes(xpath);
 
                 // Sort the nodes if the added node has a lower sortorder than the last
-                if (childNodes != null && childNodes.Count > 0)
+                if (childNodes != null && childNodes.Count > 1)
+            {
+                int lastSortOrder = -1;
+                foreach (XmlNode c in childNodes)
                 {
-                    //get the biggest sort order for all children including the one added
-                    var largestSortOrder = childNodes.Cast<XmlNode>().Max(x => x.AttributeValue<int>("sortOrder"));
-                    var currentSortOrder = currentNode.AttributeValue<int>("sortOrder");
-                    //if the current item's sort order is less than the largest sort order in the list then
-                    //we need to resort the xml structure since this item belongs somewhere in the middle.
-                    //http://issues.umbraco.org/issue/U4-509
-                    if (childNodes.Count > 1 && currentSortOrder < largestSortOrder)
+                    int currentSortOrder = int.Parse(c.Attributes.GetNamedItem("sortOrder").Value);
+                    if (currentSortOrder < lastSortOrder)
                     {
                         SortNodes(ref parentNode);
+
+                        break;
                     }
+
+                    lastSortOrder = currentSortOrder;
                 }
             }
-
-			return xmlContentCopy;
         }
 
         private static XmlNode GetPreviewOrPublishedNode(Document d, XmlDocument xmlContentCopy, bool isPreview)
@@ -541,19 +549,30 @@ namespace umbraco
         /// <param name="Documents">The documents.</param>
         public virtual void UpdateDocumentCache(List<Document> Documents)
         {
+            if (Documents == null || Documents.Count == 0)
+            {
+                return;
+            }
+
             // We need to lock content cache here, because we cannot allow other threads
             // making changes at the same time, they need to be queued
-            int parentid = Documents[0].Id;
-
             lock (XmlContentInternalSyncLock)
             {
-                // Make copy of memory content, we cannot make changes to the same document
-                // the is read from elsewhere
-                XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+                XmlDocument xmlContentCopy;
+                if (UmbracoSettings.CloneXmlCacheOnPublish)
+                {
+                    xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+                }
+                else
+                {
+                    xmlContentCopy = XmlContentInternal;
+                }              
+                
                 foreach (Document d in Documents)
                 {
                     PublishNodeDo(d, xmlContentCopy, true);
                 }
+
                 XmlContentInternal = xmlContentCopy;
                 ClearContextCache();
             }
@@ -617,17 +636,26 @@ namespace umbraco
                 // making changes at the same time, they need to be queued
                 lock (XmlContentInternalSyncLock)
                 {
-                    // Make copy of memory content, we cannot make changes to the same document
-                    // the is read from elsewhere
-                    XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
-
-                    // Find the document in the xml cache
-                    x = xmlContentCopy.GetElementById(doc.Id.ToString());
-                    if (x != null)
+                    if (UmbracoSettings.CloneXmlCacheOnPublish)
                     {
-                        // The document already exists in cache, so repopulate it
+                        // Make copy of memory content, we cannot make changes to the same document
+                        // the is read from elsewhere
+                        XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+
+                        // Find the document in the xml cache
+                    x = xmlContentCopy.GetElementById(doc.Id.ToString());
+                        if (x != null)
+                        {
+                            // The document already exists in cache, so repopulate it
+                            x.ParentNode.RemoveChild(x);
+                            XmlContentInternal = xmlContentCopy;
+                            ClearContextCache();
+                        }
+                    }
+                    else
+                    {
                         x.ParentNode.RemoveChild(x);
-                        XmlContentInternal = xmlContentCopy;
+                        XmlContentInternal = _xmlContent;
                         ClearContextCache();
                     }
                 }
@@ -1011,7 +1039,12 @@ namespace umbraco
                 {
                     // This is really bad, loading from cache file failed for some reason, now fallback to loading from database
                     Debug.WriteLine("Content file cache load failed: " + e);
-                    DeleteXmlCache();
+                    try
+                    {
+                        DeleteXmlCache();
+                    }
+                    catch (IOException)
+                    { }
                 }
             }
             return LoadContentFromDatabase();
@@ -1120,7 +1153,7 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                                 // check if a listener has canceled the event
                                 if (!e1.Cancel)
                                 {
-                                    // and parse it into a DOM node
+                                // and parse it into a DOM node
                                     xmlDoc.LoadXml(xml);
                                     XmlNode node = xmlDoc.FirstChild;
                                     // same event handler loader form the xml node
@@ -1134,18 +1167,18 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                                         // verify if either of the handlers canceled the children to load
                                         if (!e1.CancelChildren && !e2.CancelChildren)
                                         {
-                                            // Build the content hierarchy
-                                            List<int> children;
-                                            if (!hierarchy.TryGetValue(parentId, out children))
-                                            {
-                                                // No children for this parent, so add one
-                                                children = new List<int>();
-                                                hierarchy.Add(parentId, children);
-                                            }
-                                            children.Add(currentId);
-                                        }
-                                    }
+                                // Build the content hierarchy
+                                List<int> children;
+                                if (!hierarchy.TryGetValue(parentId, out children))
+                                {
+                                    // No children for this parent, so add one
+                                    children = new List<int>();
+                                    hierarchy.Add(parentId, children);
                                 }
+                                children.Add(currentId);
+                            }
+                        }
+                    }
                             }
                         }
                     }
@@ -1293,16 +1326,20 @@ order by umbracoNode.level, umbracoNode.sortOrder";
                     }
                     catch (Exception ee)
                     {
-                        // If for whatever reason something goes wrong here, invalidate disk cache
-                        DeleteXmlCache();
+                            // If for whatever reason something goes wrong here, invalidate disk cache
+                            try
+                            {
+                                DeleteXmlCache();
+                            }
+                            catch { }
 
                         Trace.Write(string.Format(
                             "Error saving content on thread '{0}' due to '{1}' (Threadpool? {2})",
                             Thread.CurrentThread.Name, ee.Message, Thread.CurrentThread.IsThreadPoolThread));
-                        Log.Add(LogTypes.Error, staticUser, -1, string.Format("Xml wasn't saved: {0}", ee));
+                            Log.Add(LogTypes.Error, staticUser, -1, string.Format("Xml wasn't saved: {0}", ee));
+                        }
                     }
                 }
-            }
         }
 
         /// <summary>

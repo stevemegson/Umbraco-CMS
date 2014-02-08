@@ -1,4 +1,4 @@
-ï»¿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -242,17 +242,17 @@ namespace umbraco.controls
 
                     SaveProperties(asyncState.SaveArgs);
 
-                    SaveTabs();
+            SaveTabs();
 
-                    SaveAllowedChildTypes();
+            SaveAllowedChildTypes();
 
-                    // reload content type (due to caching)
+            // reload content type (due to caching)
                     _contentType = new ContentType(_contentType.Id);
                     
-                    // Only if the doctype alias changed, cause a regeneration of the xml cache file since
-                    // the xml element names will need to be updated to reflect the new alias
+            // Only if the doctype alias changed, cause a regeneration of the xml cache file since
+            // the xml element names will need to be updated to reflect the new alias
                     if (asyncState.HasAliasChanged(_contentType))
-                        RegenerateXmlCaches();
+                       RegenerateXmlCaches(_contentType.Id);
 
                     Trace.Write("ContentTypeControlNew", "task completing");
                 };
@@ -267,6 +267,12 @@ namespace umbraco.controls
         private void RegenerateXmlCaches()
         {
             umbraco.cms.businesslogic.web.Document.RePublishAll();
+            library.RefreshContent();
+        }
+
+        private void RegenerateXmlCaches(int docTypeId)
+        {
+            umbraco.cms.businesslogic.web.Document.RePublishDocumentsOfType(docTypeId);
             library.RefreshContent();
         }
 
@@ -330,7 +336,7 @@ namespace umbraco.controls
                 var listItemValue = ResolveClientUrl(SystemDirectories.Umbraco + "/images/umbraco/" + file.Name);
 
                 AddFileListItem(file.Name, listItemValue, listOfIcons);
-            }
+                }
 
             ddlIcons.Items.AddRange(listOfIcons.OrderBy(o => o.Text).ToArray());
 
@@ -780,7 +786,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
             {
                 int propertyId = int.Parse(e.Item.Cells[0].Text);
                 cms.businesslogic.propertytype.PropertyType pt = cms.businesslogic.propertytype.PropertyType.GetPropertyType(propertyId);
-                RaiseBubbleEvent(new object(), new SaveClickEventArgs("Property Â´" + pt.GetRawName() + "Â´ deleted"));
+                RaiseBubbleEvent(new object(), new SaveClickEventArgs("Property ´" + pt.GetRawName() + "´ deleted"));
                 pt.delete();
                 BindDataGenericProperties(false);
             }
