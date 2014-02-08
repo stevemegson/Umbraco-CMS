@@ -4,6 +4,7 @@ using System.Data;
 using System.Text;
 using System.Xml;
 using System.Linq;
+using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.propertytype;
 using umbraco.DataLayer;
@@ -166,7 +167,7 @@ namespace umbraco.cms.businesslogic.web
                 while (dr.Read())
                 {
                     //check if the document id has already been added
-                    if (documentTypes.Where(x => x.Id == dr.Get<int>("id")).Count() == 0)
+                    if (documentTypes.Any(x => x.Id == dr.Get<int>("id")) == false)
                     {
                         //create the DocumentType object without setting up
                         DocumentType dt = new DocumentType(dr.Get<int>("id"), true);
@@ -182,7 +183,7 @@ namespace umbraco.cms.businesslogic.web
                     else
                     {
                         //we've already created the document type with this id, so we'll add the rest of it's templates to itself
-                        var dt = documentTypes.Where(x => x.Id == dr.Get<int>("id")).Single();
+                        var dt = documentTypes.Single(x => x.Id == dr.Get<int>("id"));
                         dt.PopulateDocumentTypeNodeFromReader(dr);
                     }
                 }
@@ -293,6 +294,106 @@ namespace umbraco.cms.businesslogic.web
         #endregion
 
         #region Public Methods
+
+        #region Regenerate Xml Structures
+
+        /// <summary>
+        /// This will return all PUBLISHED content Ids that are of this content type or any descendant types as well.
+        /// </summary>
+        /// <returns></returns>
+        internal override IEnumerable<int> GetContentIdsForContentType()
+        {
+            var ids = new List<int>();
+            int? currentContentTypeId = this.Id;
+            while (currentContentTypeId != null)
+            {
+                //get all the content item ids of the current content type
+                using (var dr = SqlHelper.ExecuteReader(@"SELECT DISTINCT cmsDocument.nodeId FROM cmsDocument
+                                                        INNER JOIN cmsContent ON cmsContent.nodeId = cmsDocument.nodeId
+                                                        INNER JOIN cmsContentType ON cmsContent.contentType = cmsContentType.nodeId
+                                                        WHERE cmsContentType.nodeId = @contentTypeId AND cmsDocument.published = 1",
+                                                        SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId)))
+                {
+                    while (dr.Read())
+                    {
+                        ids.Add(dr.GetInt("nodeId"));
+                    }
+                    dr.Close();
+                }
+
+                //lookup the child content type if there is one
+                currentContentTypeId = SqlHelper.ExecuteScalar<int?>("SELECT nodeId FROM cmsContentType WHERE masterContentType=@contentTypeId",
+                                                                     SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+            }
+            return ids;
+        } 
+
+        /// <summary>
+        /// Rebuilds the xml structure for the content item by id
+        /// </summary>
+        /// <param name="contentId"></param>
+        /// <remarks>
+        /// This is not thread safe
+        /// </remarks>
+        internal override void RebuildXmlStructureForContentItem(int contentId)
+        {
+            var xd = new XmlDocument();
+            try
+            {
+                //create the document in optimized mode! 
+                // (not sure why we wouldn't always do that ?!)
+
+                new Document(true, contentId).XmlGenerate(xd);
+
+                //The benchmark results that I found based contructing the Document object with 'true' for optimized
+                //mode, vs using the normal ctor. Clearly optimized mode is better!
+                /*
+                 * The average page rendering time (after 10 iterations) for submitting /umbraco/dialogs/republish?xml=true when using 
+                 * optimized mode is
+                 * 
+                 * 0.060400555555556
+                 * 
+                 * The average page rendering time (after 10 iterations) for submitting /umbraco/dialogs/republish?xml=true when not
+                 * using optimized mode is
+                 * 
+                 * 0.107037777777778
+                 *                      
+                 * This means that by simply changing this to use optimized mode, it is a 45% improvement!
+                 * 
+                 */
+            }
+            catch (Exception ee)
+            {
+                LogHelper.Error<DocumentType>("Error generating xml", ee);
+            }
+        }
+
+        /// <summary>
+        /// Clears all xml structures in the cmsContentXml table for the current content type and any of it's descendant types
+        /// </summary>
+        /// <remarks>
+        /// This is not thread safe
+        /// </remarks>
+        internal override void ClearXmlStructuresForContent()
+        {
+            int? currentContentTypeId = this.Id;
+            while (currentContentTypeId != null)
+            {
+                //Remove all items from the cmsContentXml table that are of this current content type
+                SqlHelper.ExecuteNonQuery(@"DELETE FROM cmsContentXml WHERE nodeId IN
+                                        (SELECT DISTINCT cmsContent.nodeId FROM cmsContent 
+                                            INNER JOIN cmsContentType ON cmsContent.contentType = cmsContentType.nodeId 
+                                            WHERE cmsContentType.nodeId = @contentTypeId)",
+                                          SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+
+                //lookup the child content type if there is one
+                currentContentTypeId = SqlHelper.ExecuteScalar<int?>("SELECT nodeId FROM cmsContentType WHERE masterContentType=@contentTypeId",
+                                                                     SqlHelper.CreateParameter("@contentTypeId", currentContentTypeId));
+            }
+            
+        } 
+
+        #endregion
 
         public void RemoveTemplate(int templateId)
         {

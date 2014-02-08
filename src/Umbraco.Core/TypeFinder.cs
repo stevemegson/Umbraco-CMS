@@ -19,8 +19,6 @@ using Umbraco.Core.IO;
 namespace Umbraco.Core
 {
 
-	//TODO: Get the App_Code stuff in here from the old one
-
 	/// <summary>
 	/// A utility class to find all classes of a certain type by reflection in the current bin folder
 	/// of the web application. 
@@ -143,7 +141,8 @@ namespace Umbraco.Core
 					{
 						try
 						{
-							var foundAssembly = safeDomainAssemblies.FirstOrDefault(a => a.GetAssemblyFile() == assemblyName.GetAssemblyFile());
+							var foundAssembly =
+								safeDomainAssemblies.FirstOrDefault(a => a.GetAssemblyFile() == assemblyName.GetAssemblyFile());
 							if (foundAssembly != null)
 							{
 								binFolderAssemblies.Add(foundAssembly);
@@ -237,42 +236,72 @@ namespace Umbraco.Core
                     "umbraco.interfaces,",										
 					"umbraco.providers,",
 					"Umbraco.Web.UI,",
-					"umbraco.webservices",
+                    "umbraco.webservices",
                     "Lucene.",
                     "Examine,",
                     "Examine."
                 };
 
+        /// <summary>
+        /// Finds any classes derived from the type T that contain the attribute TAttribute
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TAttribute"></typeparam>
+        /// <returns></returns>
 		public static IEnumerable<Type> FindClassesOfTypeWithAttribute<T, TAttribute>()
 			where TAttribute : Attribute
 		{
 			return FindClassesOfTypeWithAttribute<T, TAttribute>(GetAssembliesWithKnownExclusions(), true);
 		}
 
+        /// <summary>
+        /// Finds any classes derived from the type T that contain the attribute TAttribute
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TAttribute"></typeparam>
+        /// <param name="assemblies"></param>
+        /// <returns></returns>
 		public static IEnumerable<Type> FindClassesOfTypeWithAttribute<T, TAttribute>(IEnumerable<Assembly> assemblies)
 			where TAttribute : Attribute
 		{
 			return FindClassesOfTypeWithAttribute<T, TAttribute>(assemblies, true);
 		}
 
-		public static IEnumerable<Type> FindClassesOfTypeWithAttribute<T, TAttribute>(IEnumerable<Assembly> assemblies, bool onlyConcreteClasses)
-			where TAttribute : Attribute
+        /// <summary>
+        /// Finds any classes derived from the type T that contain the attribute TAttribute
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="TAttribute"></typeparam>
+        /// <param name="assemblies"></param>
+        /// <param name="onlyConcreteClasses"></param>
+        /// <returns></returns>
+	    public static IEnumerable<Type> FindClassesOfTypeWithAttribute<T, TAttribute>(
+	        IEnumerable<Assembly> assemblies,
+	        bool onlyConcreteClasses)
+	        where TAttribute : Attribute
+	    {
+	        return FindClassesOfTypeWithAttribute<TAttribute>(typeof (T), assemblies, onlyConcreteClasses);
+	    }
+
+        /// <summary>
+        /// Finds any classes derived from the assignTypeFrom Type that contain the attribute TAttribute
+        /// </summary>
+        /// <typeparam name="TAttribute"></typeparam>
+        /// <param name="assignTypeFrom"></param>
+        /// <param name="assemblies"></param>
+        /// <param name="onlyConcreteClasses"></param>
+        /// <returns></returns>
+	    public static IEnumerable<Type> FindClassesOfTypeWithAttribute<TAttribute>(
+            Type assignTypeFrom,             
+            IEnumerable<Assembly> assemblies, 
+            bool onlyConcreteClasses)
+            where TAttribute : Attribute
 		{
 			if (assemblies == null) throw new ArgumentNullException("assemblies");
-
-			var l = new List<Type>();
-			foreach(var a in assemblies)
-			{
-				var types = from t in GetTypesWithFormattedException(a)
-				            where !t.IsInterface
-				                  && typeof (T).IsAssignableFrom(t)
-				                  && t.GetCustomAttributes<TAttribute>(false).Any()
-				                  && (!onlyConcreteClasses || (t.IsClass && !t.IsAbstract))
-				            select t;
-				l.AddRange(types);
-			}
-
-			return l;
+            
+	        return GetClasses(assignTypeFrom, assemblies, onlyConcreteClasses, 
+                //the additional filter will ensure that any found types also have the attribute applied.
+                t => t.GetCustomAttributes<TAttribute>(false).Any());            
 		}
 
 		/// <summary>
@@ -296,7 +325,7 @@ namespace Umbraco.Core
 		{
 			if (assemblies == null) throw new ArgumentNullException("assemblies");
 
-			return GetAssignablesFromType<T>(assemblies, onlyConcreteClasses);
+            return GetClasses(typeof(T), assemblies, onlyConcreteClasses);
 		}
 
 		/// <summary>
@@ -323,32 +352,50 @@ namespace Umbraco.Core
 			return FindClassesWithAttribute(typeof(T), assemblies, onlyConcreteClasses);
 		}
 
-		/// <summary>
-		/// Finds the classes with attribute.
-		/// </summary>
-		/// <param name="type">The attribute type </param>
-		/// <param name="assemblies">The assemblies.</param>
-		/// <param name="onlyConcreteClasses">if set to <c>true</c> only concrete classes.</param>
-		/// <returns></returns>
-		public static IEnumerable<Type> FindClassesWithAttribute(Type type, IEnumerable<Assembly> assemblies, bool onlyConcreteClasses)
-		{
-			if (assemblies == null) throw new ArgumentNullException("assemblies");
-			if (!TypeHelper.IsTypeAssignableFrom<Attribute>(type))
-				throw new ArgumentException("The type specified: " + type + " is not an Attribute type");
+	    /// <summary>
+	    /// Finds any classes with the attribute.
+	    /// </summary>
+	    /// <param name="attributeType">The attribute type </param>
+	    /// <param name="assemblies">The assemblies.</param>
+	    /// <param name="onlyConcreteClasses">if set to <c>true</c> only concrete classes.</param>
+	    /// <returns></returns>
+	    public static IEnumerable<Type> FindClassesWithAttribute(
+	        Type attributeType,
+	        IEnumerable<Assembly> assemblies,
+	        bool onlyConcreteClasses)
+	    {
+	        if (assemblies == null) throw new ArgumentNullException("assemblies");
 
-			var l = new List<Type>();
-			foreach (var a in assemblies)
-			{
-				var types = from t in GetTypesWithFormattedException(a)
-							where !t.IsInterface && t.GetCustomAttributes(type, false).Any() && (!onlyConcreteClasses || (t.IsClass && !t.IsAbstract))
-							select t;
-				l.AddRange(types);
-			}
+	        if (TypeHelper.IsTypeAssignableFrom<Attribute>(attributeType) == false)
+	            throw new ArgumentException("The type specified: " + attributeType + " is not an Attribute type");
 
-			return l;
-		}
+            var foundAssignableTypes = new List<Type>();
 
-		/// <summary>
+            var assemblyList = assemblies.ToArray();
+
+            //find all assembly references that are referencing the attribute type's assembly since we 
+            //should only be scanning those assemblies because any other assembly will definitely not
+            //contain a class that has this attribute.
+            var referencedAssemblies = TypeHelper.GetReferencedAssemblies(attributeType, assemblyList);
+
+            foreach (var a in referencedAssemblies)
+	        {
+                //get all types in the assembly that are sub types of the current type
+                var allTypes = GetTypesWithFormattedException(a).ToArray();
+                
+	            var types = allTypes.Where(t => TypeHelper.IsNonStaticClass(t)
+	                                            && (onlyConcreteClasses == false || t.IsAbstract == false)
+	                                            //the type must have this attribute
+                                                && t.GetCustomAttributes(attributeType, false).Any());
+
+	            foundAssignableTypes.AddRange(types);
+	        }
+
+	        return foundAssignableTypes;
+	    }
+
+
+	    /// <summary>
 		/// Finds the classes with attribute.
 		/// </summary>
 		/// <typeparam name="T"></typeparam>
@@ -374,29 +421,96 @@ namespace Umbraco.Core
 
 		#region Private methods
 		
-		/// <summary>
-		/// Gets a collection of assignables of type T from a collection of assemblies
-		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="assemblies"></param>
-		/// <param name="onlyConcreteClasses"></param>
-		/// <returns></returns>
-		private static IEnumerable<Type> GetAssignablesFromType<T>(IEnumerable<Assembly> assemblies, bool onlyConcreteClasses)
+	    /// <summary>
+	    /// Finds types that are assignable from the assignTypeFrom parameter and will scan for these types in the assembly
+	    /// list passed in, however we will only scan assemblies that have a reference to the assignTypeFrom Type or any type 
+	    /// deriving from the base type.
+	    /// </summary>
+	    /// <param name="assignTypeFrom"></param>
+	    /// <param name="assemblies"></param>
+	    /// <param name="onlyConcreteClasses"></param>
+	    /// <param name="additionalFilter">An additional filter to apply for what types will actually be included in the return value</param>
+	    /// <returns></returns>
+	    private static IEnumerable<Type> GetClasses(
+            Type assignTypeFrom, 
+            IEnumerable<Assembly> assemblies, 
+            bool onlyConcreteClasses,
+            Func<Type, bool> additionalFilter = null)
 		{
-			return GetTypes(typeof(T), assemblies, onlyConcreteClasses);
-		}
+            //the default filter will always return true.
+            if (additionalFilter == null)
+            {
+                additionalFilter = type => true;
+            }
 
-		private static IEnumerable<Type> GetTypes(Type assignTypeFrom, IEnumerable<Assembly> assemblies, bool onlyConcreteClasses)
-		{
-			var l = new List<Type>();
-			foreach (var a in assemblies)
-			{
-				var types = from t in GetTypesWithFormattedException(a)
-				            where !t.IsInterface && assignTypeFrom.IsAssignableFrom(t) && (!onlyConcreteClasses || (t.IsClass && !t.IsAbstract))
-				            select t;
-				l.AddRange(types);
+            var foundAssignableTypes = new List<Type>();
+
+            var assemblyList = assemblies.ToArray();
+
+            //find all assembly references that are referencing the current type's assembly since we 
+            //should only be scanning those assemblies because any other assembly will definitely not
+            //contain sub type's of the one we're currently looking for
+            var referencedAssemblies = TypeHelper.GetReferencedAssemblies(assignTypeFrom, assemblyList);
+
+            //get a list of non-referenced assemblies (we'll use this when we recurse below)
+            var otherAssemblies = assemblyList.Where(x => referencedAssemblies.Contains(x) == false).ToArray();
+
+            //loop through the referenced assemblies
+            foreach (var a in referencedAssemblies)
+            {
+                //get all types in the assembly that are sub types of the current type
+                var allSubTypes = GetTypesWithFormattedException(a)
+                    .Where(assignTypeFrom.IsAssignableFrom)
+                    .ToArray();
+
+                //now filter the types based on the onlyConcreteClasses flag, not interfaces, not static classes
+                var filteredTypes = allSubTypes
+                    .Where(t => (TypeHelper.IsNonStaticClass(t)
+                                 && (onlyConcreteClasses == false || t.IsAbstract == false)
+                                 && additionalFilter(t)))
+                    .ToArray();
+
+                //add the types to our list to return
+				foundAssignableTypes.AddRange(filteredTypes);
+
+                //now we need to include types that may be inheriting from sub classes of the type being searched for
+                //so we will search in assemblies that reference those types too.
+                foreach (var subTypesInAssembly in allSubTypes.GroupBy(x => x.Assembly))
+                {
+
+                    //So that we are not scanning too much, we need to group the sub types:    
+                    // * if there is more than 1 sub type in the same assembly then we should only search on the 'lowest base' type.
+                    // * We should also not search for sub types if the type is sealed since you cannot inherit from a sealed class
+                    // * We should not search for sub types if the type is static since you cannot inherit from them.
+                    var subTypeList = subTypesInAssembly
+                        .Where(t => t.IsSealed == false && TypeHelper.IsStaticClass(t) == false)
+                        .ToArray();
+
+                    var baseClassAttempt = TypeHelper.GetLowestBaseType(subTypeList);
+
+                    //if there's a base class amongst the types then we'll only search for that type.
+                    //otherwise we'll have to search for all of them.
+                    var subTypesToSearch = new List<Type>();
+                    if (baseClassAttempt.Success)
+                    {
+                        subTypesToSearch.Add(baseClassAttempt.Result);
+                    }
+                    else
+                    {
+                        subTypesToSearch.AddRange(subTypeList);
+                    }
+                    
+                    foreach (var typeToSearch in subTypesToSearch)
+                    {
+                        //recursively find the types inheriting from this sub type in the other non-scanned assemblies.
+                        var foundTypes = GetClasses(typeToSearch, otherAssemblies, onlyConcreteClasses, additionalFilter);
+                        foundAssignableTypes.AddRange(foundTypes);
+                    }
+                    
+                }
+
 			}
-			return l;			
+			return foundAssignableTypes;			
 		}
 
 		private static IEnumerable<Type> GetTypesWithFormattedException(Assembly a)
@@ -411,7 +525,7 @@ namespace Umbraco.Core
 				sb.AppendLine("Could not load types from assembly " + a.FullName + ", errors:");
 				foreach (var loaderException in ex.LoaderExceptions.WhereNotNull())
 				{
-					sb.AppendLine("Exception: " + loaderException.ToString());
+					sb.AppendLine("Exception: " + loaderException);
 				}
 				throw new ReflectionTypeLoadException(ex.Types, ex.LoaderExceptions, sb.ToString());
 			}

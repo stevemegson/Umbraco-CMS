@@ -7,6 +7,7 @@ using System.Threading;
 using System.Web;
 using System.Xml;
 using Umbraco.Core.IO;
+using Umbraco.Core.Logging;
 using umbraco.BusinessLogic;
 using umbraco.BusinessLogic.Actions;
 using umbraco.cms.businesslogic.property;
@@ -628,31 +629,55 @@ order by {1}
             return tmp;
         }
 
+        /// <summary>
+        /// This will clear out the cmsContentXml table for all Documents (not media or members) and then
+        /// rebuild the xml for each Docuemtn item and store it in this table.
+        /// </summary>
+        /// <remarks>
+        /// This method is thread safe
+        /// </remarks>
         [MethodImpl(MethodImplOptions.Synchronized)]
         public static void RePublishAll()
         {
-            XmlDocument xd = new XmlDocument();
+            var xd = new XmlDocument();
 
-            if (!DataLayerHelper.IsEmbeddedDatabase(SqlHelper.ConnectionString))
-            {
-                SqlHelper.ExecuteNonQuery("truncate table cmsContentXml");
-            }
-            else
-            {
-                SqlHelper.ExecuteNonQuery("delete from cmsContentXml");
-            }
-            IRecordsReader dr = SqlHelper.ExecuteReader("select nodeId from cmsDocument where published = 1");
+            //Remove all Documents (not media or members), only Documents are stored in the cmsDocument table
+            SqlHelper.ExecuteNonQuery(@"DELETE FROM cmsContentXml WHERE nodeId IN
+                                        (SELECT DISTINCT cmsContentXml.nodeId FROM cmsContentXml 
+                                            INNER JOIN cmsDocument ON cmsContentXml.nodeId = cmsDocument.nodeId)");
+            
+            var dr = SqlHelper.ExecuteReader("select nodeId from cmsDocument where published = 1");
 
             while (dr.Read())
             {
                 try
                 {
-                    new Document(dr.GetInt("nodeId")).XmlGenerate(xd);
+                    //create the document in optimized mode! 
+                    // (not sure why we wouldn't always do that ?!)
+
+                    new Document(true, dr.GetInt("nodeId"))
+                        .XmlGenerate(xd);
+
+                    //The benchmark results that I found based contructing the Document object with 'true' for optimized
+                    //mode, vs using the normal ctor. Clearly optimized mode is better!
+                    /*
+                     * The average page rendering time (after 10 iterations) for submitting /umbraco/dialogs/republish?xml=true when using 
+                     * optimized mode is
+                     * 
+                     * 0.060400555555556
+                     * 
+                     * The average page rendering time (after 10 iterations) for submitting /umbraco/dialogs/republish?xml=true when not
+                     * using optimized mode is
+                     * 
+                     * 0.107037777777778
+                     *                      
+                     * This means that by simply changing this to use optimized mode, it is a 45% improvement!
+                     * 
+                     */
                 }
                 catch (Exception ee)
                 {
-                    Log.Add(LogTypes.Error, User.GetUser(0), dr.GetInt("nodeId"),
-                            string.Format("Error generating xml: {0}", ee));
+                    LogHelper.Error<Document>("Error generating xml", ee);                    
                 }
             }
             dr.Close();
@@ -1266,7 +1291,7 @@ and node.nodeObjectType=@nodeObjectType";
                 Guid newVersion = createNewVersion(versionDate);
 
                 SqlHelper.ExecuteNonQuery("insert into cmsDocument (nodeId, published, documentUser, versionId, updateDate, Text) "
-					+ "values (" + Id + ", 0, " + u.Id + ", @versionId, @text)",
+					+ "values (" + Id + ", 0, " + u.Id + ", @versionId, @updateDate, @text)",
                     SqlHelper.CreateParameter("@versionId", newVersion),
                     SqlHelper.CreateParameter("@updateDate", versionDate),
                     SqlHelper.CreateParameter("@text", Text));

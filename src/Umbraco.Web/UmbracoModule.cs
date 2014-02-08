@@ -424,6 +424,22 @@ namespace Umbraco.Web
 						LogHelper.Debug<UmbracoModule>("Total milliseconds for umbraco request to process: " + DateTime.Now.Subtract(UmbracoContext.Current.ObjectCreated).TotalMilliseconds);
 					}					
 				};
+
+            //disable asp.net headers (security)
+		    app.PreSendRequestHeaders += (sender, args) =>
+		        {
+                    var httpContext = ((HttpApplication)sender).Context;
+					try
+					{
+						httpContext.Response.Headers.Remove("Server");
+						//this doesn't normally work since IIS sets it but we'll keep it here anyways.
+						httpContext.Response.Headers.Remove("X-Powered-By");
+					}
+					catch (PlatformNotSupportedException ex)
+					{
+						// can't remove headers this way on IIS6 or cassini.
+					}
+		        };
 		}
 
 		public void Dispose()
