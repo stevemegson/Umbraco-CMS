@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Web;
 using System.Reflection;
 using umbraco.BasePages;
@@ -28,7 +29,10 @@ namespace umbraco.BusinessLogic.Actions
     public class Action
     {
         private static List<IAction> _actions = new List<IAction>();
+        private static Dictionary<char,IAction> _actionDictionary = new Dictionary<char,IAction>();        
         private static List<IActionHandler> _actionHandlers = new List<IActionHandler>();
+
+        private static Dictionary<string, List<IAction>> _actionFromStringCache = new Dictionary<string, List<IAction>>();
 
         private static readonly List<string> _actionJSReference = new List<string>();
         private static readonly Dictionary<string, string> _actionJs = new Dictionary<string, string>();
@@ -50,6 +54,7 @@ namespace umbraco.BusinessLogic.Actions
             lock (m_Lock)
             {
                 _actions.Clear();
+                _actionDictionary.Clear();
                 _actionHandlers.Clear();
                 RegisterIActions();
                 RegisterIActionHandlers();
@@ -101,9 +106,12 @@ namespace umbraco.BusinessLogic.Actions
                         if (!string.IsNullOrEmpty(typeInstance.JsSource))
                             _actionJSReference.Add(typeInstance.JsSource);
                         _actions.Add(typeInstance);
+                        _actionDictionary[typeInstance.Letter] = typeInstance;
                     }
                 }
             }
+
+            _actionFromStringCache.Clear();
 
         }
 
@@ -242,19 +250,21 @@ namespace umbraco.BusinessLogic.Actions
         /// <returns>returns a list of actions that have an associated letter found in the action string list</returns>
         public static List<IAction> FromString(string actions)
         {
-            List<IAction> list = new List<IAction>();
-            foreach (char c in actions.ToCharArray())
+            List<IAction> result;
+
+            if (!_actionFromStringCache.TryGetValue(actions, out result))
             {
-                IAction action = _actions.Find(
-                    delegate(IAction a)
-                    {
-                        return a.Letter == c;
-                    }
-                );
-                if (action != null)
-                    list.Add(action);
+                result = actions.Select(c =>
+                {
+                    IAction a;
+                    _actionDictionary.TryGetValue(c, out a);
+                    return a;
+                }).Where(a => a != null).ToList();
+
+                _actionFromStringCache[actions] = new List<IAction>(result);
             }
-            return list;
+
+            return new List<IAction>(result);
         }
 
         /// <summary>
@@ -263,8 +273,13 @@ namespace umbraco.BusinessLogic.Actions
         /// <returns></returns>
         public static string ToString(List<IAction> actions)
         {
-            string[] strMenu = Array.ConvertAll<IAction, string>(actions.ToArray(), delegate(IAction a) { return (a.Letter.ToString()); });
-            return string.Join("", strMenu);
+            var sb = new System.Text.StringBuilder(actions.Count);
+            foreach (IAction a in actions)
+            {
+                sb.Append(a.Letter);
+            }
+
+            return sb.ToString();
         }
 
         /// <summary>
