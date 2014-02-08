@@ -184,7 +184,7 @@ namespace umbraco.controls
                 if (newAliases.Length < _originalPropertyAliases.Count())
                 {
                     return true;
-        }
+                }
                 //otherwise ensure that all of the original aliases are still existing
                 return newAliases.ContainsAll(_originalPropertyAliases) == false;
             }
@@ -290,14 +290,14 @@ namespace umbraco.controls
 
                     SaveProperties(asyncState.SaveArgs);
 
-            SaveTabs();
+                    SaveTabs();
 
-            SaveAllowedChildTypes();
+                    SaveAllowedChildTypes();
                     
-            // Only if the doctype alias changed, cause a regeneration of the xml cache file since
-            // the xml element names will need to be updated to reflect the new alias
+                    // Only if the doctype alias changed, cause a regeneration of the xml cache file since
+                    // the xml element names will need to be updated to reflect the new alias
                     if (asyncState.HasAliasChanged(_contentType) || asyncState.HasAnyPropertyAliasChanged(_contentType))
-                       RegenerateXmlCaches(_contentType.Id);
+                        RegenerateXmlCaches();
 
                     Trace.Write("ContentTypeControlNew", "task completing");
                 };
@@ -352,13 +352,7 @@ namespace umbraco.controls
             if (_contentType is DocumentType)
             {
                 library.RefreshContent();    
-        }
-        }
-
-        private void RegenerateXmlCaches(int docTypeId)
-        {
-            umbraco.cms.businesslogic.web.Document.RePublishDocumentsOfType(docTypeId);
-            library.RefreshContent();
+            }
         }
 
         private void UpdateTreeNode()
@@ -421,7 +415,7 @@ namespace umbraco.controls
                 var listItemValue = ResolveClientUrl(SystemDirectories.Umbraco + "/images/umbraco/" + file.Name);
 
                 AddFileListItem(file.Name, listItemValue, listOfIcons);
-                }
+            }
 
             ddlIcons.Items.AddRange(listOfIcons.OrderBy(o => o.Text).ToArray());
 
@@ -830,7 +824,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
 
                 //delete the property
                 asyncState.GenericPropertyWrapper.GenricPropertyControl.PropertyType.delete();
-        
+                
                 //we need to re-generate the xml structures because we're removing a content type property
                 RegenerateXmlCaches();
 
