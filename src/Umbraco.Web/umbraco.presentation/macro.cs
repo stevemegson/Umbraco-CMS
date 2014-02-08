@@ -441,7 +441,7 @@ namespace umbraco
                                         if (macroControl == null)
                                         {
                                             throw result.ResultException;
-                                        }
+                                }
                                     }
                                     break;
                                 }

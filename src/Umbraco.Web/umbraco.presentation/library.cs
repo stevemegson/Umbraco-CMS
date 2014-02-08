@@ -56,7 +56,7 @@ namespace umbraco
 		private static UmbracoHelper GetUmbracoHelper()
         {
 			return new UmbracoHelper(Umbraco.Web.UmbracoContext.Current);
-            }
+		}
 
         #region Declarations
 
@@ -272,7 +272,7 @@ namespace umbraco
         public static string NiceUrl(int nodeID)
         {
         	return GetUmbracoHelper().NiceUrl(nodeID);            
-            }
+        }
 
         /// <summary>
         /// This method will always add the root node to the path. You should always use NiceUrl, as that is the
@@ -313,7 +313,7 @@ namespace umbraco
         public static string ResolveVirtualPath(string path)
         {
 			return Umbraco.Core.IO.IOHelper.ResolveUrl(path);
-            }
+        }
 
 
         /// <summary>
@@ -330,7 +330,7 @@ namespace umbraco
 	        var doc = Umbraco.Web.UmbracoContext.Current.ContentCache.GetById(nodeID);
 
 			if (doc == null)
-                    return string.Empty;
+				return string.Empty;
 
 	        switch (alias)
 	        {
@@ -360,7 +360,7 @@ namespace umbraco
 			        return doc.Path;
 				case "creatorName":
 			        return doc.CreatorName;
-        }
+	        }
 
 	        var prop = doc.GetProperty(alias);
 	        return prop == null ? string.Empty : prop.Value.ToString();
@@ -604,7 +604,7 @@ namespace umbraco
         public static bool HasAccess(int NodeId, string Path)
         {
         	return GetUmbracoHelper().MemberHasAccess(NodeId, Path);
-            }
+        }
 
 
         /// <summary>
@@ -615,7 +615,7 @@ namespace umbraco
         public static string md5(string text)
         {
 			return text.ToMd5();
-            }
+        }
 
         /// <summary>
         /// Compare two dates
@@ -986,47 +986,47 @@ namespace umbraco
         /// <returns>The rendered template as a string</returns>
         public static string RenderTemplate(int PageId, int TemplateId)
         {
-                if (UmbracoSettings.UseAspNetMasterPages)
-                {
+            if (UmbracoSettings.UseAspNetMasterPages)
+            {
                 if (!UmbracoContext.Current.LiveEditingContext.Enabled)
                 {										
 	                using (var sw = new StringWriter())
-                    {
+	                {
 						try
-                        {
+						{
 							var altTemplate = TemplateId == -1 ? null : (int?)TemplateId;
 							var templateRenderer = new TemplateRenderer(Umbraco.Web.UmbracoContext.Current, PageId, altTemplate);
 							templateRenderer.Render(sw);
-                        }
+						}
 						catch (Exception ee)
 						{
 							sw.Write("<!-- Error rendering template with id {0}: '{1}' -->", PageId, ee);
 						}
 
 						return sw.ToString();    
-                    }
-                }
-                    else
-                    {
-                        return "RenderTemplate not supported in Canvas";
-                    }
+	                }
                 }
                 else
                 {
+                    return "RenderTemplate not supported in Canvas";
+                }
+            }
+            else
+            {
 
                 var p = new page(((IHasXmlNode)GetXmlNodeById(PageId.ToString()).Current).GetNode());
-                    p.RenderPage(TemplateId);
+                p.RenderPage(TemplateId);
                 var c = p.PageContentControl;
                 
 				using (var sw = new StringWriter())
                 using(var hw = new HtmlTextWriter(sw))
                 {
-                    c.RenderControl(hw);
+					c.RenderControl(hw);
 					return sw.ToString();    
                 }
                 
             }
-            }
+        }
 
         /// <summary>
         /// Renders the default template for a specific page.
@@ -1036,7 +1036,7 @@ namespace umbraco
         public static string RenderTemplate(int PageId)
         {
 	        return RenderTemplate(PageId, -1);
-                        }
+        }
 
         /// <summary>
         /// Registers the client script block.
@@ -1327,7 +1327,7 @@ namespace umbraco
         public static string GetDictionaryItem(string Key)
         {
 	        return GetUmbracoHelper().GetDictionaryValue(Key);			
-            }
+        }
 
         /// <summary>
         /// Gets the current page.

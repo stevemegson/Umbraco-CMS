@@ -401,12 +401,6 @@ namespace umbraco.controls
         /// <summary>
         /// Updates the Node in the Tree
         /// </summary>
-        private void RegenerateXmlCaches(int docTypeId)
-        {
-            umbraco.cms.businesslogic.web.Document.RePublishDocumentsOfType(docTypeId);
-            library.RefreshContent();
-        }
-
         private void UpdateTreeNode()
         {
             var clientTools = new ClientTools(this.Page);

@@ -430,24 +430,6 @@ namespace umbraco.cms.businesslogic.web
             ApplicationContext.Current.Services.ContentService.RePublishAll();
                 }
 
-        public static void RePublishDocumentsOfType(int docTypeId)
-        {
-            XmlDocument xd = new XmlDocument();
-
-            foreach (var d in umbraco.cms.businesslogic.web.Document.GetDocumentsOfDocumentType(docTypeId))
-            {
-                try
-                {
-                    d.XmlGenerate(xd);
-                }
-                catch (Exception ee)
-                {
-                    Log.Add(LogTypes.Error, User.GetUser(0), d.Id,
-                            string.Format("Error generating xml: {0}", ee));
-                }
-            }
-        }
-
         public static void RegeneratePreviews()
         {
             XmlDocument xd = new XmlDocument();
