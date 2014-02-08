@@ -66,21 +66,11 @@ namespace umbraco.cms.businesslogic.Files
         public static UmbracoFile Save(byte[] file, string fullFileName)
         {
             string fullFilePath = IO.IOHelper.MapPath(fullFileName);
+            string fullDirectoryPath = Path.GetDirectoryName(fullFilePath);
 
-            // create directories
-            DirectoryInfo di = new DirectoryInfo(IO.IOHelper.MapPath(fullFilePath.Substring(0, fullFilePath.LastIndexOf(Path.DirectorySeparatorChar))));
-            if (!di.Exists)
+            if (! Directory.Exists(fullDirectoryPath))
             {
-                var currentDir = IO.IOHelper.MapPath(IO.SystemDirectories.Root);
-                var rootDir = IO.IOHelper.MapPath(IO.SystemDirectories.Root);
-                foreach (var dir in di.FullName.Substring(rootDir.Length).Split(Path.DirectorySeparatorChar))
-                {
-                    currentDir = Path.Combine(currentDir, dir);
-                    if (!new DirectoryInfo(currentDir).Exists)
-                    {
-                        Directory.CreateDirectory(currentDir);
-                    }
-                }
+                Directory.CreateDirectory(fullDirectoryPath);
             }
 
             File.WriteAllBytes(fullFilePath, file);
@@ -106,9 +96,9 @@ namespace umbraco.cms.businesslogic.Files
             _length = fi.Length;
             _directoryName = fi.DirectoryName;
             _extension = fi.Extension.Substring(1).ToLowerInvariant();
-            _localName =
-                "/" + fi.FullName.Substring(IO.IOHelper.MapPath(IO.SystemDirectories.Root).Length).Replace(
-                    Path.DirectorySeparatorChar.ToString(), "/");
+
+            string pathWithinMedia = fi.FullName.Substring(IO.IOHelper.MapPath(IO.SystemDirectories.Media).Length).Replace(Path.DirectorySeparatorChar.ToString(), "/");
+            _localName = VirtualPathUtility.ToAbsolute( IO.SystemDirectories.Media.TrimEnd('/') + "/" + pathWithinMedia.TrimStart('/') );
         }
 
         #region IFile Members
