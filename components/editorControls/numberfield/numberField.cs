@@ -2,6 +2,7 @@ using System;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace umbraco.editorControls
 {
@@ -47,14 +48,12 @@ namespace umbraco.editorControls
 		{
 			get { return base.Text; }
 			set 	{
-				try 	{
-					if (value != null)
-					    base.Text = Convert.ToInt32(value).ToString();
-				} 
-				catch {
-					base.Text = "";
-					System.Web.HttpContext.Current.Trace.Warn("Numberfield", "Value has to be an integer (" + value + ")");
-				}
+                int integer;
+
+                if (int.TryParse(value, NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out integer))
+                {
+                    base.Text = integer.ToString();
+                }
 			}
 		}
 
