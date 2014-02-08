@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Web.Script.Services;
 using System.Web.Services;
@@ -95,11 +96,20 @@ namespace umbraco.presentation.webservices
                         }
                         //CHANGE:End
 
+                        List<Document> changedDocuments = new List<Document>();
+
                         for (int i = 0; i < tmp.Length; i++)
                         {
                             if (tmp[i] != "" && tmp[i].Trim() != "")
                             {
-                                new cms.businesslogic.CMSNode(int.Parse(tmp[i])).sortOrder = i;
+                                var node = new cms.businesslogic.CMSNode(int.Parse(tmp[i]));
+
+                                if (node.sortOrder == i)
+                                {
+                                    continue;
+                                }
+                                
+                                node.sortOrder = i;
 
                                 if (isContent)
                                 {
@@ -108,7 +118,8 @@ namespace umbraco.presentation.webservices
                                     if (d.Published)
                                     {
                                         d.refreshXmlSortOrder();
-                                        library.UpdateDocumentCache(int.Parse(tmp[i]));
+
+                                        changedDocuments.Add(d);                                        
                                     }
                                 }
                                 //CHANGE:Allan Laustsen, to update the sortorder of the media node in the XML, re-save the node....
@@ -119,6 +130,8 @@ namespace umbraco.presentation.webservices
                                 //CHANGE:End
                             }
                         }
+
+                        content.Instance.UpdateDocumentCache(changedDocuments);
 
                         // Refresh sort order on cached xml
                         if (isContent)

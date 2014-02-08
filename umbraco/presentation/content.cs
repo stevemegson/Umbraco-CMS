@@ -341,21 +341,40 @@ namespace umbraco
                 else
                     TransferValuesFromDocumentXmlToPublishedXml(docXml, x);
 
-                // TODO: Update with new schema!
-                string xpath = UmbracoSettings.UseLegacyXmlSchema ? "./node" : "./* [@id]";
-                XmlNodeList childNodes = parentNode.SelectNodes(xpath);
+                EnsureChildrenSortOrder(x, parentNode);
+            }
+        }
 
-                // Maybe sort the nodes if the added node has a lower sortorder than the last
-                if (childNodes.Count > 0)
+        private static void EnsureChildrenSortOrder(XmlNode x, XmlNode parentNode)
+        {
+            // TODO: Update with new schema!
+            string xpath = UmbracoSettings.UseLegacyXmlSchema ? "./node" : "./* [@id]";
+            XmlNodeList childNodes = parentNode.SelectNodes(xpath);            
+
+            // Maybe sort the nodes if the added node has a lower sortorder than the last
+            if (childNodes.Count > 1)
+            {
+                int lastSortOrder = -1;
+                foreach (XmlNode c in childNodes)
                 {
-                    int siblingSortOrder =
-                        int.Parse(childNodes[childNodes.Count - 1].Attributes.GetNamedItem("sortOrder").Value);
-                    int currentSortOrder = int.Parse(x.Attributes.GetNamedItem("sortOrder").Value);
-                    if (childNodes.Count > 1 && siblingSortOrder > currentSortOrder)
+                    int currentSortOrder = int.Parse(c.Attributes.GetNamedItem("sortOrder").Value);
+                    if (currentSortOrder < lastSortOrder)
                     {
                         SortNodes(ref parentNode);
+
+                        break;
                     }
+
+                    lastSortOrder = currentSortOrder;
                 }
+
+                //int siblingSortOrder =
+                //    int.Parse(childNodes[childNodes.Count - 1].Attributes.GetNamedItem("sortOrder").Value);
+                //int currentSortOrder = int.Parse(x.Attributes.GetNamedItem("sortOrder").Value);
+                //if (childNodes.Count > 1 && siblingSortOrder > currentSortOrder)
+                //{
+                //    SortNodes(ref parentNode);
+                //}
             }
         }
 
@@ -469,19 +488,30 @@ namespace umbraco
         /// <param name="Documents">The documents.</param>
         public virtual void UpdateDocumentCache(List<Document> Documents)
         {
+            if (Documents == null || Documents.Count == 0)
+            {
+                return;
+            }
+
             // We need to lock content cache here, because we cannot allow other threads
             // making changes at the same time, they need to be queued
-            int parentid = Documents[0].Id;
-
             lock (_xmlContentInternalSyncLock)
             {
-                // Make copy of memory content, we cannot make changes to the same document
-                // the is read from elsewhere
-                XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+                XmlDocument xmlContentCopy;
+                if (UmbracoSettings.CloneXmlCacheOnPublish)
+                {
+                    xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+                }
+                else
+                {
+                    xmlContentCopy = XmlContentInternal;
+                }              
+                
                 foreach (Document d in Documents)
                 {
                     PublishNodeDo(d, xmlContentCopy, true);
                 }
+
                 XmlContentInternal = xmlContentCopy;
                 ClearContextCache();
             }
@@ -543,17 +573,26 @@ namespace umbraco
                 // making changes at the same time, they need to be queued
                 lock (_xmlContentInternalSyncLock)
                 {
-                    // Make copy of memory content, we cannot make changes to the same document
-                    // the is read from elsewhere
-                    XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
-
-                    // Find the document in the xml cache
-                    x = xmlContentCopy.GetElementById(d.Id.ToString());
-                    if (x != null)
+                    if (UmbracoSettings.CloneXmlCacheOnPublish)
                     {
-                        // The document already exists in cache, so repopulate it
+                        // Make copy of memory content, we cannot make changes to the same document
+                        // the is read from elsewhere
+                        XmlDocument xmlContentCopy = CloneXmlDoc(XmlContentInternal);
+
+                        // Find the document in the xml cache
+                        x = xmlContentCopy.GetElementById(d.Id.ToString());
+                        if (x != null)
+                        {
+                            // The document already exists in cache, so repopulate it
+                            x.ParentNode.RemoveChild(x);
+                            XmlContentInternal = xmlContentCopy;
+                            ClearContextCache();
+                        }
+                    }
+                    else
+                    {
                         x.ParentNode.RemoveChild(x);
-                        XmlContentInternal = xmlContentCopy;
+                        XmlContentInternal = _xmlContent;
                         ClearContextCache();
                     }
                 }
