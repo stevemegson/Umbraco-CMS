@@ -131,13 +131,13 @@ namespace umbraco.controls
 
             // Check if the doctype alias has changed as a result of either the user input or
             // the alias checking performed upon saving
-            var docTypeAliasChanged = (string.Compare(originalDocTypeAlias, cType.Alias, true) != 0);
+            var docTypeAliasChanged = (string.Compare(umbraco.cms.helpers.Casing.SafeAliasWithForcingCheck(originalDocTypeAlias), cType.Alias, true) != 0);
             var docTypeNameChanged = (string.Compare(originalDocTypeName, cType.Text, true) != 0);
 
             // Only if the doctype alias changed, cause a regeneration of the xml cache file since
             // the xml element names will need to be updated to reflect the new alias
             if (docTypeAliasChanged)
-                RegenerateXmlCaches();
+                RegenerateXmlCaches(cType.Id);
 
             bindDataGenericProperties(true);
 
@@ -156,6 +156,12 @@ namespace umbraco.controls
         private void RegenerateXmlCaches()
         {
             umbraco.cms.businesslogic.web.Document.RePublishAll();
+            library.RefreshContent();
+        }
+
+        private void RegenerateXmlCaches(int docTypeId)
+        {
+            umbraco.cms.businesslogic.web.Document.RePublishDocumentsOfType(docTypeId);
             library.RefreshContent();
         }
 
