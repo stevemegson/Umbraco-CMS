@@ -503,6 +503,10 @@ namespace umbraco
 
         public template(int templateID)
         {
+            if (templateID <= 0)
+            {
+                return;
+            }
             if (templateCache["template" + templateID.ToString()] != null)
             {
                 template t = (template)templateCache["template" + templateID];
@@ -533,7 +537,7 @@ namespace umbraco
                 }
             }
             // Only check for master on legacy templates - can show error when using master pages.
-            if(!UmbracoSettings.UseAspNetMasterPages)
+            if (!UmbracoSettings.UseAspNetMasterPages)
                 checkForMaster(templateID);
         }
 
