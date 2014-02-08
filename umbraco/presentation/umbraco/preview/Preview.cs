@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Configuration;
 using System.Linq;
@@ -52,9 +53,32 @@ namespace umbraco.presentation.preview
             // clone xml
             XmlContent = (XmlDocument)content.Instance.XmlContent.Clone();
 
-            // inject current document xml
-            int parentId = documentObject.Level == 1 ? -1 : documentObject.Parent.Id;
-            content.AppendDocumentXml(documentObject.Id, documentObject.Level, parentId, documentObject.ToPreviewXml(XmlContent), XmlContent);
+
+            //We have to add the unpublished node to the content. Since we are using an XML document we actually
+            //have to add all its unpublished ancestors as well if they are not published. Hence this while loop
+            //This makes preview quite an expensive task
+            var nodesToAdd = new List<Document>();
+
+            var immediateParentId = documentObject.ParentId;
+
+            //Loop up the ancestor tree adding parents who are not in the tree
+            while (immediateParentId > 0 && XmlContent.GetElementById(immediateParentId.ToString()) == null)
+            {
+                var document = new Document(immediateParentId);
+                nodesToAdd.Insert(0, document);
+                immediateParentId = document.ParentId;
+            }
+
+            //Add the current node to the preview list
+            nodesToAdd.Add(documentObject);
+
+            foreach (var document in nodesToAdd)
+            {
+                //Inject preview xml
+                int parentId = document.Level == 1 ? -1 : document.Parent.Id;
+                var previewXml = document.ToPreviewXml(XmlContent);
+                content.AppendDocumentXml(document.Id, document.Level, parentId, previewXml, XmlContent);
+            }
 
             if (includeSubs)
             {
