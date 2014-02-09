@@ -359,6 +359,7 @@
     <Compile Include="PublishedCache\XmlPublishedCache\PublishedMediaCache.cs" />
     <Compile Include="Dictionary\UmbracoCultureDictionary.cs" />
     <Compile Include="Dictionary\UmbracoCultureDictionaryFactory.cs" />
+    <Compile Include="Mvc\ContentExistsRouteConstraint.cs" />
     <Compile Include="Mvc\MemberAuthorizeAttribute.cs" />
     <Compile Include="Mvc\BackOfficeArea.cs" />
     <Compile Include="Mvc\ControllerFactoryExtensions.cs" />

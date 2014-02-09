@@ -90,7 +90,7 @@ namespace Umbraco.Web.Mvc
 			using (new WriteLock(_locker))
 			{
 				bool released = false;
-				if (controller is Controller)
+				if (controller is Controller && ((Controller)controller).ControllerContext != null)
 				{
 					var requestContext = ((Controller)controller).ControllerContext.RequestContext;
 					var factory = _slaveFactories.Factories.FirstOrDefault(x => x.CanHandle(requestContext));
