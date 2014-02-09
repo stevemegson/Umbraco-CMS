@@ -139,18 +139,20 @@ namespace Umbraco.Web.Templates
 					var routeHandler = new RenderRouteHandler(ControllerBuilder.Current.GetControllerFactory(), _umbracoContext);
 					var routeDef = routeHandler.GetUmbracoRouteDefinition(requestContext, contentRequest);
 					var renderModel = new RenderModel(contentRequest.PublishedContent, contentRequest.Culture);
+                    var controller = (Controller)routeHandler.GetController(requestContext, contentRequest);
 					//manually add the action/controller, this is required by mvc
 					requestContext.RouteData.Values.Add("action", routeDef.ActionName);
 					requestContext.RouteData.Values.Add("controller", routeDef.ControllerName);
 					//add the rest of the required route data
 					routeHandler.SetupRouteDataForRequest(renderModel, requestContext, contentRequest);
 					//create and assign the controller context
-					routeDef.Controller.ControllerContext = new ControllerContext(requestContext, routeDef.Controller);
+					controller.ControllerContext = new ControllerContext(requestContext, controller);
 					//render as string
-					var stringOutput = routeDef.Controller.RenderViewToString(
+					var stringOutput = controller.RenderViewToString(
 						routeDef.ActionName,
 						renderModel);
 					sw.Write(stringOutput);
+                    ControllerBuilder.Current.GetControllerFactory().ReleaseController(controller);
 					break;
 				case RenderingEngine.WebForms:
 				default:

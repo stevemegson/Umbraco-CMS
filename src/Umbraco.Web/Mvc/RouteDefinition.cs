@@ -1,3 +1,4 @@
+using System;
 using System.Web.Mvc;
 using Umbraco.Web.Routing;
 
@@ -14,7 +15,9 @@ namespace Umbraco.Web.Mvc
 		/// <summary>
 		/// The Controller instance found for routing to
 		/// </summary>
-		public ControllerBase Controller { get; set; }
+		//public ControllerBase Controller { get; set; }
+
+        public Func<IController> CreateController { get; set; }
 
 		/// <summary>
 		/// The current RenderModel found for the request
@@ -25,5 +28,5 @@ namespace Umbraco.Web.Mvc
 		/// Gets/sets whether the current request has a hijacked route/user controller routed for it
 		/// </summary>
 		public bool HasHijackedRoute { get; set; }
-	}
+    }
 }

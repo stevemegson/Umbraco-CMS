@@ -24,27 +24,29 @@ namespace Umbraco.Web.Mvc
 			}
 
 			var routeDef = (RouteDefinition)context.RouteData.DataTokens["umbraco-route-def"];
+            var controller = (Controller)routeDef.CreateController();
 
 			//ensure the original template is reset
 			context.RouteData.Values["action"] = routeDef.ActionName;
 
 			//ensure ModelState is copied across
-			routeDef.Controller.ViewData.ModelState.Merge(context.Controller.ViewData.ModelState);
+			controller.ViewData.ModelState.Merge(context.Controller.ViewData.ModelState);
 
 			//ensure TempData and ViewData is copied across
 			foreach (var d in context.Controller.ViewData)
-				routeDef.Controller.ViewData[d.Key] = d.Value;
-			routeDef.Controller.TempData = context.Controller.TempData;
+				controller.ViewData[d.Key] = d.Value;
+			controller.TempData = context.Controller.TempData;
 
 			using (DisposableTimer.TraceDuration<UmbracoPageResult>("Executing Umbraco RouteDefinition controller", "Finished"))
 			{
 				try
 				{
-					((IController)routeDef.Controller).Execute(context.RequestContext);
+					((IController)controller).Execute(context.RequestContext);
 				}
 				finally
 				{
-					routeDef.Controller.DisposeIfDisposable();
+                    ControllerBuilder.Current.GetControllerFactory().ReleaseController(controller);
+                    controller.DisposeIfDisposable();                    
 				}
 			}
 
