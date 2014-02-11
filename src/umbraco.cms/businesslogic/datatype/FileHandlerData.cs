@@ -119,13 +119,13 @@ namespace umbraco.cms.businesslogic.datatype
                         base.Value = String.Empty;
 
                         // also reset values of related fields
-                        clearRelatedValues();
+                        //clearRelatedValues();
                     }
                 }
                 else
                 {
                     base.Value = value;
-                    clearRelatedValues();
+                    //clearRelatedValues();
                 }
             }
         }
