@@ -8,9 +8,12 @@ using umbraco.interfaces;
 namespace umbraco.cms.businesslogic.macro
 {
     public class MacroEngineFactory
-    {
+    {        
         private static readonly Dictionary<string, Type> m_engines = new Dictionary<string, Type>();
         private static readonly List<IMacroEngine> m_allEngines = new List<IMacroEngine>();
+        private static readonly object _lock = new object();
+        private static bool _initialized = false;
+
         public MacroEngineFactory()
         {
             Initialize();
@@ -71,12 +74,19 @@ namespace umbraco.cms.businesslogic.macro
 
         public static List<IMacroEngine> GetAll()
         {
-
             if (m_allEngines.Count == 0)
             {
-                Initialize();
-                foreach (string name in m_engines.Keys) {
-                    m_allEngines.Add(GetEngine(name));
+                lock (_lock)
+                {
+                    if (! _initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                        foreach (string name in m_engines.Keys)
+                        {
+                            m_allEngines.Add(GetEngine(name));
+                        }
+                    }
                 }
             }
 
