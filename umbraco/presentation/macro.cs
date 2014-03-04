@@ -735,7 +735,7 @@ namespace umbraco
                 _xsltExtensionsCacheKey, _xsltExtensionsSyncLock,
                 CacheItemPriority.NotRemovable, // NH 4.7.1, Changing to NotRemovable
                 null, // no refresh action
-                _xsltExtensionsDependency(), // depends on the .config file
+                _xsltExtensionsDependency, // depends on the .config file
                 TimeSpan.FromDays(1), // expires in 1 day (?)
                 () => { return GetXsltExtensionsImpl(); });
         }
