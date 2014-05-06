@@ -8,9 +8,11 @@ using umbraco.interfaces;
 namespace umbraco.cms.businesslogic.macro
 {
     public class MacroEngineFactory
-    {
+    {        
         private static readonly Dictionary<string, Type> m_engines = new Dictionary<string, Type>();
         private static readonly List<IMacroEngine> m_allEngines = new List<IMacroEngine>();
+        private static readonly object _lock = new object();
+        private static bool _initialized = false;
         private static object locker = new object();
 
         public MacroEngineFactory()
@@ -44,8 +46,8 @@ namespace umbraco.cms.businesslogic.macro
                         lock (locker)
                         {
                             if (!m_engines.ContainsKey(typeInstance.Name))
-                                m_engines.Add(typeInstance.Name, t);
-                        }
+                        m_engines.Add(typeInstance.Name, t);
+                    }
                     }
                     catch (Exception ee)
                     {
@@ -77,12 +79,19 @@ namespace umbraco.cms.businesslogic.macro
 
         public static List<IMacroEngine> GetAll()
         {
-
             if (m_allEngines.Count == 0)
             {
-                Initialize();
-                foreach (string name in m_engines.Keys) {
-                    m_allEngines.Add(GetEngine(name));
+                lock (_lock)
+                {
+                    if (! _initialized)
+                    {
+                        Initialize();
+                        _initialized = true;
+                        foreach (string name in m_engines.Keys)
+                        {
+                            m_allEngines.Add(GetEngine(name));
+                        }
+                    }
                 }
             }
 

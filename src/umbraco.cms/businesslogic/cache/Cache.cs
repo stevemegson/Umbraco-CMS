@@ -149,7 +149,7 @@ namespace umbraco.cms.businesslogic.cache
 
         public static TT GetCacheItem<TT>(string cacheKey, object syncLock,
             CacheItemPriority priority, CacheItemRemovedCallback refreshAction,
-            CacheDependency cacheDependency, TimeSpan timeout, GetCacheItemDelegate<TT> getCacheItem)
+            Func<CacheDependency> getCacheDependency, TimeSpan timeout, GetCacheItemDelegate<TT> getCacheItem)
         {
             object result = System.Web.HttpRuntime.Cache.Get(cacheKey);
             if (result == null)
@@ -162,7 +162,13 @@ namespace umbraco.cms.businesslogic.cache
                         result = getCacheItem();
                         if (result != null)
                         {
-                            System.Web.HttpRuntime.Cache.Add(cacheKey, result, cacheDependency,
+                            CacheDependency dependency = null;
+                            if (getCacheDependency != null)
+                            {
+                                dependency = getCacheDependency();
+                            }
+
+                            System.Web.HttpRuntime.Cache.Add(cacheKey, result, dependency,
                                 DateTime.Now.Add(timeout), TimeSpan.Zero, priority, refreshAction);
                         }
                     }
