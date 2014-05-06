@@ -1,7 +1,12 @@
-﻿using NUnit.Framework;
+﻿using System.Reflection;
+using NUnit.Framework;
 using Umbraco.Core;
 using Umbraco.Core.Configuration;
 using Umbraco.Core.ObjectResolution;
+using Umbraco.Core.Persistence;
+using Umbraco.Core.Persistence.UnitOfWork;
+using Umbraco.Core.Publishing;
+using Umbraco.Core.Services;
 using Umbraco.Web;
 
 namespace Umbraco.Tests.TestHelpers
@@ -18,6 +23,7 @@ namespace Umbraco.Tests.TestHelpers
         {
             TestHelper.SetupLog4NetForTests();
             TestHelper.InitializeContentDirectories();
+            TestHelper.EnsureUmbracoSettingsConfig();
 
             SettingsForTests.UseLegacyXmlSchema = false;
             SettingsForTests.ForceSafeAliases = true;
@@ -37,6 +43,7 @@ namespace Umbraco.Tests.TestHelpers
             SettingsForTests.Reset();
             UmbracoContext.Current = null;
             TestHelper.CleanContentDirectories();
+            TestHelper.CleanUmbracoSettingsConfig();
             //reset the app context, this should reset most things that require resetting like ALL resolvers
             ApplicationContext.Current.DisposeIfDisposable();
             ApplicationContext.Current = null;
@@ -69,8 +76,18 @@ namespace Umbraco.Tests.TestHelpers
         /// </summary>
         protected virtual void SetupApplicationContext()
         {
-            //DO NOT ENABLE CACHE
-            ApplicationContext.Current = new ApplicationContext(false) {IsReady = true};
+            //disable cache
+            var cacheHelper = CacheHelper.CreateDisabledCacheHelper();
+
+            ApplicationContext.Current = new ApplicationContext(
+                //assign the db context
+                new DatabaseContext(new DefaultDatabaseFactory()),
+                //assign the service context
+                new ServiceContext(new PetaPocoUnitOfWorkProvider(), new FileUnitOfWorkProvider(), new PublishingStrategy(), cacheHelper),
+                cacheHelper)
+            {
+                IsReady = true
+            };
         }
 
         /// <summary>
@@ -80,7 +97,20 @@ namespace Umbraco.Tests.TestHelpers
         {
             if (PluginManager.Current == null || PluginManagerResetRequired)
             {
-                PluginManager.Current = new PluginManager(false);    
+                PluginManager.Current = new PluginManager(false);
+                PluginManager.Current.AssembliesToScan = new[]
+                {
+                    Assembly.Load("Umbraco.Core"),
+                    Assembly.Load("umbraco"),
+                    Assembly.Load("Umbraco.Tests"),
+                    Assembly.Load("businesslogic"),
+                    Assembly.Load("cms"),
+                    Assembly.Load("controls"),
+                    Assembly.Load("umbraco.editorControls"),
+                    Assembly.Load("umbraco.MacroEngines"),
+                    Assembly.Load("umbraco.providers"),
+                    Assembly.Load("Umbraco.Web.UI"),
+                };
             }
         }
 

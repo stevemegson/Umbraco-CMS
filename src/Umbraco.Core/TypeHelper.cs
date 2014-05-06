@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,16 +51,17 @@ namespace Umbraco.Core
             //contain sub type's of the one we're currently looking for
             return assemblies
                 .Where(assembly =>
-                       assembly == assignTypeFrom.Assembly || HasReferenceToAssemblyWithName(assembly, assignTypeFrom.Assembly.GetName().Name))
+                       assembly == assignTypeFrom.Assembly 
+                        || HasReferenceToAssemblyWithName(assembly, assignTypeFrom.Assembly.GetName().Name))
                 .ToArray();
         }
 
-        /// <summary>
-        /// checks if the assembly has a reference with the same name as the expected assembly name.
-        /// </summary>
-        /// <param name="assembly"></param>
-        /// <param name="expectedAssemblyName"></param>
-        /// <returns></returns>
+	    /// <summary>
+	    /// checks if the assembly has a reference with the same name as the expected assembly name.
+	    /// </summary>
+	    /// <param name="assembly"></param>
+	    /// <param name="expectedAssemblyName"></param>
+	    /// <returns></returns>
         private static bool HasReferenceToAssemblyWithName(Assembly assembly, string expectedAssemblyName)
         {
             return assembly
@@ -105,11 +107,11 @@ namespace Umbraco.Core
 	    {
 	        if (types.Length == 0)
 	        {
-	            return Attempt<Type>.False;
+	            return Attempt<Type>.Fail();
 	        }
 	        if (types.Length == 1)
 	        {
-                return new Attempt<Type>(true, types[0]);
+                return Attempt.Succeed(types[0]);
 	        }
 
 	        foreach (var curr in types)
@@ -122,11 +124,11 @@ namespace Umbraco.Core
 	            //if this type is the base for all others
 	            if (isBase)
 	            {
-	                return new Attempt<Type>(true, curr);
+	                return Attempt.Succeed(curr);
 	            }
 	        }
 
-	        return Attempt<Type>.False;
+	        return Attempt<Type>.Fail();
 	    }
 
 		/// <summary>
@@ -202,6 +204,53 @@ namespace Umbraco.Core
 						return x.Name.InvariantEquals(name);
 					});
 		}
+
+        /// <summary>
+        /// Returns all public properties including inherited properties even for interfaces
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        /// <remarks>
+        /// taken from http://stackoverflow.com/questions/358835/getproperties-to-return-all-properties-for-an-interface-inheritance-hierarchy
+        /// </remarks>
+        public static PropertyInfo[] GetPublicProperties(Type type)
+        {
+            if (type.IsInterface)
+            {
+                var propertyInfos = new List<PropertyInfo>();
+
+                var considered = new List<Type>();
+                var queue = new Queue<Type>();
+                considered.Add(type);
+                queue.Enqueue(type);
+                while (queue.Count > 0)
+                {
+                    var subType = queue.Dequeue();
+                    foreach (var subInterface in subType.GetInterfaces())
+                    {
+                        if (considered.Contains(subInterface)) continue;
+
+                        considered.Add(subInterface);
+                        queue.Enqueue(subInterface);
+                    }
+
+                    var typeProperties = subType.GetProperties(
+                        BindingFlags.FlattenHierarchy
+                        | BindingFlags.Public
+                        | BindingFlags.Instance);
+
+                    var newPropertyInfos = typeProperties
+                        .Where(x => !propertyInfos.Contains(x));
+
+                    propertyInfos.InsertRange(0, newPropertyInfos);
+                }
+
+                return propertyInfos.ToArray();
+            }
+
+            return type.GetProperties(BindingFlags.FlattenHierarchy
+                | BindingFlags.Public | BindingFlags.Instance);
+        }
 
 		/// <summary>
 		/// Gets (and caches) <see cref="FieldInfo"/> discoverable in the current <see cref="AppDomain"/> for a given <paramref name="type"/>.

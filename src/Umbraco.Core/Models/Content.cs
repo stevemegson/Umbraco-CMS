@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
-using Umbraco.Core.Persistence.Mappers;
 
 namespace Umbraco.Core.Models
 {
@@ -234,6 +232,7 @@ namespace Umbraco.Core.Models
         /// <remarks>
         /// This Property is kept internal until localization is introduced.
         /// </remarks>
+        [DataMember]
         internal string NodeName
         {
             get { return _nodeName; }
@@ -250,6 +249,7 @@ namespace Umbraco.Core.Models
         /// <summary>
         /// Used internally to track if permissions have been changed during the saving process for this entity
         /// </summary>
+        [IgnoreDataMember]
         internal bool PermissionsChanged
         {
             get { return _permissionsChanged; }
@@ -316,6 +316,7 @@ namespace Umbraco.Core.Models
             PublishedState = state;
         }
 
+        [DataMember]
         internal PublishedState PublishedState { get; set; }
 
         /// <summary>
@@ -333,26 +334,6 @@ namespace Umbraco.Core.Models
             {
                 ChangePublishedState(PublishedState.Unpublished);
             }
-        }
-
-        /// <summary>
-        /// Creates a clone of the current entity
-        /// </summary>
-        /// <returns></returns>
-        public IContent Clone()
-        {
-            var clone = (Content)this.MemberwiseClone();
-            clone.Key = Guid.Empty;
-            clone.Version = Guid.NewGuid();
-            clone.ResetIdentity();
-
-            foreach (var property in clone.Properties)
-            {
-                property.ResetIdentity();
-                property.Version = clone.Version;
-            }
-
-            return clone;
         }
 
         /// <summary>
@@ -433,6 +414,48 @@ namespace Umbraco.Core.Models
         {
             base.UpdatingEntity();
             Version = Guid.NewGuid();
+        }
+
+        /// <summary>
+        /// Creates a deep clone of the current entity with its identity and it's property identities reset
+        /// </summary>
+        /// <returns></returns>
+        [Obsolete("Use DeepCloneWithResetIdentities instead")]
+        public IContent Clone()
+        {
+            return DeepCloneWithResetIdentities();
+        }
+
+        /// <summary>
+        /// Creates a deep clone of the current entity with its identity and it's property identities reset
+        /// </summary>
+        /// <returns></returns>
+        public IContent DeepCloneWithResetIdentities()
+        {
+            var clone = (Content)DeepClone();
+            clone.Key = Guid.Empty;
+            clone.Version = Guid.NewGuid();
+            clone.ResetIdentity();
+
+            foreach (var property in clone.Properties)
+            {
+                property.ResetIdentity();
+                property.Version = clone.Version;
+            }
+
+            return clone;
+        }
+
+        public override object DeepClone()
+        {
+            var clone = (Content)base.DeepClone();
+
+            //need to manually clone this since it's not settable
+            clone._contentType = (IContentType)ContentType.DeepClone();
+            clone.ResetDirtyProperties(false);
+
+            return clone;
+
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.EntityBase;
 using Umbraco.Core.Models.Rdbms;
@@ -133,7 +134,7 @@ namespace Umbraco.Core.Persistence.Repositories
                                "DELETE FROM cmsContentType2ContentType WHERE childContentTypeId = @Id",
                                "DELETE FROM cmsPropertyType WHERE contentTypeId = @Id",
                                "DELETE FROM cmsPropertyTypeGroup WHERE contenttypeNodeId = @Id",
-                               "DELETE FROM cmsContentType WHERE NodeId = @Id",
+                               "DELETE FROM cmsContentType WHERE nodeId = @Id",
                                "DELETE FROM umbracoNode WHERE id = @Id"
                            };
             return list;
@@ -162,6 +163,8 @@ namespace Umbraco.Core.Persistence.Repositories
 
         protected override void PersistUpdatedItem(IMediaType entity)
         {
+            ValidateAlias(entity);
+
             //Updates Modified date
             ((MediaType)entity).UpdatingEntity();
 

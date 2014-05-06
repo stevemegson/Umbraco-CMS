@@ -30,7 +30,7 @@ using umbraco.scripting;
 using umbraco.DataLayer;
 using System.Web.Security;
 using umbraco.cms.businesslogic.language;
-using umbraco.IO;
+using Umbraco.Core.IO;
 using System.Collections;
 using System.Collections.Generic;
 using umbraco.cms.businesslogic.cache;
@@ -362,9 +362,16 @@ namespace umbraco
 			        return doc.CreatorName;
 	        }
 
+            // in 4.9.0 the method returned the raw XML from the cache, unparsed
+            // starting with 5c20f4f (4.10?) the method returns prop.Value.ToString()
+            //   where prop.Value is parsed for internal links + resolve urls - but not for macros
+            //   comments say "fixing U4-917 and U4-821" which are not related
+            // if we return DataValue.ToString() we're back to the original situation
+            // if we return Value.ToString() we'll have macros parsed and that's nice
+            //
+            // so, use Value.ToString() here.
 	        var prop = doc.GetProperty(alias);
 	        return prop == null ? string.Empty : prop.Value.ToString();
-
         }
 
         /// <summary>
@@ -467,14 +474,14 @@ namespace umbraco
                         string.Format(
                             "{0}_{1}_{2}", CacheKeys.MediaCacheKey, MediaId, Deep),
                         TimeSpan.FromSeconds(UmbracoSettings.UmbracoLibraryCacheDuration),
-                        () => getMediaDo(MediaId, Deep));
+                        () => GetMediaDo(MediaId, Deep));
 
                     if (retVal != null)
                         return retVal;
                 }
                 else
                 {
-                    return getMediaDo(MediaId, Deep);
+                    return GetMediaDo(MediaId, Deep);
                 }
 
             }
@@ -487,15 +494,19 @@ namespace umbraco
             return xd.CreateNavigator().Select("/");
         }
 
-        private static XPathNodeIterator getMediaDo(int MediaId, bool Deep)
+        private static XPathNodeIterator GetMediaDo(int mediaId, bool deep)
         {
-            Media m = new Media(MediaId);
+            var m = new Media(mediaId);
             if (m.nodeObjectType == Media._objectType)
             {
-                XmlDocument mXml = new XmlDocument();
-                mXml.LoadXml(m.ToXml(mXml, Deep).OuterXml);
-                XPathNavigator xp = mXml.CreateNavigator();
-                string xpath = UmbracoSettings.UseLegacyXmlSchema ? "/node" : String.Format("/{0}", Casing.SafeAliasWithForcingCheck(m.ContentType.Alias));
+                var mXml = new XmlDocument();
+                var xml = m.ToXml(mXml, deep);
+                //This will be null if the media isn't public (meaning it is in the trash)
+                if (xml == null) return null;
+                //TODO: This is an aweful way of loading in XML - it is very slow.
+                mXml.LoadXml(xml.OuterXml);
+                var xp = mXml.CreateNavigator();
+                var xpath = UmbracoSettings.UseLegacyXmlSchema ? "/node" : String.Format("/{0}", Casing.SafeAliasWithForcingCheck(m.ContentType.Alias));
                 return xp.Select(xpath);
             }
             return null;
@@ -518,14 +529,14 @@ namespace umbraco
                         string.Format(
                             "{0}_{1}", CacheKeys.MemberLibraryCacheKey, MemberId),
                         TimeSpan.FromSeconds(UmbracoSettings.UmbracoLibraryCacheDuration),
-                        () => getMemberDo(MemberId));
+                        () => GetMemberDo(MemberId));
 
                     if (retVal != null)
                         return retVal.CreateNavigator().Select("/");
                 }
                 else
                 {
-                    return getMemberDo(MemberId).CreateNavigator().Select("/");
+                    return GetMemberDo(MemberId).CreateNavigator().Select("/");
                 }
 
             }
@@ -537,7 +548,7 @@ namespace umbraco
             return xd.CreateNavigator().Select("/");
         }
 
-        private static XmlDocument getMemberDo(int MemberId)
+        private static XmlDocument GetMemberDo(int MemberId)
         {
             Member m = new Member(MemberId);
             XmlDocument mXml = new XmlDocument();
@@ -1129,7 +1140,7 @@ namespace umbraco
         /// </summary>
         public static void AddJquery()
         {
-            RegisterJavaScriptFile("jQuery", String.Format("{0}/ui/jquery.js", IOHelper.ResolveUrl(SystemDirectories.Umbraco_client)));
+            RegisterJavaScriptFile("jQuery", String.Format("{0}/ui/jquery.js", IOHelper.ResolveUrl(SystemDirectories.UmbracoClient)));
         }
 
 

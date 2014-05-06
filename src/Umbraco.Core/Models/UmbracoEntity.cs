@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Umbraco.Core.Models.EntityBase;
 
@@ -44,11 +46,23 @@ namespace Umbraco.Core.Models
 
         public UmbracoEntity()
         {
+            AdditionalData = new Dictionary<string, object>();
+            UmbracoProperties = new List<UmbracoProperty>();
         }
 
         public UmbracoEntity(bool trashed)
         {
+            AdditionalData = new Dictionary<string, object>();
+            UmbracoProperties = new List<UmbracoProperty>();
             Trashed = trashed;
+        }
+
+        // for MySql
+        public UmbracoEntity(UInt64 trashed)
+        {
+            AdditionalData = new Dictionary<string, object>();
+            UmbracoProperties = new List<UmbracoProperty>();
+            Trashed = trashed == 1;
         }
 
         public int CreatorId
@@ -142,6 +156,9 @@ namespace Umbraco.Core.Models
             }
         }
 
+        public IDictionary<string, object> AdditionalData { get; private set; }
+
+
         public bool HasChildren
         {
             get { return _hasChildren; }
@@ -152,6 +169,9 @@ namespace Umbraco.Core.Models
                     _hasChildren = value;
                     return _hasChildren;
                 }, _hasChildren, HasChildrenSelector);  
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["HasChildren"] = value;
             }
         }
 
@@ -164,7 +184,10 @@ namespace Umbraco.Core.Models
                 {
                     _isPublished = value;
                     return _isPublished;
-                }, _isPublished, IsPublishedSelector);  
+                }, _isPublished, IsPublishedSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["IsPublished"] = value;
             }
         }
 
@@ -178,6 +201,9 @@ namespace Umbraco.Core.Models
                     _isDraft = value;
                     return _isDraft;
                 }, _isDraft, IsDraftSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["IsDraft"] = value;
             }
         }
 
@@ -191,6 +217,9 @@ namespace Umbraco.Core.Models
                     _hasPendingChanges = value;
                     return _hasPendingChanges;
                 }, _hasPendingChanges, HasPendingChangesSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["HasPendingChanges"] = value;
             }
         }
 
@@ -204,6 +233,9 @@ namespace Umbraco.Core.Models
                     _contentTypeAlias = value;
                     return _contentTypeAlias;
                 }, _contentTypeAlias, ContentTypeAliasSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["ContentTypeAlias"] = value;
             }
         }
 
@@ -217,6 +249,9 @@ namespace Umbraco.Core.Models
                     _contentTypeIcon = value;
                     return _contentTypeIcon;
                 }, _contentTypeIcon, ContentTypeIconSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["ContentTypeIcon"] = value;
             }
         }
 
@@ -230,6 +265,9 @@ namespace Umbraco.Core.Models
                     _contentTypeThumbnail = value;
                     return _contentTypeThumbnail;
                 }, _contentTypeThumbnail, ContentTypeThumbnailSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["ContentTypeThumbnail"] = value;
             }
         }
 
@@ -242,16 +280,50 @@ namespace Umbraco.Core.Models
                 {
                     _nodeObjectTypeId = value;
                     return _nodeObjectTypeId;
-                }, _nodeObjectTypeId, NodeObjectTypeIdSelector);  
+                }, _nodeObjectTypeId, NodeObjectTypeIdSelector);
+
+                //This is a custom property that is not exposed in IUmbracoEntity so add it to the additional data
+                AdditionalData["NodeObjectTypeId"] = value;
             }
         }
 
+        /// <summary>
+        /// Some entities may expose additional data that other's might not, this custom data will be available in this collection
+        /// </summary>
         public IList<UmbracoProperty> UmbracoProperties { get; set; }
-
-        internal class UmbracoProperty
+        
+        internal class UmbracoProperty : IDeepCloneable
         {
             public Guid DataTypeControlId { get; set; }
             public string Value { get; set; }
+            public object DeepClone()
+            {
+                //Memberwise clone on Entity will work since it doesn't have any deep elements
+                // for any sub class this will work for standard properties as well that aren't complex object's themselves.
+                var clone = MemberwiseClone();
+                return clone;
+            }
+
+            protected bool Equals(UmbracoProperty other)
+            {
+                return DataTypeControlId.Equals(other.DataTypeControlId) && string.Equals(Value, other.Value);
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (ReferenceEquals(null, obj)) return false;
+                if (ReferenceEquals(this, obj)) return true;
+                if (obj.GetType() != this.GetType()) return false;
+                return Equals((UmbracoProperty) obj);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (DataTypeControlId.GetHashCode()*397) ^ (Value != null ? Value.GetHashCode() : 0);
+                }
+            }
         }
     }
 }

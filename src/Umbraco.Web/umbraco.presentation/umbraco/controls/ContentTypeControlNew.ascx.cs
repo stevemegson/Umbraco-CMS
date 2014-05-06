@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Web;
@@ -16,6 +17,7 @@ using ClientDependency.Core;
 using Umbraco.Core;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
+using Umbraco.Core.Strings;
 using Umbraco.Web.UI.Controls;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic;
@@ -69,6 +71,9 @@ namespace umbraco.controls
         //the async delete property task
         private Action<DeleteAsyncState> _asyncDeleteTask;
 
+        internal event SavingContentTypeEventHandler SavingContentType;
+        internal delegate void SavingContentTypeEventHandler(ContentType e);
+
         override protected void OnInit(EventArgs e)
         {
             base.OnInit(e);
@@ -76,10 +81,16 @@ namespace umbraco.controls
             LoadContentType();
 
             SetupInfoPane();
-            if (!HideStructure)
+
+            if (HideStructure)
+            {
+                pnlStructure.Visible = false;
+            }
+            else
             {
                 SetupStructurePane();
             }
+
             SetupGenericPropertiesPane();
             SetupTabPane();
 
@@ -235,6 +246,7 @@ namespace umbraco.controls
             // we need to re-bind the alias as the SafeAlias method can have changed it
             txtAlias.Text = _contentType.Alias;
 
+            //Notify the parent control
             RaiseBubbleEvent(new object(), state.SaveArgs);
 
             if (state.HasNameChanged())
@@ -282,14 +294,8 @@ namespace umbraco.controls
                     //we need to re-set the UmbracoContext since it will be nulled and our cache handlers need it
                     global::Umbraco.Web.UmbracoContext.Current = asyncState.UmbracoContext;
 
-                    //NOTE The saving of the 5 properties (Name, Alias, Icon, Description and Thumbnail) are divided
-                    //to avoid the multiple cache flushing when each property is set using the legacy ContentType class,
-                    //which has been reduced to the else-clause.
-                    //For IContentType and IMediaType the cache will only be flushed upon saving.
-                    if (_contentType.ContentTypeItem is IContentType || _contentType.ContentTypeItem is IMediaType)
-                    {
                         _contentType.ContentTypeItem.Name = txtName.Text;
-                        _contentType.ContentTypeItem.Alias = txtAlias.Text;
+                    _contentType.ContentTypeItem.Alias = txtAlias.Text; // raw, contentType.Alias takes care of it
                         _contentType.ContentTypeItem.Icon = ddlIcons.SelectedValue;
                         _contentType.ContentTypeItem.Description = description.Text;
                         _contentType.ContentTypeItem.Thumbnail = ddlThumbnails.SelectedValue;
@@ -324,41 +330,22 @@ namespace umbraco.controls
                             }
                         }
 
-                        _contentType.Save();
-                    }
-                    else //Legacy approach for supporting MemberType
+                    if (SavingContentType != null)
                     {
-                        if (asyncState.HasNameChanged())
-                    _contentType.Text = txtName.Text;
-
-                        if (asyncState.HasAliasChanged())
-                    _contentType.Alias = txtAlias.Text;
-
-                    _contentType.IconUrl = ddlIcons.SelectedValue;
-                    _contentType.Description = description.Text;
-                    _contentType.Thumbnail = ddlThumbnails.SelectedValue;
-
-                        SavePropertyTypesLegacy(asyncState.SaveArgs);
-
-                        var tabs = SaveTabs();
-                        foreach (var tab in tabs)
-                        {
-                            _contentType.SetTabName(tab.Item1, tab.Item2);
-                            _contentType.SetTabSortOrder(tab.Item1, tab.Item3);
+                        SavingContentType(_contentType);
                         }
 
-                        _contentType.AllowedChildContentTypeIDs = SaveAllowedChildTypes();
-                        _contentType.AllowAtRoot = allowAtRoot.Checked;
-                    
+                    try
+                    {
                         _contentType.Save();
-
-                        // Only if the doctype alias changed, cause a regeneration of the xml cache file since
-                        // the xml element names will need to be updated to reflect the new alias
-                        if (asyncState.HasAliasChanged() || asyncState.HasAnyPropertyAliasChanged(_contentType))
-                        {
-                            _contentType.RebuildXmlStructuresForContent();
-                        }
                     }
+                    catch (DuplicateNameException ex)
+                        {
+                        DuplicateAliasValidator.IsValid = false;
+                        asyncState.SaveArgs.IconType = BasePage.speechBubbleIcon.error;
+                        asyncState.SaveArgs.Message = ex.Message;
+                        return;
+                        }
 
                     Trace.Write("ContentTypeControlNew", "task completing");
                 };
@@ -638,104 +625,93 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
             var inTab = new Hashtable();
             int counter = 0;
 
-            foreach (ContentType.TabI tab in tabs)
+            PropertyTypes.Controls.Add(new LiteralControl("<div id='tabs-container'>"));  // opens draggable container for properties on tabs
+
+            foreach (var tab in tabs)
             {
-                bool hasProperties = false;
-                string tabCaption = tab.ContentType == _contentType.Id ? tab.GetRawCaption() : tab.GetRawCaption() + " (inherited from " + new ContentType(tab.ContentType).Text + ")";
-                PropertyTypes.Controls.Add(new LiteralControl("<div class='genericPropertyListBox'><h2 class=\"propertypaneTitel\">Tab: " + tabCaption + "</h2>"));
+                string tabName = tab.GetRawCaption();
+                string tabCaption = tabName;
+                if (tab.ContentType != _contentType.Id) 
+                {
+                    tabCaption += " (inherited from " + new ContentType(tab.ContentType).Text + ")";
+                }
+
+                PropertyTypes.Controls.Add(new LiteralControl("<div class='genericPropertyListBox'><h2 data-tabname='" + tabName + "' class=\"propertypaneTitel\">Tab: " + tabCaption + "</h2>"));
 
                 var propertyGroup = propertyTypeGroups.SingleOrDefault(x => x.ParentId == tab.Id);
-                var propertyTypes = propertyGroup == null
+                var propertyTypes = (propertyGroup == null
                                         ? tab.GetPropertyTypes(_contentType.Id, false)
-                                        : propertyGroup.GetPropertyTypes();
+                    : propertyGroup.GetPropertyTypes()).ToArray();
 
                 var propertyGroupId = tab.Id;
 
-                if (propertyTypes.Any(x => x.ContentTypeId == _contentType.Id))
-                {
                     var propSort = new HtmlInputHidden();
                     propSort.ID = "propSort_" + propertyGroupId.ToString() + "_Content";
                     PropertyTypes.Controls.Add(propSort);
                     _sortLists.Add(propSort);
 
+                if (propertyTypes.Any(x => x.ContentTypeId == _contentType.Id))
+                {
                     PropertyTypes.Controls.Add(new LiteralControl("<ul class='genericPropertyList' id=\"t_" + propertyGroupId.ToString() + "_Contents\">"));
 
-                        foreach (cms.businesslogic.propertytype.PropertyType pt in propertyTypes)
+                    foreach (var pt in propertyTypes)
                         {
                         //If the PropertyType doesn't belong on this ContentType skip it and continue to the next one
                         if (pt.ContentTypeId != _contentType.Id) continue;
 
-                        var gpw = new GenericPropertyWrapper();
+                        var gpw = GetPropertyWrapperForPropertyType(pt);
                             gpw.ID = "gpw_" + pt.Id;
                             gpw.PropertyType = pt;
                             gpw.Tabs = tabs;
                         gpw.TabId = propertyGroupId;
                             gpw.DataTypeDefinitions = dtds;
-                            gpw.Delete += new EventHandler(gpw_Delete);
-                        gpw.FullId = "t_" + propertyGroupId.ToString() + "_Contents_" + +pt.Id;
+                        gpw.Delete += gpw_Delete;
+                        gpw.FullId = "t_" + propertyGroupId + "_Contents_" + +pt.Id;
 
                             PropertyTypes.Controls.Add(gpw);
                             _genericProperties.Add(gpw);
                         if (refresh)
                                 gpw.GenricPropertyControl.UpdateInterface();
 
-                            inTab.Add(pt.Id.ToString(), "");
+                        inTab.Add(pt.Id.ToString(CultureInfo.InvariantCulture), "");
                             counter++;
-                            hasProperties = true;
                         }
 
                         PropertyTypes.Controls.Add(new LiteralControl("</ul>"));
-
-                    var jsSortable = @"                            
-                                (function($) {
-                                    var propSortId = ""#" + propSort.ClientID + @""";
-                                    $(document).ready(function() {
-                                        $(propSortId).next("".genericPropertyList"").sortable({containment: 'parent', tolerance: 'pointer',
-                                            update: function(event, ui) { 
-                                                $(propSortId).val($(this).sortable('serialize'));
-                                            }});
-                                    });
-                                })(jQuery);";
-
-                    Page.ClientScript.RegisterStartupScript(this.GetType(), propSort.ClientID, jsSortable, true);
-
-                    if (!hasProperties)
+                }
+                else
                     {
                         AddNoPropertiesDefinedMessage();
                     }
 
+                var jsSortable = GetJavaScriptForPropertySorting(propSort.ClientID);
+                Page.ClientScript.RegisterStartupScript(this.GetType(), propSort.ClientID, jsSortable, true);
+
                     PropertyTypes.Controls.Add(new LiteralControl("</div>"));
                 }
-                else
-                {
-                    AddNoPropertiesDefinedMessage();
-                    PropertyTypes.Controls.Add(new LiteralControl("</div>"));
-                }
-            }
 
             // Generic properties tab
             counter = 0;
             bool propertyTabHasProperties = false;
-            var propertiesPH = new PlaceHolder();
-            propertiesPH.ID = "propertiesPH";
-            PropertyTypes.Controls.Add(new LiteralControl("<h2 class=\"propertypaneTitel\">Tab: Generic Properties</h2>"));
-            PropertyTypes.Controls.Add(propertiesPH);
+            var propertiesPh = new PlaceHolder();
+            propertiesPh.ID = "propertiesPH";
+            PropertyTypes.Controls.Add(new LiteralControl("<h2 data-tabname=\"Generic Properties\" class=\"propertypaneTitel\">Tab: Generic Properties</h2>"));
+            PropertyTypes.Controls.Add(propertiesPh);
 
-            var propSort_gp = new HtmlInputHidden();
-            propSort_gp.ID = "propSort_general_Content";
-            propertiesPH.Controls.Add(propSort_gp);
-            _sortLists.Add(propSort_gp);
-
-
-            propertiesPH.Controls.Add(new LiteralControl("<ul class='genericPropertyList' id=\"t_general_Contents\">"));
-            foreach (cms.businesslogic.propertytype.PropertyType pt in _contentType.PropertyTypes)
+            var propSortGp = new HtmlInputHidden();
+            propSortGp.ID = "propSort_general_Content";
+            PropertyTypes.Controls.Add(propSortGp);
+            _sortLists.Add(propSortGp);
+            
+            propertiesPh.Controls.Add(new LiteralControl("<ul class='genericPropertyList' id=\"t_general_Contents\">"));
+            foreach (var pt in _contentType.PropertyTypes)
             {
                 //This use to be:
-                if (pt.ContentTypeId == _contentType.Id && inTab.ContainsKey(pt.Id.ToString()) == false)
+                if (pt.ContentTypeId == _contentType.Id && inTab.ContainsKey(pt.Id.ToString(CultureInfo.InvariantCulture)) == false)
                 //But seriously, if it's not on a tab the tabId is 0, it's a lot easier to read IMO
                 //if (pt.ContentTypeId == _contentType.Id && pt.TabId == 0)
                 {
-                    var gpw = new GenericPropertyWrapper();
+                    var gpw = GetPropertyWrapperForPropertyType(pt);
 
                     // Changed by duckie, was:
                     // gpw.ID = "gpw_" + editPropertyType.Alias;
@@ -748,7 +724,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                     gpw.Delete += new EventHandler(gpw_Delete);
                     gpw.FullId = "t_general_Contents_" + pt.Id;
 
-                    propertiesPH.Controls.Add(gpw);
+                    propertiesPh.Controls.Add(gpw);
                     _genericProperties.Add(gpw);
                     if (refresh)
                         gpw.GenricPropertyControl.UpdateInterface();
@@ -758,30 +734,97 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                 }
             }
 
-            propertiesPH.Controls.Add(new LiteralControl("</ul>"));
+            propertiesPh.Controls.Add(new LiteralControl("</ul>"));
 
-            var jsSortable_gp = @"                
-                    (function($) {
-                        var propSortId = ""#" + propSort_gp.ClientID + @""";
-                        $(document).ready(function() {
-                            $(propSortId).next("".genericPropertyList"").sortable({containment: 'parent', tolerance: 'pointer',
-                                update: function(event, ui) { 
-                                    $(propSortId).val($(this).sortable('serialize'));
-                                }});
-                        });
-                    })(jQuery);";
+            var jsSortable_gp = GetJavaScriptForPropertySorting(propSortGp.ClientID);
 
             Page.ClientScript.RegisterStartupScript(this.GetType(), "propSort_gp", jsSortable_gp, true);
 
 
             if (!propertyTabHasProperties)
             {
-                PropertyTypes.Controls.Add(new LiteralControl("<div style=\"margin: 10px; padding: 4px; border: 1px solid #ccc;\">No properties defined on this tab. Click on the \"add a new property\" link at the top to create a new property.</div>"));
+                AddNoPropertiesDefinedMessage();
                 PropertyTypes.Controls.Remove(PropertyTypes.FindControl("propertiesPH"));
             }
             else
-                PropertyTypes.Controls.Add(propertiesPH);
+            {
+                PropertyTypes.Controls.Add(propertiesPh);
+            }
 
+            PropertyTypes.Controls.Add(new LiteralControl("</div>")); // closes draggable container for properties on tabs
+
+        }
+
+        /// <summary>
+        /// Returns a generic property wrapper for a given property - this determines if the property type should be
+        /// allowed to be editable.
+        /// </summary>
+        /// <returns></returns>
+        private GenericPropertyWrapper GetPropertyWrapperForPropertyType(cms.businesslogic.propertytype.PropertyType pt)
+        {
+            if (_contentType.ContentTypeItem is IMemberType)
+            {
+                var builtInAliases = global::Umbraco.Core.Constants.Conventions.Member.GetStandardPropertyTypeStubs().Select(x => x.Key).ToArray();
+                var gpw = new GenericPropertyWrapper(builtInAliases.Contains(pt.Alias) == false);
+                return gpw;
+            }
+
+            return new GenericPropertyWrapper();
+        }
+
+        private string GetJavaScriptForPropertySorting(string propSortClientId)
+        {
+            return @"(function($) {
+                        var propSortId = ""#" + propSortClientId + @""";
+                        $(document).ready(function() {
+                            $(propSortId).next("".genericPropertyList"").sortable({
+                                containment: '#tabs-container', 
+                                connectWith: '.genericPropertyList', 
+                                cancel: 'li.no-properties-on-tab, .propertyForm div[id^=""editbody""]',
+                                tolerance: 'pointer',
+                                start: function() {
+                                    $('#tabs-container').addClass('doc-type-property-drop-zone');
+                                },
+                                stop: function() {
+                                    $('#tabs-container').removeClass('doc-type-property-drop-zone');
+                                },
+                                update: function(event, ui) { 
+
+                                    // Save new sort details for tab
+                                    $(propSortId).val($(this).sortable('serialize'));
+
+                                    // Handle move to new tab
+                                    // - find tab name
+                                    var tabName = $(this).siblings('h2').attr('data-tabname');
+
+                                    // - find tab drop-down for item and set option selected that matches tab name
+                                    var tabDropDownList = $(""select[name$='ddlTab']"", ui.item);
+                                    $('option', tabDropDownList).each(function() {
+                                        if ($(this).text() == tabName) {
+                                            $(this).attr('selected', 'selected');            
+                                        }                        
+                                    });
+
+                                    // Remove any no properties messages for tabs that now have a property
+                                    $('li.no-properties-on-tab', $(this)).remove();
+
+                                    // Add a no properties message for tabs that now have no properties
+                                    $('#tabs-container ul.genericPropertyList:not(:has(li))').append('" + GetHtmlForNoPropertiesMessageListItem() + @"');
+                                    
+                                }});
+                        });
+                    })(jQuery);";
+        }
+
+        private void AddNoPropertiesDefinedMessage()
+        {
+            // Create no properties message as a ul in order to allow dragging of properties to it from other tabs
+            PropertyTypes.Controls.Add(new LiteralControl("<ul class=\"genericPropertyList\">" + GetHtmlForNoPropertiesMessageListItem() + "</ul>"));
+        }
+
+        private string GetHtmlForNoPropertiesMessageListItem()
+        {
+            return @"<li class=""no-properties-on-tab"">" + ui.Text("settings", "noPropertiesDefinedOnTab") + "</li></ul>";
         }
 
         private void SavePropertyType(SaveClickEventArgs e, IContentTypeComposition contentTypeItem)
@@ -792,7 +835,9 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
             GenericProperty gpData = gp.GenricPropertyControl;
             if (string.IsNullOrEmpty(gpData.Name.Trim()) == false && string.IsNullOrEmpty(gpData.Alias.Trim()) == false)
         {
-                var propertyTypeAlias = Casing.SafeAliasWithForcingCheck(gpData.Alias.Trim());
+                // when creating a property don't do anything special, propertyType.Alias will take care of it
+                // don't enforce camel here because the user might have changed what the CoreStringsController returned
+                var propertyTypeAlias = gpData.Alias;
                 if (contentTypeItem.PropertyTypeExists(propertyTypeAlias) == false)
                 {
                     //Find the DataTypeDefinition that the PropertyType should be based on
@@ -838,6 +883,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                 }
             }
         }
+
         private void UpdatePropertyTypes(IContentTypeComposition contentTypeItem)
         {
             //Loop through the _genericProperties ArrayList and update all existing PropertyTypes
@@ -848,6 +894,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                 var propertyType = contentTypeItem.PropertyTypes.First(x => x.Alias == gpw.PropertyType.Alias);
                 if (propertyType == null) continue;
                 var dataTypeDefinition = ApplicationContext.Current.Services.DataTypeService.GetDataTypeDefinitionById(gpw.GenricPropertyControl.Type);
+                // when saving, respect user's casing, so do nothing here as propertyType takes care of it
                 propertyType.Alias = gpw.GenricPropertyControl.Alias;
                 propertyType.Name = gpw.GenricPropertyControl.Name;
                 propertyType.Description = gpw.GenricPropertyControl.Description;
@@ -879,23 +926,16 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                     }
                 }
             }
-        
+
             //Update the SortOrder of the PropertyTypes
             foreach (HtmlInputHidden propSorter in _sortLists)
             {
                 if (propSorter.Value.Trim() != "")
                 {
-                    string tabId = propSorter.ID;
-                    // remove leading "propSort_" and trailing "_Content"
-                    tabId = tabId.Substring(9, tabId.Length - 9 - 8);
-                    // calc the position of the prop SO i.e. after "t_<tabId>Contents[]="
-                    int propSOPosition = "t_".Length + tabId.Length + "Contents[]=".Length + 1;
-
-                    string[] tempSO = propSorter.Value.Split("&".ToCharArray());
-                    for (int i = 0; i < tempSO.Length; i++)
+                    string[] newSortOrders = propSorter.Value.Split("&".ToCharArray());
+                    for (int i = 0; i < newSortOrders.Length; i++)
                     {
-                        string propSO = tempSO[i].Substring(propSOPosition);
-                        int propertyTypeId = int.Parse(propSO);
+                        var propertyTypeId = int.Parse(newSortOrders[i].Split("=".ToCharArray())[1]);
                         if (contentTypeItem.PropertyTypes != null &&
                             contentTypeItem.PropertyTypes.Any(x => x.Id == propertyTypeId))
                         {
@@ -905,82 +945,6 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                     }
                 }
             }
-        }
-
-        private void SavePropertyTypesLegacy(SaveClickEventArgs e)
-        {
-            this.CreateChildControls();
-
-            GenericProperty gpData = gp.GenricPropertyControl;
-            if (gpData.Name.Trim() != "" && gpData.Alias.Trim() != "")
-            {
-                if (DoesPropertyTypeAliasExist(gpData))
-                {
-                    cms.businesslogic.propertytype.PropertyType pt =
-                        _contentType.AddPropertyType(
-                            cms.businesslogic.datatype.DataTypeDefinition.GetDataTypeDefinition(gpData.Type),
-                            Casing.SafeAliasWithForcingCheck(gpData.Alias.Trim()), gpData.Name);
-                    pt.Description = gpData.Description;
-                    pt.ValidationRegExp = gpData.Validation.Trim();
-                    pt.Mandatory = gpData.Mandatory;
-
-                    if (gpData.Tab != 0)
-                    {
-                        _contentType.SetTabOnPropertyType(pt, gpData.Tab);
-                    }
-
-                    gpData.Clear();
-
-                }
-                else
-                {
-                    e.Message = ui.Text("contentTypeDublicatePropertyType", Security.CurrentUser);
-                    e.IconType = BasePage.speechBubbleIcon.warning;
-                }
-            }
-
-            foreach (GenericPropertyWrapper gpw in _genericProperties)
-            {
-                cms.businesslogic.propertytype.PropertyType pt = gpw.PropertyType;
-                pt.Alias = gpw.GenricPropertyControl.Alias; // FIXME so we blindly trust the UI for safe aliases?!
-                pt.Name = gpw.GenricPropertyControl.Name;
-                pt.Description = gpw.GenricPropertyControl.Description;
-                pt.ValidationRegExp = gpw.GenricPropertyControl.Validation.Trim();
-                pt.Mandatory = gpw.GenricPropertyControl.Mandatory;
-                pt.DataTypeDefinition = cms.businesslogic.datatype.DataTypeDefinition.GetDataTypeDefinition(gpw.GenricPropertyControl.Type);
-                if (gpw.GenricPropertyControl.Tab == 0)
-                    _contentType.removePropertyTypeFromTab(pt);
-                else
-                    _contentType.SetTabOnPropertyType(pt, gpw.GenricPropertyControl.Tab);
-
-                pt.Save();
-            }
-
-            // Sort order
-            foreach (HtmlInputHidden propSorter in _sortLists)
-            {
-                if (propSorter.Value.Trim() != "")
-                {
-                    string tabId = propSorter.ID;
-                    // remove leading "propSort_" and trailing "_Content"
-                    tabId = tabId.Substring(9, tabId.Length - 9 - 8);
-                    // calc the position of the prop SO i.e. after "t_<tabId>Contents[]="
-                    int propSOPosition = "t_".Length + tabId.Length + "Contents[]=".Length + 1;
-
-                    string[] tempSO = propSorter.Value.Split("&".ToCharArray());
-                    for (int i = 0; i < tempSO.Length; i++)
-                    {
-                        string propSO = tempSO[i].Substring(propSOPosition);
-                        int currentSortOrder = int.Parse(propSO);
-                        cms.businesslogic.propertytype.PropertyType.GetPropertyType(currentSortOrder).SortOrder = i;
-                    }
-                }
-            }
-        }
-
-        private void AddNoPropertiesDefinedMessage()
-        {
-            PropertyTypes.Controls.Add(new LiteralControl("<div style=\"margin: 10px; padding: 4px; border: 1px solid #ccc;\">No properties defined on this tab. Click on the \"add a new property\" link at the top to create a new property.</div>"));
         }
 
         private bool DoesPropertyTypeAliasExist(GenericProperty gpData)
@@ -1008,8 +972,6 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                 int propertyId = int.Parse(e.Item.Cells[0].Text);
                 string rawName = string.Empty;
 
-                if (_contentType.ContentTypeItem is IContentType || _contentType.ContentTypeItem is IMediaType)
-                {
                     var propertyType = _contentType.ContentTypeItem.PropertyTypes.FirstOrDefault(x => x.Id == propertyId);
                     if (propertyType != null && string.IsNullOrEmpty(propertyType.Alias) == false)
                     {
@@ -1017,13 +979,6 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                         _contentType.ContentTypeItem.RemovePropertyType(propertyType.Alias);
                         _contentType.Save();
                     }
-                }
-                else
-                {
-                cms.businesslogic.propertytype.PropertyType pt = cms.businesslogic.propertytype.PropertyType.GetPropertyType(propertyId);
-                    rawName = pt.GetRawName();
-                pt.delete();
-                }
 
                 RaiseBubbleEvent(new object(), new SaveClickEventArgs("Property ´" + rawName + "´ deleted"));
        
@@ -1094,20 +1049,22 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                     //we need to re-set the UmbracoContext since it will be nulled and our cache handlers need it
                     global::Umbraco.Web.UmbracoContext.Current = asyncState.UmbracoContext;
 
-                    if (_contentType.ContentTypeItem is IContentType || _contentType.ContentTypeItem is IMediaType)
-                    {
+                    //if (_contentType.ContentTypeItem is IContentType 
+                    //    || _contentType.ContentTypeItem is IMediaType
+                    //    || _contentType.ContentTypeItem is IMemberType)
+                    //{
                         _contentType.ContentTypeItem.RemovePropertyType(asyncState.GenericPropertyWrapper.PropertyType.Alias);
                         _contentType.Save();
-        }
-                    else
-                    {
-                        //if it is not a document type or a media type, then continue to call the legacy delete() method.
-                        //the new API for document type and media type's will ensure that the data is removed correctly and that
-                        //the cache is flushed correctly (using events).  If it is not one of these types, we'll rever to the 
-                        //legacy operation (... like for members i suppose ?)
-                        asyncState.GenericPropertyWrapper.GenricPropertyControl.PropertyType.delete();
+                    //}
+                    //else
+                    //{
+                    //    //if it is not a document type or a media type, then continue to call the legacy delete() method.
+                    //    //the new API for document type and media type's will ensure that the data is removed correctly and that
+                    //    //the cache is flushed correctly (using events).  If it is not one of these types, we'll rever to the 
+                    //    //legacy operation (... like for members i suppose ?)
+                    //    asyncState.GenericPropertyWrapper.GenricPropertyControl.PropertyType.delete();
 
-                    }
+                    //}
 
                     Trace.Write("ContentTypeControlNew", "task completing");
                 };
@@ -1243,15 +1200,17 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
         {
             if (txtNewTab.Text.Trim() != "")
             {
-                if (_contentType.ContentTypeItem is IContentType || _contentType.ContentTypeItem is IMediaType)
-                {
+                //if (_contentType.ContentTypeItem is IContentType 
+                //    || _contentType.ContentTypeItem is IMediaType
+                //    || _contentType.ContentTypeItem is IMemberType)
+                //{
                     _contentType.ContentTypeItem.AddPropertyGroup(txtNewTab.Text);
                     _contentType.Save();
-                }
-                else
-                    {
-                    _contentType.AddVirtualTab(txtNewTab.Text);
-                    }
+                //}
+                //else
+                //{
+                //    _contentType.AddVirtualTab(txtNewTab.Text);
+                //}
 
                 LoadContentType();
 
@@ -1283,15 +1242,17 @@ Umbraco.Controls.TabView.onActiveTabChange(function(tabviewid, tabid, tabs) {
             if (e.CommandName == "Delete")
             {
                 int propertyGroupId = int.Parse(e.Item.Cells[0].Text);
-                if (_contentType.ContentTypeItem is IContentType || _contentType.ContentTypeItem is IMediaType)
-                {
+                //if (_contentType.ContentTypeItem is IContentType 
+                //    || _contentType.ContentTypeItem is IMediaType
+                //    || _contentType.ContentTypeItem is IMemberType)
+                //{
                     var propertyGroup = _contentType.ContentTypeItem.PropertyGroups.FirstOrDefault(x => x.Id == propertyGroupId);
                     if (propertyGroup != null && string.IsNullOrEmpty(propertyGroup.Name) == false)
                     {
                         _contentType.ContentTypeItem.PropertyGroups.Remove(propertyGroup.Name);
                         _contentType.Save();
                     }
-                }
+                //}
 
                 _contentType.DeleteVirtualTab(propertyGroupId);
 
@@ -1681,5 +1642,14 @@ Umbraco.Controls.TabView.onActiveTabChange(function(tabviewid, tabid, tabs) {
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Literal checkTxtAliasJs;
+
+        /// <summary>
+        /// DuplicateAliasValidator control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.CustomValidator DuplicateAliasValidator;
     }
 }

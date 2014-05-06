@@ -9,11 +9,11 @@ using StackExchange.Profiling.MVCHelpers;
 using Umbraco.Core;
 using Umbraco.Core.Configuration;
 using Umbraco.Core.Dictionary;
-using Umbraco.Core.Dynamics;
 using Umbraco.Core.Logging;
 using Umbraco.Core.ObjectResolution;
 using Umbraco.Core.Profiling;
 using Umbraco.Core.PropertyEditors;
+using Umbraco.Core.PropertyEditors.ValueConverters;
 using Umbraco.Core.Sync;
 using Umbraco.Web.Dictionary;
 using Umbraco.Web.Media;
@@ -21,13 +21,13 @@ using Umbraco.Web.Media.ThumbnailProviders;
 using Umbraco.Web.Models;
 using Umbraco.Web.Mvc;
 using Umbraco.Web.PropertyEditors;
+using Umbraco.Web.PropertyEditors.ValueConverters;
 using Umbraco.Web.PublishedCache;
 using Umbraco.Web.Routing;
 using Umbraco.Web.WebApi;
 using umbraco.BusinessLogic;
-using umbraco.businesslogic;
-using umbraco.cms.businesslogic;
 using umbraco.presentation.cache;
+using ProfilingViewEngine = Umbraco.Core.Profiling.ProfilingViewEngine;
 
 
 namespace Umbraco.Web
@@ -73,9 +73,9 @@ namespace Umbraco.Web
                 new MasterControllerFactory(FilteredControllerFactoriesResolver.Current));
 
             //set the render view engine
-            ViewEngines.Engines.Add(new ProfilingViewEngine(new RenderViewEngine()));
+            ViewEngines.Engines.Add(new RenderViewEngine());
             //set the plugin view engine
-            ViewEngines.Engines.Add(new ProfilingViewEngine(new PluginViewEngine()));
+            ViewEngines.Engines.Add(new PluginViewEngine());
 
             //set model binder
             ModelBinders.Binders.Add(new KeyValuePair<Type, IModelBinder>(typeof(RenderModel), new RenderModelBinder()));
@@ -116,7 +116,6 @@ namespace Umbraco.Web
         protected override void InitializeApplicationEventsResolver()
         {
             base.InitializeApplicationEventsResolver();
-            ApplicationEventsResolver.Current.AddType<CacheHelperExtensions.CacheHelperApplicationEventListener>();
             ApplicationEventsResolver.Current.AddType<LegacyScheduledTasks>();
             //We need to remove these types because we've obsoleted them and we don't want them executing:
             ApplicationEventsResolver.Current.RemoveType<global::umbraco.LibraryCacheRefresher>();
@@ -129,7 +128,10 @@ namespace Umbraco.Web
         /// <returns></returns>
         public override IBootManager Complete(Action<ApplicationContext> afterComplete)
         {
-            //set routes
+			//Wrap viewengines in the profiling engine
+	        WrapViewEngines(ViewEngines.Engines);
+
+	        //set routes
             CreateRoutes();
 
             base.Complete(afterComplete);
@@ -138,6 +140,28 @@ namespace Umbraco.Web
             ApplicationEventsResolver.Current.InstantiateLegacyStartupHandlers();
 
             return this;
+        }
+
+		internal static void WrapViewEngines(IList<IViewEngine> viewEngines)
+	    {
+			if (viewEngines == null || viewEngines.Count == 0) return;
+
+			var originalEngines = viewEngines.Select(e => e).ToArray();
+			viewEngines.Clear();
+			foreach (var engine in originalEngines)
+			{
+				var wrappedEngine = engine is ProfilingViewEngine ? engine : new ProfilingViewEngine(engine);
+				viewEngines.Add(wrappedEngine);
+			}
+	    }
+
+	    /// <summary>
+        /// Creates the application cache based on the HttpRuntime cache
+        /// </summary>
+        protected override void CreateApplicationCache()
+        {
+            //create a web-based cache helper
+            ApplicationCache = new CacheHelper();
         }
 
         /// <summary>
@@ -207,9 +231,15 @@ namespace Umbraco.Web
         private void RouteLocalApiController(Type controller, string umbracoPath)
         {
             var meta = PluginController.GetMetadata(controller);
+
+            //url to match
+            var routePath = meta.IsBackOffice == false
+                                ? umbracoPath + "/Api/" + meta.ControllerName + "/{action}/{id}"
+                                : umbracoPath + "/BackOffice/Api/" + meta.ControllerName + "/{action}/{id}";
+            
             var route = RouteTable.Routes.MapHttpRoute(
                 string.Format("umbraco-{0}-{1}", "api", meta.ControllerName),
-                umbracoPath + "/Api/" + meta.ControllerName + "/{action}/{id}", //url to match
+                routePath, 
                 new {controller = meta.ControllerName, id = UrlParameter.Optional});                
             //web api routes don't set the data tokens object
             if (route.DataTokens == null)
@@ -280,10 +310,15 @@ namespace Umbraco.Web
             UmbracoApiControllerResolver.Current = new UmbracoApiControllerResolver(
                 PluginManager.Current.ResolveUmbracoApiControllers());
 
-            //the base creates the PropertyEditorValueConvertersResolver but we want to modify it in the web app and replace
-            //the TinyMcePropertyEditorValueConverter with the RteMacroRenderingPropertyEditorValueConverter
-            PropertyEditorValueConvertersResolver.Current.RemoveType<TinyMcePropertyEditorValueConverter>();
-            PropertyEditorValueConvertersResolver.Current.AddType<RteMacroRenderingPropertyEditorValueConverter>();
+            // both TinyMceValueConverter (in Core) and RteMacroRenderingValueConverter (in Web) will be
+            // discovered when CoreBootManager configures the converters. We HAVE to remove one of them
+            // here because there cannot be two converters for one property editor - and we want the full
+            // RteMacroRenderingValueConverter that converts macros, etc. So remove TinyMceValueConverter.
+            // (the limited one, defined in Core, is there for tests)
+            PropertyValueConvertersResolver.Current.RemoveType<TinyMceValueConverter>();
+            // same for other converters
+            PropertyValueConvertersResolver.Current.RemoveType<Core.PropertyEditors.ValueConverters.TextStringValueConverter>();
+            PropertyValueConvertersResolver.Current.RemoveType<Core.PropertyEditors.ValueConverters.SimpleEditorValueConverter>();
 
             PublishedCachesResolver.Current = new PublishedCachesResolver(new PublishedCaches(
                 new PublishedCache.XmlPublishedCache.PublishedContentCache(),

@@ -5,9 +5,10 @@
     <link>http://umbraco.org</link>
   </creator>
   <area alias="actions">
-    <key alias="assignDomain">Manage hostnames</key>
+    <key alias="assignDomain">Culture and Hostnames</key>
     <key alias="auditTrail">Audit Trail</key>
     <key alias="browse">Browse Node</key>
+    <key alias="changeDocType">Change Document Type</key>
     <key alias="copy">Copy</key>
     <key alias="create">Create</key>
     <key alias="createPackage">Create Package</key>
@@ -23,6 +24,7 @@
     <key alias="notify">Notifications</key>
     <key alias="protect">Public access</key>
     <key alias="publish">Publish</key>
+    <key alias="unpublish">Unpublish</key>
     <key alias="refreshNode">Reload nodes</key>
     <key alias="republish">Republish entire site</key>
     <key alias="rights">Permissions</key>
@@ -35,19 +37,31 @@
     <key alias="update">Update</key>
   </area>
   <area alias="assignDomain">
+    <key alias="permissionDenied">Permission denied.</key>
     <key alias="addNew">Add new Domain</key>
-    <key alias="invalidDomain">Invalid hostname</key>
+    <key alias="remove">remove</key>
+    <key alias="invalidNode">Invalid node.</key>
+    <key alias="invalidDomain">Invalid domain format.</key>
+    <key alias="duplicateDomain">Domain has already been assigned.</key>
     <key alias="domain">Domain</key>
+    <key alias="language">Language</key>
     <key alias="domainCreated">New domain '%0%' has been created</key>
     <key alias="domainDeleted">Domain '%0%' is deleted</key>
     <key alias="domainExists">Domain '%0%' has already been assigned</key>
     <key alias="domainHelp">
-      <![CDATA[eg: example.com, www.example.com, example.com:8080,<br/>
-        https://www.example.com/, example.com/en, etc. Use * to match<br/>
-	any domain and just set the culture.]]>
+      <![CDATA[Valid domain names are: "example.com", "www.example.com", "example.com:8080" or
+        "https://www.example.com/".<br /><br />One-level paths in domains are supported, eg. "example.com/en". However, they
+        should be avoided. Better use the culture setting above.]]>
     </key>
     <key alias="domainUpdated">Domain '%0%' has been updated</key>
     <key alias="orEdit">Edit Current Domains</key>
+    <key alias="inherit">Inherit</key>
+    <key alias="setLanguage">Culture</key>
+    <key alias="setLanguageHelp">
+      <![CDATA[Set the culture for nodes below the current node,<br /> or inherit culture from parent nodes. Will also apply<br />
+      to the current node, unless a domain below applies too.]]>
+    </key>
+    <key alias="setDomains">Domains</key>
   </area>
   <area alias="auditTrails">
     <key alias="atViewingFor">Viewing for</key>
@@ -78,6 +92,26 @@
     <key alias="styleChoose">Choose style</key>
     <key alias="styleShow">Show styles</key>
     <key alias="tableInsert">Insert table</key>
+  </area>
+  <area alias="changeDocType">
+    <key alias="changeDocTypeInstruction">To change the document type for the selected content, first select from the list of valid types for this location.</key>
+    <key alias="changeDocTypeInstruction2">Then confirm and/or amend the mapping of properties from the current type to the new, and click Save.</key>
+    <key alias="contentRepublished">The content has been re-published.</key>    
+    <key alias="currentProperty">Current Property</key>
+    <key alias="currentType">Current type</key>
+    <key alias="docTypeCannotBeChanged">The document type cannot be changed, as there are no alternatives valid for this location.</key>
+    <key alias="docTypeChanged">Document Type Changed</key>    
+    <key alias="mapProperties">Map Properties</key>
+    <key alias="mapToProperty">Map to Property</key>
+    <key alias="newTemplate">New Template</key>
+    <key alias="newType">New Type</key>
+    <key alias="none">none</key>
+    <key alias="selectedContent">Content</key>
+    <key alias="selectNewDocType">Select New Document Type</key>
+    <key alias="successMessage">The document type of the selected content has been successfully changed to [new type] and the following properties mapped:</key>
+    <key alias="to">to</key>
+    <key alias="validationErrorPropertyWithMoreThanOneMapping">Could not complete property mapping as one or more properties have more than one mapping defined.</key>
+    <key alias="validDocTypesNote">Only alternate types valid for the current location are displayed.</key>
   </area>
   <area alias="content">
     <key alias="about">About this page</key>
@@ -116,6 +150,8 @@
     <key alias="updateDate">Last edited</key>
     <key alias="uploadClear">Remove file</key>
     <key alias="urls">Link to document</key>
+    <key alias="memberof">Member of group(s)</key>
+    <key alias="notmemberof">Not a member of group(s)</key>
   </area>
   <area alias="create">
     <key alias="chooseNode">Where do you want to create the new %0%</key>
@@ -241,8 +277,9 @@
     <key alias="stylesNoStylesOnPage">No active styles available</key>
     <key alias="tableColMergeLeft">Please place cursor at the left of the two cells you wish to merge</key>
     <key alias="tableSplitNotSplittable">You cannot split a cell that hasn't been merged.</key>
-    <key alias="xsltErrorHeader">Error in xslt source</key>
+    <key alias="xsltErrorHeader">Error in XSLT source</key>
     <key alias="xsltErrorText">The XSLT has not been saved, because it contained error(s)</key>
+    <key alias="missingPropertyEditorErrorMessage">There is a configuration error with the data type used for this property, please check the data type</key>
   </area>
   <area alias="general">
     <key alias="about">About</key>
@@ -251,7 +288,7 @@
     <key alias="alias">Alias</key>
     <key alias="areyousure">Are you sure?</key>
     <key alias="border">Border</key>
-    <key alias="by">or</key>
+    <key alias="by">by</key>
     <key alias="cancel">Cancel</key>
     <key alias="cellMargin">Cell margin</key>
     <key alias="choose">Choose</key>
@@ -627,6 +664,7 @@ To manage your website, simply open the umbraco back office and start adding con
     <key alias="packageUpgradeInstructions">Upgrade instructions</key>
     <key alias="packageUpgradeText"> There's an upgrade available for this package. You can download it directly from the umbraco package repository.</key>
     <key alias="packageVersion">Package version</key>
+    <key alias="packageVersionHistory">Package version history</key>
     <key alias="viewPackageWebsite">View package website</key>
   </area>
   <area alias="paste">
@@ -734,6 +772,7 @@ To manage your website, simply open the umbraco back office and start adding con
     <key alias="contentTypeEnabled">Master Content Type enabled</key>
     <key alias="contentTypeUses">This Content Type uses</key>
     <key alias="asAContentMasterType">as a Master Content Type. Tabs from Master Content Types are not shown and can only be edited on the Master Content Type itself</key>
+    <key alias="noPropertiesDefinedOnTab">No properties defined on this tab. Click on the "add a new property" link at the top to create a new property.</key>
   </area>
   <area alias="sort">
     <key alias="sortDone">Sorting complete.</key>
@@ -784,11 +823,12 @@ To manage your website, simply open the umbraco back office and start adding con
     <key alias="templateErrorText">Please make sure that you do not have 2 templates with the same alias</key>
     <key alias="templateSavedHeader">Template saved</key>
     <key alias="templateSavedText">Template saved without any errors!</key>
-    <key alias="xsltErrorHeader">Xslt not saved</key>
-    <key alias="xsltErrorText">Xslt contained an error</key>
-    <key alias="xsltPermissionErrorText">Xslt could not be saved, check file permissions</key>
-    <key alias="xsltSavedHeader">Xslt saved</key>
-    <key alias="xsltSavedText">No errors in xslt</key>
+    <key alias="xsltErrorHeader">XSLT not saved</key>
+    <key alias="xsltErrorText">XSLT contained an error</key>
+    <key alias="xsltPermissionErrorText">XSLT could not be saved, check file permissions</key>
+    <key alias="xsltSavedHeader">XSLT saved</key>
+    <key alias="xsltSavedText">No errors in XSLT</key>
+    <key alias="contentUnpublished">Content unpublished</key>
     <key alias="partialViewSavedHeader">Partial view saved</key>
     <key alias="partialViewSavedText">Partial view saved without any errors!</key>
     <key alias="partialViewErrorHeader">Partial view not saved</key>
@@ -952,6 +992,7 @@ To manage your website, simply open the umbraco back office and start adding con
     <key alias="modules">Sections</key>
     <key alias="noConsole">Disable Umbraco Access</key>
     <key alias="password">Password</key>
+    <key alias="resetPassword">Reset password</key>
     <key alias="passwordChanged">Your password has been changed!</key>
     <key alias="passwordConfirm">Please confirm the new password</key>
     <key alias="passwordEnterNew">Enter your new password</key>

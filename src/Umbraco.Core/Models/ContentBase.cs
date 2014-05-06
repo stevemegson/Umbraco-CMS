@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -14,10 +15,13 @@ namespace Umbraco.Core.Models
     /// <summary>
     /// Represents an abstract class for base Content properties and methods
     /// </summary>
+    [Serializable]
+    [DataContract(IsReference = true)]
     [DebuggerDisplay("Id: {Id}, Name: {Name}, ContentType: {ContentTypeBase.Alias}")]
     public abstract class ContentBase : Entity, IContentBase
     {
         protected IContentTypeComposition ContentTypeBase;
+        
         private Lazy<int> _parentId;
         private string _name;//NOTE Once localization is introduced this will be the localized Name of the Content/Media.
         private int _sortOrder;
@@ -50,6 +54,7 @@ namespace Umbraco.Core.Models
             _contentTypeId = int.Parse(contentType.Id.ToString(CultureInfo.InvariantCulture));
             _properties = properties;
             _properties.EnsurePropertyTypes(PropertyTypes);
+            _additionalData = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -73,6 +78,7 @@ namespace Umbraco.Core.Models
 			_contentTypeId = int.Parse(contentType.Id.ToString(CultureInfo.InvariantCulture));
 			_properties = properties;
 			_properties.EnsurePropertyTypes(PropertyTypes);
+            _additionalData = new Dictionary<string, object>();
 		}
 
 	    private static readonly PropertyInfo NameSelector = ExpressionHelper.GetPropertyInfo<ContentBase, string>(x => x.Name);
@@ -253,6 +259,17 @@ namespace Umbraco.Core.Models
             }
         }
 
+        private readonly IDictionary<string, object> _additionalData;
+
+        /// <summary>
+        /// Some entities may expose additional data that other's might not, this custom data will be available in this collection
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        IDictionary<string, object> IUmbracoEntity.AdditionalData
+        {
+            get { return _additionalData; }
+        }
+
         /// <summary>
         /// List of PropertyGroups available on this Content object
         /// </summary>
@@ -293,10 +310,8 @@ namespace Umbraco.Core.Models
         /// <returns><see cref="Property"/> Value as a <see cref="TPassType"/></returns>
         public virtual TPassType GetValue<TPassType>(string propertyTypeAlias)
         {
-            if (Properties[propertyTypeAlias].Value is TPassType)
-                return (TPassType)Properties[propertyTypeAlias].Value;
-
-            return (TPassType)Convert.ChangeType(Properties[propertyTypeAlias].Value, typeof(TPassType));
+            var convertAttempt = Properties[propertyTypeAlias].Value.TryConvertTo<TPassType>();
+            return convertAttempt.Success ? convertAttempt.Result : default(TPassType);
         }
 
         /// <summary>
@@ -433,6 +448,7 @@ namespace Umbraco.Core.Models
         /// <summary>
         /// Returns a collection of the result of the last validation process, this collection contains all invalid properties.
         /// </summary>
+        [IgnoreDataMember]
         internal IEnumerable<Property> LastInvalidProperties
         {
             get { return _lastInvalidProperties; }
@@ -454,5 +470,6 @@ namespace Umbraco.Core.Models
                 prop.ResetDirtyProperties(rememberPreviouslyChangedProperties);
             }
         }
+        
     }
 }

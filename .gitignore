@@ -82,5 +82,7 @@ tools/NDepend/
 src/*.vspx
 src/*.psess
 NDependOut/*
+*.ndproj
 QueryResult.htm
 *.ndproj
+src/Umbraco.Tests/Views/web.config

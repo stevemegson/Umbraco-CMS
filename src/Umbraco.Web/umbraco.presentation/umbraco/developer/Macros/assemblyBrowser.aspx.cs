@@ -12,6 +12,7 @@ using System.Web.UI.HtmlControls;
 using System.Reflection;
 using System.Collections.Specialized;
 using Umbraco.Core.IO;
+using Umbraco.Web;
 using umbraco.BusinessLogic;
 using umbraco.cms.businesslogic.macro;
 using System.Collections.Generic;
@@ -40,7 +41,7 @@ namespace umbraco.developer
                 if (Request.QueryString["type"] == null)
                 {
                     isUserControl = true;
-                    var fileName = Request.QueryString["fileName"];
+                    var fileName = Request.GetItemAsString("fileName");
                     if (!fileName.StartsWith("~"))
                     {
                         if (fileName.StartsWith("/"))
@@ -108,7 +109,7 @@ namespace umbraco.developer
             }
             catch (Exception err)
             {
-                AssemblyName.Text = "Error reading " + Request["fileName"];
+                AssemblyName.Text = "Error reading " + Request.CleanForXss("fileName");
                 Button1.Visible = false;
                 ChooseProperties.Controls.Add(new LiteralControl("<p class=\"guiDialogNormal\" style=\"color: red;\">" + err.ToString() + "</p><p/><p class=\"guiDialogNormal\">"));
             }

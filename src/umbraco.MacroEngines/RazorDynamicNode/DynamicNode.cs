@@ -8,6 +8,7 @@ using System.Web;
 using Umbraco.Core;
 using Umbraco.Core.Dynamics;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Strings;
 using umbraco.interfaces;
 using System.Collections;
 using System.Reflection;
@@ -644,36 +645,8 @@ namespace umbraco.MacroEngines
 
         private object GetReflectedProperty(string alias)
         {
-            Func<string, Attempt<object>> getMember =
-                    memberAlias =>
-                    {
-                        try
-                        {
-                            return new Attempt<object>(true,
-                                                       n.GetType().InvokeMember(memberAlias,
-                                                                                System.Reflection.BindingFlags.GetProperty |
-                                                                                System.Reflection.BindingFlags.Instance |
-                                                                                System.Reflection.BindingFlags.Public,
-                                                                                null,
-                                                                                n,
-                                                                                null));
-                        }
-                        catch (MissingMethodException ex)
-                        {
-                            return new Attempt<object>(ex);
-                        }
-                    };
-
-            //try with the current casing
-            var attempt = getMember(alias);
-            if (!attempt.Success)
-            {
-                //if we cannot get with the current alias, try changing it's case
-                attempt = alias[0].IsUpperCase()
-                    ? getMember(alias.ConvertCase(StringAliasCaseType.CamelCase))
-                    : getMember(alias.ConvertCase(StringAliasCaseType.PascalCase));
-            }
-
+            var attempt = n.GetType().GetMemberIgnoreCase(n, alias);
+            
             return attempt.Success ? attempt.Result : null;
         }
 

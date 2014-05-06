@@ -60,14 +60,21 @@ namespace Umbraco.Web.UI.Install
             _installStep = Request.GetItemAsString("installStep");
 
             //if this is not an upgrade we will log in with the default user.
-            // It's not considered an upgrade if the ConfigurationStatus is missing or empty.
-            if (string.IsNullOrWhiteSpace(GlobalSettings.ConfigurationStatus) == false)
+            // It's not considered an upgrade if the ConfigurationStatus is missing or empty or if the db is not configured (initially).
+            if (string.IsNullOrWhiteSpace(GlobalSettings.ConfigurationStatus) == false
+                && (IsPostBack == false && global::Umbraco.Core.ApplicationContext.Current.DatabaseContext.IsDatabaseConfigured))
             {
                 var result = Security.ValidateCurrentUser(new HttpContextWrapper(Context));
-                
-                if (result == ValidateRequestAttempt.FailedTimedOut || result == ValidateRequestAttempt.FailedNoPrivileges)
+
+                switch (result)
                 {
-                    Response.Redirect(SystemDirectories.Umbraco + "/logout.aspx?redir=" + Server.UrlEncode(Request.RawUrl));
+                    case ValidateRequestAttempt.FailedNoPrivileges:
+                    case ValidateRequestAttempt.FailedTimedOut:
+                    case ValidateRequestAttempt.FailedNoContextId:
+                        Response.Redirect(
+                            //We must add the token to prevent CSRF attacks since the logout occurs on a GET not a POST
+                        SystemDirectories.Umbraco + "/login.aspx?redir=" + Server.UrlEncode(Request.RawUrl) + "&t=" + Security.UmbracoUserContextId);
+                        break;
                 }
             }
 

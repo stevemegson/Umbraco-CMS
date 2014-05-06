@@ -153,7 +153,7 @@ namespace Umbraco.Core.Persistence.Repositories
                                "DELETE FROM cmsPropertyType WHERE contentTypeId = @Id",
                                "DELETE FROM cmsPropertyTypeGroup WHERE contenttypeNodeId = @Id",
                                "DELETE FROM cmsDocumentType WHERE contentTypeNodeId = @Id",
-                               "DELETE FROM cmsContentType WHERE NodeId = @Id",
+                               "DELETE FROM cmsContentType WHERE nodeId = @Id",
                                "DELETE FROM umbracoNode WHERE id = @Id"
                            };
             return list;
@@ -208,18 +208,7 @@ namespace Umbraco.Core.Persistence.Repositories
 
         protected override void PersistUpdatedItem(IContentType entity)
         {
-            Mandate.That<Exception>(string.IsNullOrEmpty(entity.Alias) == false,
-                                    () =>
-                                        {
-                                            var message =
-                                                string.Format(
-                                                    "ContentType '{0}' cannot have an empty Alias. This is most likely due to invalid characters stripped from the Alias.",
-                                                    entity.Name);
-                                            var exception = new Exception(message);
-
-                                            LogHelper.Error<ContentTypeRepository>(message, exception);
-                                            throw exception;
-                                        });
+            ValidateAlias(entity);
 
             //Updates Modified date
             ((ContentType)entity).UpdatingEntity();

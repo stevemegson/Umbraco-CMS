@@ -10,23 +10,24 @@ using Umbraco.Tests.TestHelpers;
 
 namespace Umbraco.Tests.Persistence
 {
-    [TestFixture]
+
+    [TestFixture, RequiresSTA]
     public class DatabaseContextTests
     {
 	    private DatabaseContext _dbContext;
 
-		[SetUp]
-		public void Setup()
-		{
-			_dbContext = new DatabaseContext(new DefaultDatabaseFactory());
+        [SetUp]
+        public void Setup()
+        {
+            _dbContext = new DatabaseContext(new DefaultDatabaseFactory());
 
-			//unfortunately we have to set this up because the PetaPocoExtensions require singleton access
-			ApplicationContext.Current = new ApplicationContext(false)
-				{
-					DatabaseContext = _dbContext,
-					IsReady = true
-				};			
-		}
+            //unfortunately we have to set this up because the PetaPocoExtensions require singleton access
+            ApplicationContext.Current = new ApplicationContext(CacheHelper.CreateDisabledCacheHelper())
+            {
+                DatabaseContext = _dbContext,
+                IsReady = true
+            };
+        }
 
 		[TearDown]
 		public void TearDown()
@@ -74,6 +75,9 @@ namespace Umbraco.Tests.Persistence
             //Create the Sql CE database
             var engine = new SqlCeEngine(settings.ConnectionString.Replace("UmbracoPetaPocoTests", "DatabaseContextTests"));
             engine.CreateDatabase();
+
+            //re-map the dbcontext to the new conn string
+            _dbContext = new DatabaseContext(new DefaultDatabaseFactory(engine.LocalConnectionString, "System.Data.SqlServerCe.4.0"));
 
             SqlSyntaxContext.SqlSyntaxProvider = SqlCeSyntax.Provider;
 

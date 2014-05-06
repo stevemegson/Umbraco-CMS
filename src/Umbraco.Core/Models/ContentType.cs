@@ -122,98 +122,6 @@ namespace Umbraco.Core.Models
         }
 
         /// <summary>
-        /// Indicates whether a specific property on the current <see cref="IContent"/> entity is dirty.
-        /// </summary>
-        /// <param name="propertyName">Name of the property to check</param>
-        /// <returns>True if Property is dirty, otherwise False</returns>
-        public override bool IsPropertyDirty(string propertyName)
-        {
-            bool existsInEntity = base.IsPropertyDirty(propertyName);
-
-            bool anyDirtyGroups = PropertyGroups.Any(x => x.IsPropertyDirty(propertyName));
-            bool anyDirtyTypes = PropertyTypes.Any(x => x.IsPropertyDirty(propertyName));
-
-            return existsInEntity || anyDirtyGroups || anyDirtyTypes;
-        }
-
-        /// <summary>
-        /// Indicates whether the current entity is dirty.
-        /// </summary>
-        /// <returns>True if entity is dirty, otherwise False</returns>
-        public override bool IsDirty()
-        {
-            bool dirtyEntity = base.IsDirty();
-
-            bool dirtyGroups = PropertyGroups.Any(x => x.IsDirty());
-            bool dirtyTypes = PropertyTypes.Any(x => x.IsDirty());
-
-            return dirtyEntity || dirtyGroups || dirtyTypes;
-        }
-
-        /// <summary>
-        /// Resets dirty properties by clearing the dictionary used to track changes.
-        /// </summary>
-        /// <remarks>
-        /// Please note that resetting the dirty properties could potentially
-        /// obstruct the saving of a new or updated entity.
-        /// </remarks>
-        public override void ResetDirtyProperties()
-        {
-            base.ResetDirtyProperties();
-
-            //loop through each property group to reset the property types
-            var propertiesReset = new List<int>();
-
-            foreach (var propertyGroup in PropertyGroups)
-            {
-                propertyGroup.ResetDirtyProperties();
-                foreach (var propertyType in propertyGroup.PropertyTypes)
-                {                    
-                    propertyType.ResetDirtyProperties();
-                    propertiesReset.Add(propertyType.Id);
-                }
-            }
-            //then loop through our property type collection since some might not exist on a property group
-            //but don't re-reset ones we've already done.
-            foreach (var propertyType in PropertyTypes.Where(x => propertiesReset.Contains(x.Id) == false))
-            {
-                propertyType.ResetDirtyProperties();
-            }
-        }
-
-        /// <summary>
-        /// Creates a clone of the current entity
-        /// </summary>
-        /// <returns></returns>
-        public IContentType Clone(string alias)
-        {
-            var clone = (ContentType)this.MemberwiseClone();
-            clone.Alias = alias;
-            clone.Key = Guid.Empty;
-            var propertyGroups = this.PropertyGroups.Select(x => x.Clone()).ToList();
-            clone.PropertyGroups = new PropertyGroupCollection(propertyGroups);
-            clone.PropertyTypes = this.PropertyTypeCollection.Select(x => x.Clone()).ToList();
-            clone.ResetIdentity();
-            clone.ResetDirtyProperties(false);
-
-            foreach (var propertyGroup in clone.PropertyGroups)
-            {
-                propertyGroup.ResetIdentity();
-                foreach (var propertyType in propertyGroup.PropertyTypes)
-                {
-                    propertyType.ResetIdentity();
-                }
-            }
-
-            foreach (var propertyType in clone.PropertyTypes.Where(x => x.HasIdentity))
-            {
-                propertyType.ResetIdentity();
-            }
-
-            return clone;
-        }
-
-        /// <summary>
         /// Method to call when Entity is being saved
         /// </summary>
         /// <remarks>Created date is set and a Unique key is assigned</remarks>
@@ -233,5 +141,53 @@ namespace Umbraco.Core.Models
         {
             base.UpdatingEntity();
         }
+
+        public override object DeepClone()
+        {
+            var clone = (ContentType)base.DeepClone();
+            var propertyGroups = PropertyGroups.Select(x => (PropertyGroup)x.DeepClone()).ToList();
+            clone.PropertyGroups = new PropertyGroupCollection(propertyGroups);
+            //set the property types that are not part of a group
+            clone.PropertyTypes = PropertyTypeCollection
+                .Where(x => x.PropertyGroupId == null)
+                .Select(x => (PropertyType)x.DeepClone()).ToList();
+            return clone;
+        }
+
+        /// <summary>
+        /// Creates a deep clone of the current entity with its identity/alias and it's property identities reset
+        /// </summary>
+        /// <returns></returns>
+        [Obsolete("Use DeepCloneWithResetIdentities instead")]
+        public IContentType Clone(string alias)
+        {            
+            return DeepCloneWithResetIdentities(alias);
+        }
+
+        /// <summary>
+        /// Creates a deep clone of the current entity with its identity/alias and it's property identities reset
+        /// </summary>
+        /// <returns></returns>
+        public IContentType DeepCloneWithResetIdentities(string alias)
+        {
+            var clone = (ContentType)DeepClone();
+            clone.Alias = alias;
+            clone.Key = Guid.Empty;
+            foreach (var propertyGroup in clone.PropertyGroups)
+            {
+                propertyGroup.ResetIdentity();
+                propertyGroup.ResetDirtyProperties(false);
+            }
+            foreach (var propertyType in clone.PropertyTypes)
+            {
+                propertyType.ResetIdentity();
+                propertyType.ResetDirtyProperties(false);
+            }
+
+            clone.ResetIdentity();
+            clone.ResetDirtyProperties(false);
+            return clone;
+        }
+
     }
 }

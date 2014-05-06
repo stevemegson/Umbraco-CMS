@@ -1,10 +1,12 @@
 using System;
 using System.Data;
+using System.Globalization;
 using System.Web.Security;
+using Umbraco.Core.Security;
 using umbraco.BusinessLogic;
 using umbraco.DataLayer;
 using umbraco.BasePages;
-using umbraco.IO;
+using Umbraco.Core.IO;
 using umbraco.cms.businesslogic.member;
 
 namespace umbraco
@@ -74,25 +76,42 @@ namespace umbraco
             string email = nameAndMail.Length > 0 ? nameAndMail[1] : "";
             string password = nameAndMail.Length > 1 ? nameAndMail[2] : "";
             string loginName = nameAndMail.Length > 2 ? nameAndMail[3] : "";
-            if (cms.businesslogic.member.Member.InUmbracoMemberMode() && TypeID != -1)
+
+            var provider = MembershipProviderExtensions.GetMembersMembershipProvider();
+
+            if (provider.IsUmbracoMembershipProvider() && TypeID != -1)
             {
-                cms.businesslogic.member.MemberType dt = new cms.businesslogic.member.MemberType(TypeID);
-                cms.businesslogic.member.Member m = cms.businesslogic.member.Member.MakeNew(name, loginName, email, dt, BusinessLogic.User.GetUser(_userID));
-                m.Password = password;                
-                m.LoginName = loginName.Replace(" ", "").ToLower();
+                var dt = new MemberType(TypeID);
+                var castedProvider = (UmbracoMembershipProviderBase)provider;
+                MembershipCreateStatus status;
+                
+                //First create with the membership provider
+                //TODO: We are not supporting q/a - passing in empty here
+                var created = castedProvider.CreateUser(dt.Alias, 
+                    loginName.Replace(" ", "").ToLower(), //dunno why we're doing this but that's how it has been so i'll leave it i guess
+                    password, email, "", "", true, Guid.NewGuid(), out status);
+                if (status != MembershipCreateStatus.Success)
+                {
+                    throw new Exception("Error creating Member: " + status);
+                }
 
-                NewMemberUIEventArgs e = new NewMemberUIEventArgs();
-                this.OnNewMember(e, password, m);
+                //update the name
+                var member = Member.GetMemberFromLoginName(created.UserName);
+                member.Text = name;
+                member.Save();
 
-                _returnUrl = "members/editMember.aspx?id=" + m.Id.ToString();
+                var e = new NewMemberUIEventArgs();
+                this.OnNewMember(e, password, member);
+
+                _returnUrl = "members/editMember.aspx?id=" + member.Id.ToString(CultureInfo.InvariantCulture);
             }
             else
             {
-                MembershipCreateStatus mc = new MembershipCreateStatus();
-                Membership.CreateUser(name, password, email, "empty", "empty", true, out mc);
+                MembershipCreateStatus mc;
+                provider.CreateUser(name, password, email, "empty", "empty", true, null, out mc);
                 if (mc != MembershipCreateStatus.Success)
                 {
-                    throw new Exception("Error creating Member: " + mc.ToString());
+                    throw new Exception("Error creating Member: " + mc);
                 }
                 _returnUrl = "members/editMember.aspx?id=" + System.Web.HttpContext.Current.Server.UrlEncode(name);
             }
@@ -102,11 +121,10 @@ namespace umbraco
 
         public bool Delete()
         {
-            //cms.businesslogic.member.Member d = new cms.businesslogic.member.Member(ParentID);
-            //d.delete();
-            //return true;
-            MembershipUser u = Membership.GetUser(Alias);
-            Membership.DeleteUser(u.UserName, true);
+            var provider = MembershipProviderExtensions.GetMembersMembershipProvider();
+            var u = provider.GetUser(Alias, false);
+            if (u == null) return false;
+            provider.DeleteUser(u.UserName, true);
             return true;
 
 

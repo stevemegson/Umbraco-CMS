@@ -309,7 +309,7 @@ namespace Umbraco.Core.Configuration
                 {
                     return value;
                 }
-                return "UMB_UCONTEXT";
+                return Constants.Web.AuthCookieName;
             }
         }
 
@@ -502,8 +502,12 @@ namespace Umbraco.Core.Configuration
 			}
 		}
 
-		//TODO: I"m not sure why we need this, need to ask Gareth what the deal is, pretty sure we can remove it or change it, seems like
-		// massive overkill.
+        // we have that one because we auto-discover when a property is "xml" and should be returned by Razor as
+        // dynamic xml. But, stuff such as "<p>hello</p>" can be parsed into xml and would be returned as xml,
+        // unless <p> has been defined in the exclusion list... this is dirty and not-efficient, we should at least
+        // cache the list somewhere!
+        //
+        // TODO get rid of that whole dynamic xml mess
 
 		/// <summary>
 		/// razor DynamicNode typecasting detects XML and returns DynamicXml - Root elements that won't convert to DynamicXml
@@ -514,12 +518,10 @@ namespace Umbraco.Core.Configuration
 			{
 				try
 				{
-					List<string> items = new List<string>();
-					XmlNode root = GetKeyAsNode("/settings/scripting/razor/notDynamicXmlDocumentElements");
-					foreach (XmlNode element in root.SelectNodes(".//element"))
-					{
-						items.Add(element.InnerText);
-					}
+					var items = new List<string>();
+					var root = GetKeyAsNode("/settings/scripting/razor/notDynamicXmlDocumentElements");
+                    if (root != null)
+                        items.AddRange(root.SelectNodes(".//element").Cast<XmlNode>().Select(n => n.InnerText));
 					return items;
 				}
 				catch
@@ -656,7 +658,7 @@ namespace Umbraco.Core.Configuration
 			{
 				string defaultProvider = GetKey("/settings/providers/users/DefaultBackofficeProvider");
 				if (String.IsNullOrEmpty(defaultProvider))
-					defaultProvider = "UsersMembershipProvider";
+                    defaultProvider = "UsersMembershipProvider";
 
 				return defaultProvider;
 			}
@@ -853,6 +855,8 @@ namespace Umbraco.Core.Configuration
 		/// <summary>
 		/// Whether to replace double dashes from url (ie my--story----from--dash.aspx caused by multiple url replacement chars
 		/// </summary>
+		// was used by the legacy short string helper, is not used anymore by the new default short string helper
+        // should update documentation
         internal static bool RemoveDoubleDashesFromUrlReplacing
 		{
 			get
@@ -1079,7 +1083,7 @@ namespace Umbraco.Core.Configuration
 					bool globalPreviewEnabled = false;
 					string value = GetKey("/settings/content/GlobalPreviewStorageEnabled");
 					if (bool.TryParse(value, out globalPreviewEnabled))
-						return !globalPreviewEnabled;
+						return globalPreviewEnabled;
 					// Return default
 					return false;
 				}

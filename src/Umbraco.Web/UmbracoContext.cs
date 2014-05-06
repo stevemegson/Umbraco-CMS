@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Web;
 using Umbraco.Core;
 using Umbraco.Core.Services;
@@ -7,7 +8,7 @@ using Umbraco.Web.PublishedCache;
 using Umbraco.Web.Routing;
 using Umbraco.Web.Security;
 using umbraco;
-using umbraco.IO;
+using Umbraco.Core.IO;
 using umbraco.presentation;
 using umbraco.presentation.LiveEditing;
 using umbraco.BasePages;
@@ -30,7 +31,8 @@ namespace Umbraco.Web
         private static readonly object Locker = new object();
 
         private bool _replacing;
-        private PreviewContent _previewContent;
+        private Lazy<ContextualPublishedContentCache> _contentCache;
+        private Lazy<ContextualPublishedMediaCache> _mediaCache;
 
         /// <summary>
         /// Used if not running in a web application (no real HttpContext)
@@ -54,7 +56,12 @@ namespace Umbraco.Web
         /// </remarks>
         public static UmbracoContext EnsureContext(HttpContextBase httpContext, ApplicationContext applicationContext)
         {
-            return EnsureContext(httpContext, applicationContext, false);
+            return EnsureContext(httpContext, applicationContext, false, null);
+        }
+
+        public static UmbracoContext EnsureContext(HttpContextBase httpContext, ApplicationContext applicationContext, bool replaceContext)
+        {
+            return EnsureContext(httpContext, applicationContext, replaceContext, null);
         }
 
         /// <summary>
@@ -77,7 +84,7 @@ namespace Umbraco.Web
         /// during the startup process as well.
         /// See: http://issues.umbraco.org/issue/U4-1890, http://issues.umbraco.org/issue/U4-1717
         /// </remarks>
-        public static UmbracoContext EnsureContext(HttpContextBase httpContext, ApplicationContext applicationContext, bool replaceContext)
+        public static UmbracoContext EnsureContext(HttpContextBase httpContext, ApplicationContext applicationContext, bool replaceContext, bool? preview)
         {
             if (UmbracoContext.Current != null)
             {
@@ -89,20 +96,21 @@ namespace Umbraco.Web
             var umbracoContext = new UmbracoContext(
                 httpContext,
                 applicationContext,
-                PublishedCachesResolver.Current.Caches);
-
-            // create the nice urls provider
-            // there's one per request because there are some behavior parameters that can be changed
-            var urlProvider = new UrlProvider(
-                umbracoContext,
-                UrlProviderResolver.Current.Providers);
+                new Lazy<IPublishedCaches>(() => PublishedCachesResolver.Current.Caches, false),
+                preview);
 
             // create the RoutingContext, and assign
             var routingContext = new RoutingContext(
                 umbracoContext,
-                ContentFinderResolver.Current.Finders,
-                ContentLastChanceFinderResolver.Current.Finder,
-                urlProvider);
+                new Lazy<IEnumerable<IContentFinder>>(() => ContentFinderResolver.Current.Finders),
+                new Lazy<IContentFinder>(() => ContentLastChanceFinderResolver.Current.Finder),
+                // create the nice urls provider
+                // there's one per request because there are some behavior parameters that can be changed
+                new Lazy<UrlProvider>(
+                    () => new UrlProvider(
+                        umbracoContext,
+                        UrlProviderResolver.Current.Providers),
+                    false));
 
             //assign the routing context back
             umbracoContext.RoutingContext = routingContext;
@@ -120,9 +128,25 @@ namespace Umbraco.Web
         /// <param name="publishedCaches">The published caches.</param>
         /// <param name="preview">An optional value overriding detection of preview mode.</param>
         internal UmbracoContext(
+            HttpContextBase httpContext,
+            ApplicationContext applicationContext,
+            IPublishedCaches publishedCaches,
+            bool? preview = null)
+            : this(httpContext, applicationContext, new Lazy<IPublishedCaches>(() => publishedCaches), preview)
+        {
+        }
+
+        /// <summary>
+        /// Creates a new Umbraco context.
+        /// </summary>
+        /// <param name="httpContext"></param>
+        /// <param name="applicationContext"> </param>
+        /// <param name="publishedCaches">The published caches.</param>
+        /// <param name="preview">An optional value overriding detection of preview mode.</param>
+        internal UmbracoContext(
 			HttpContextBase httpContext, 
 			ApplicationContext applicationContext,
-            IPublishedCaches publishedCaches,
+            Lazy<IPublishedCaches> publishedCaches,
             bool? preview = null)
         {
             if (httpContext == null) throw new ArgumentNullException("httpContext");
@@ -135,8 +159,8 @@ namespace Umbraco.Web
             Application = applicationContext;
             Security = new WebSecurity();
 
-            ContentCache = publishedCaches.CreateContextualContentCache(this);
-            MediaCache = publishedCaches.CreateContextualMediaCache(this);
+            _contentCache = new Lazy<ContextualPublishedContentCache>(() => publishedCaches.Value.CreateContextualContentCache(this));
+            _mediaCache = new Lazy<ContextualPublishedMediaCache>(() => publishedCaches.Value.CreateContextualMediaCache(this));
             InPreviewMode = preview ?? DetectInPreviewModeFromRequest();
 
 			// set the urls...
@@ -235,17 +259,23 @@ namespace Umbraco.Web
         /// <summary>
         /// Gets or sets the published content cache.
         /// </summary>
-        public ContextualPublishedContentCache ContentCache { get; private set; }
+        public ContextualPublishedContentCache ContentCache
+        {
+            get { return _contentCache.Value; }
+        }
 
         /// <summary>
         /// Gets or sets the published media cache.
         /// </summary>
-        public ContextualPublishedMediaCache MediaCache { get; private set; }
+        public ContextualPublishedMediaCache MediaCache
+        {
+            get { return _mediaCache.Value; }
+        }
 
         /// <summary>
-		/// Boolean value indicating whether the current request is a front-end umbraco request
-		/// </summary>
-		public bool IsFrontEndUmbracoRequest
+        /// Boolean value indicating whether the current request is a front-end umbraco request
+        /// </summary>
+        public bool IsFrontEndUmbracoRequest
 		{
 			get { return PublishedContentRequest != null; }
 		}
@@ -334,7 +364,8 @@ namespace Umbraco.Web
         /// <summary>
         /// Determines whether the current user is in a preview mode and browsing the site (ie. not in the admin UI)
         /// </summary>
-        public bool InPreviewMode { get; private set; }
+        /// <remarks>Can be internally set by the RTE macro rendering to render macros in the appropriate mode.</remarks>
+        public bool InPreviewMode { get; internal set; }
 
         private bool DetectInPreviewModeFromRequest()
         {
@@ -366,7 +397,6 @@ namespace Umbraco.Web
         {
             Security.DisposeIfDisposable();
             Security = null;
-            _previewContent = null;
             _umbracoContext = null;
             //ensure not to dispose this!
             Application = null;

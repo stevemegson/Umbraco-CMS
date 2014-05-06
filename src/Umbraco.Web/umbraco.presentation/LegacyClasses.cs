@@ -9,7 +9,8 @@ using System.Web;
 using System.Web.UI;
 using System.Xml;
 using Umbraco.Core;
-using umbraco.IO;
+using Umbraco.Core.IO;
+using Umbraco.Core.Security;
 using umbraco.NodeFactory;
 using umbraco.cms.businesslogic.web;
 using umbraco.interfaces;
@@ -421,7 +422,8 @@ namespace umbraco
                 {
                     HttpContext.Current.Trace.Write("umbracoRequestHandler", "Page protected");
 
-                    var user = System.Web.Security.Membership.GetUser();
+                    var provider = MembershipProviderExtensions.GetMembersMembershipProvider();
+                    var user = provider.GetCurrentUser();
 
                     if (user == null || !library.IsLoggedOn())
                     {

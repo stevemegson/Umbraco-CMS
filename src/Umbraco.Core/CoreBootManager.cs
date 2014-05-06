@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using Umbraco.Core.Cache;
 using Umbraco.Core.Configuration;
 using Umbraco.Core.Logging;
+using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.ObjectResolution;
 using Umbraco.Core.Persistence;
 using Umbraco.Core.Persistence.Mappers;
@@ -12,6 +14,7 @@ using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.Persistence.UnitOfWork;
 using Umbraco.Core.Profiling;
 using Umbraco.Core.PropertyEditors;
+using Umbraco.Core.PropertyEditors.ValueConverters;
 using Umbraco.Core.Publishing;
 using Umbraco.Core.Macros;
 using Umbraco.Core.Services;
@@ -36,6 +39,7 @@ namespace Umbraco.Core
 		private bool _isComplete = false;
         private readonly UmbracoApplicationBase _umbracoApplication;
 		protected ApplicationContext ApplicationContext { get; private set; }
+        protected CacheHelper ApplicationCache { get; set; }
 
 	    protected UmbracoApplicationBase UmbracoApplication
 	    {
@@ -55,16 +59,19 @@ namespace Umbraco.Core
 
 	        InitializeProfilerResolver();
 
+            CreateApplicationCache();
+
             _timer = DisposableTimer.DebugDuration<CoreBootManager>("Umbraco application starting", "Umbraco application startup complete");
 
 			//create database and service contexts for the app context
 			var dbFactory = new DefaultDatabaseFactory(GlobalSettings.UmbracoConnectionName);
 		    Database.Mapper = new PetaPocoMapper();
 			var dbContext = new DatabaseContext(dbFactory);
-			var serviceContext = new ServiceContext(
-				new PetaPocoUnitOfWorkProvider(dbFactory), 
-				new FileUnitOfWorkProvider(), 
-				new PublishingStrategy());
+            var serviceContext = new ServiceContext(
+                new PetaPocoUnitOfWorkProvider(dbFactory),
+                new FileUnitOfWorkProvider(),
+                new PublishingStrategy(),
+                ApplicationCache);
 
             CreateApplicationContext(dbContext, serviceContext);
 
@@ -92,7 +99,21 @@ namespace Umbraco.Core
         protected virtual void CreateApplicationContext(DatabaseContext dbContext, ServiceContext serviceContext)
         {
             //create the ApplicationContext
-            ApplicationContext = ApplicationContext.Current = new ApplicationContext(dbContext, serviceContext);
+            ApplicationContext = ApplicationContext.Current = new ApplicationContext(dbContext, serviceContext, ApplicationCache);
+        }
+
+        /// <summary>
+        /// Creates and assigns the ApplicationCache based on a new instance of System.Web.Caching.Cache
+        /// </summary>
+        protected virtual void CreateApplicationCache()
+        {
+            var cacheHelper = new CacheHelper(
+                        new ObjectCacheRuntimeCacheProvider(),
+                        new StaticCacheProvider(),
+                //we have no request based cache when not running in web-based context
+                        new NullCacheProvider());
+
+            ApplicationCache = cacheHelper;
         }
 
         /// <summary>
@@ -125,8 +146,9 @@ namespace Umbraco.Core
             {
                 CanResolveBeforeFrozen = true
             };
-            //add custom types here that are internal
-            ApplicationEventsResolver.Current.AddType<PublishedContentHelper>();
+
+            // add custom types here that are internal, if needed
+            //ApplicationEventsResolver.Current.AddType<>();
         }
 
         /// <summary>
@@ -228,7 +250,7 @@ namespace Umbraco.Core
                 () => PluginManager.Current.ResolveAssignedMapperTypes());
 
 			RepositoryResolver.Current = new RepositoryResolver(
-				new RepositoryFactory());
+                new RepositoryFactory(ApplicationCache));
 
 		    SqlSyntaxProvidersResolver.Current = new SqlSyntaxProvidersResolver(
                 new[] { typeof(MySqlSyntaxProvider), typeof(SqlCeSyntaxProvider), typeof(SqlServerSyntaxProvider) })
@@ -253,28 +275,27 @@ namespace Umbraco.Core
 
             //the database migration objects
             MigrationResolver.Current = new MigrationResolver(
-                () => PluginManager.Current.ResolveMigrationTypes());
-            
+                () => PluginManager.Current.ResolveTypes<IMigration>());
 
-
-			PropertyEditorValueConvertersResolver.Current = new PropertyEditorValueConvertersResolver(
+            // todo: remove once we drop IPropertyEditorValueConverter support.
+            PropertyEditorValueConvertersResolver.Current = new PropertyEditorValueConvertersResolver(
 				PluginManager.Current.ResolvePropertyEditorValueConverters());
-			//add the internal ones, these are not public currently so need to add them manually
-			PropertyEditorValueConvertersResolver.Current.AddType<DatePickerPropertyEditorValueConverter>();
-			PropertyEditorValueConvertersResolver.Current.AddType<TinyMcePropertyEditorValueConverter>();
-			PropertyEditorValueConvertersResolver.Current.AddType<YesNoPropertyEditorValueConverter>();
 
-            // this is how we'd switch over to DefaultShortStringHelper _and_ still use
-            // UmbracoSettings UrlReplaceCharacters...
-            //ShortStringHelperResolver.Current = new ShortStringHelperResolver(
-            //    new DefaultShortStringHelper().WithConfig(DefaultShortStringHelper.ApplyUrlReplaceCharacters));
+            // initialize the new property value converters by discovering IPropertyValueConverter
+            PropertyValueConvertersResolver.Current = new PropertyValueConvertersResolver(
+                PluginManager.Current.ResolveTypes<IPropertyValueConverter>());
 
-            // use the Legacy one for now
+            // use the new DefaultShortStringHelper
             ShortStringHelperResolver.Current = new ShortStringHelperResolver(
-		        new LegacyShortStringHelper());
+                //new LegacyShortStringHelper());
+                new DefaultShortStringHelper().WithDefaultConfig());
 
 		    UrlSegmentProviderResolver.Current = new UrlSegmentProviderResolver(
 		        typeof (DefaultUrlSegmentProvider));
+
+            // keep it internal for now
+		    PublishedContentModelFactoryResolver.Current = new PublishedContentModelFactoryResolver();
+		    //    new PublishedContentModelFactoryImpl());
 		}
 	}
 }

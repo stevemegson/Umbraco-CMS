@@ -22,19 +22,13 @@
   <cc2:Pane ID="Pane1" runat="server" Width="216" Height="80">
     <asp:DataGrid ID="dgTabs" Width="100%" runat="server" CellPadding="2" HeaderStyle-CssClass="propertyHeader"
       ItemStyle-CssClass="propertyContent" GridLines="None" OnItemCommand="dgTabs_ItemCommand"
-      HeaderStyle-Font-Bold="True" AutoGenerateColumns="False">
+      HeaderStyle-Font-Bold="True" AutoGenerateColumns="False" CssClass="tabs-table">
       <Columns>
         <asp:BoundColumn DataField="id" Visible="False"></asp:BoundColumn>
-        <asp:TemplateColumn HeaderText="Name">
+        <asp:TemplateColumn HeaderText="Name (drag to re-order)">
           <ItemTemplate>
-            <asp:TextBox ID="txtTab" runat="server" Value='<%#DataBinder.Eval(Container.DataItem,"name")%>'>
-            </asp:TextBox>
-          </ItemTemplate>
-        </asp:TemplateColumn>
-        <asp:TemplateColumn HeaderText="Sort order">
-          <ItemTemplate>
-            <asp:TextBox ID="txtSortOrder" runat="server" Value='<%#DataBinder.Eval(Container.DataItem,"order") %>'>
-            </asp:TextBox>
+            <asp:TextBox ID="txtTab" runat="server" Value='<%#DataBinder.Eval(Container.DataItem,"name")%>'></asp:TextBox>
+            <asp:TextBox ID="txtSortOrder" runat="server" CssClass="sort-order" Value='<%#DataBinder.Eval(Container.DataItem,"order") %>'></asp:TextBox>
           </ItemTemplate>
         </asp:TemplateColumn>
         <asp:ButtonColumn ButtonType="PushButton" Text="Delete" CommandName="Delete"></asp:ButtonColumn>
@@ -55,7 +49,8 @@
     
     <cc2:PropertyPanel ID="pp_alias" runat="server" Text="Alias">
          <asp:TextBox ID="txtAlias" CssClass="guiInputText guiInputStandardSize" runat="server"></asp:TextBox>
-         <asp:RequiredFieldValidator ControlToValidate="txtAlias" runat="server" ErrorMessage="Alias cannot be empty!"></asp:RequiredFieldValidator>
+         <asp:RequiredFieldValidator Display="Dynamic" ControlToValidate="txtAlias" runat="server" ErrorMessage="Alias cannot be empty!"></asp:RequiredFieldValidator>
+        <asp:CustomValidator Display="Dynamic" runat="server" ID="DuplicateAliasValidator" ErrorMessage="A type with this alias already exists"></asp:CustomValidator>
     </cc2:PropertyPanel>
   </cc2:Pane>
   
@@ -109,5 +104,42 @@
 <script type="text/javascript">
     $(function () {
         <asp:Literal runat="server" ID="checkTxtAliasJs" />
+    });
+
+    $(document).ready(function () {
+
+        $("table.tabs-table tr.propertyContent input.sort-order").keydown(function(e) {
+            // Allow: backspace, delete, tab, escape, enter and .
+            if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 190]) !== -1 ||
+                // Allow: Ctrl+A
+                (e.keyCode == 65 && e.ctrlKey === true) || 
+                // Allow: home, end, left, right
+                (e.keyCode >= 35 && e.keyCode <= 39)) {
+                // let it happen, don't do anything
+                return;
+            }
+            // Ensure that it is a number and stop the keypress
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        });
+
+        // Make each tr of the tabs table sortable (prevent dragging of header row, and set up a callback for when row dragged)
+        $("table.tabs-table tbody").sortable({
+            containment: 'parent',
+            cancel: '.propertyHeader, input',
+            tolerance: 'pointer',
+            update: function (event, ui) {
+                saveOrder();
+            }
+        });
+
+        // Fired after row dragged; go through each tr and save position to the hidden sort order field
+        function saveOrder() {
+            $("table.tabs-table tbody tr.propertyContent").each(function (index) {
+                $("input.sort-order", this).val(index + 1);
+            });
+        }
+
     });
 </script>

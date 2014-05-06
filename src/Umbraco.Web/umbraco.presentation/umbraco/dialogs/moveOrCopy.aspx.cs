@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Globalization;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using System.Xml;
@@ -58,10 +59,10 @@ namespace umbraco.dialogs
                     masterType.Items.Add(new ListItem(ui.Text("none") + "...", "0"));
                     foreach (var docT in DocumentType.GetAllAsList())
                     {
-                        masterType.Items.Add(new ListItem(docT.Text, docT.Id.ToString()));
+                        masterType.Items.Add(new ListItem(docT.Text, docT.Id.ToString(CultureInfo.InvariantCulture)));
                     }
 
-                    masterType.SelectedValue = documentType.MasterContentType.ToString();
+                    masterType.SelectedValue = documentType.MasterContentType.ToString(CultureInfo.InvariantCulture);
 
                     rename.Text = documentType.Text + " (copy)";
                     pane_settings.Text = "Make a copy of the document type '" + documentType.Text + "' and save it under a new name";
@@ -88,6 +89,10 @@ namespace umbraco.dialogs
                     {
                         currContent = Services.MediaService.GetById(Request.GetItemAs<int>("id"));
                     }
+
+                    // Preselect the parent of the seslected item.
+                    if (currContent.ParentId > 0)
+                        JTree.SelectedNodePath = currContent.Path.Substring(0, currContent.Path.LastIndexOf(','));
 
                     var validAction = true;
                     if (CurrentApp == Constants.Applications.Content && Umbraco.Core.Models.ContentExtensions.HasChildren(currContent, Services))
@@ -146,9 +151,13 @@ namespace umbraco.dialogs
             var contentType = contentTypeService.GetContentType(
                 int.Parse(Request.GetItemAsString("id")));
 
-            var alias = rename.Text.Replace("'", "''");
-            var clone = ((Umbraco.Core.Models.ContentType) contentType).Clone(alias);
-            contentTypeService.Save(clone);
+            //set the master
+            //http://issues.umbraco.org/issue/U4-2843
+            //http://issues.umbraco.org/issue/U4-3552
+            var parentId = int.Parse(masterType.SelectedValue);
+            
+            var alias = rename.Text.Trim().Replace("'", "''");
+            var clone = contentTypeService.Copy(contentType, alias, rename.Text.Trim(), parentId);
 
             var returnUrl = string.Format("{0}/settings/editNodeTypeNew.aspx?id={1}", SystemDirectories.Umbraco, clone.Id);
 

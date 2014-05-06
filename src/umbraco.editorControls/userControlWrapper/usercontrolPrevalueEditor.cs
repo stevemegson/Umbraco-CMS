@@ -8,12 +8,12 @@ using System.Web.UI.WebControls;
 using System.Web.UI.WebControls.WebParts;
 using System.Web.UI.HtmlControls;
 using System.IO;
-
+using Umbraco.Core;
 using umbraco.DataLayer;
 using umbraco.BusinessLogic;
 
 using umbraco.editorControls;
-using umbraco.IO;
+using Umbraco.Core.IO;
 using System.Collections.Generic;
 using umbraco.cms.businesslogic.datatype;
 
@@ -68,7 +68,7 @@ namespace umbraco.editorControls.userControlGrapper
 
 			// populate the usercontrol dropdown
 			_dropdownlistUserControl.Items.Add(new ListItem(ui.Text("choose"), ""));
-			populateUserControls( IOHelper.MapPath( SystemDirectories.Usercontrols) );
+			populateUserControls( IOHelper.MapPath( SystemDirectories.UserControls) );
 
 		   
 		}
@@ -79,11 +79,11 @@ namespace umbraco.editorControls.userControlGrapper
 
 			foreach (FileInfo uc in di.GetFiles("*.ascx"))
 			{
-                string ucRoot = IOHelper.MapPath(SystemDirectories.Usercontrols);
+                string ucRoot = IOHelper.MapPath(SystemDirectories.UserControls);
 
 				_dropdownlistUserControl.Items.Add(
-					
-					new ListItem( SystemDirectories.Usercontrols +
+
+                    new ListItem(SystemDirectories.UserControls +
                             uc.FullName.Substring(ucRoot.Length).Replace(IOHelper.DirSepChar, '/'))
 
 					/*
@@ -220,7 +220,7 @@ namespace umbraco.editorControls.userControlGrapper
 			foreach (KeyValuePair<string, DataEditorSettingType> k in dtSettings)
 			{
 				var result = k.Value.Validate();
-				 Label lbl = FindControlRecursive<Label>(_phSettings, "lbl" + k.Key);
+                Label lbl = _phSettings.FindControlRecursive<Label>("lbl" + k.Key);
 				if(result == null && lbl != null)
 				{
 					if(lbl != null)
@@ -319,25 +319,6 @@ namespace umbraco.editorControls.userControlGrapper
 
 			}
 		}
-
-		private static T FindControlRecursive<T>(Control parent, string id) where T : Control
-		{
-			if ((parent is T) && (parent.ID == id))
-			{
-				return (T)parent;
-			}
-
-			foreach (Control control in parent.Controls)
-			{
-				T foundControl = FindControlRecursive<T>(control, id);
-				if (foundControl != null)
-				{
-					return foundControl;
-				}
-			}
-			return default(T);
-		}
-
 
 		#endregion
 	}

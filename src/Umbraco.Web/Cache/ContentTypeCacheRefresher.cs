@@ -7,6 +7,7 @@ using Umbraco.Core;
 using Umbraco.Core.Cache;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.EntityBase;
+using Umbraco.Core.Models.PublishedContent;
 using Umbraco.Core.Models.Rdbms;
 using Umbraco.Core.Persistence.Caching;
 using Umbraco.Web.PublishedCache;
@@ -16,7 +17,7 @@ namespace Umbraco.Web.Cache
 {
 
     /// <summary>
-    /// A cache refresher to ensure content type cache is updated when members change
+    /// A cache refresher to ensure content type cache is updated when content types change - this is applicable to content, media and member types
     /// </summary>
     /// <remarks>
     /// This is not intended to be used directly in your code
@@ -51,8 +52,12 @@ namespace Umbraco.Web.Cache
                     Alias = contentType.Alias,
                     Id = contentType.Id,
                     PropertyTypeIds = contentType.PropertyTypes.Select(x => x.Id).ToArray(),
-                    //either IContentType or IMediaType
-                    Type = (contentType is IContentType) ? typeof(IContentType).Name : typeof(IMediaType).Name,
+                    //either IContentType or IMediaType or IMemberType
+                    Type = (contentType is IContentType) 
+                        ? typeof(IContentType).Name 
+                        : (contentType is IMediaType)
+                        ? typeof(IMediaType).Name
+                        : typeof(IMemberType).Name,
                     DescendantPayloads = contentType.Descendants().Select(x => FromContentType(x)).ToArray(),
                     WasDeleted = isDeleted
                 };
@@ -121,6 +126,9 @@ namespace Umbraco.Web.Cache
 
         public override void RefreshAll()
         {
+            RuntimeCacheProvider.Current.Clear(typeof(IContent));
+            RuntimeCacheProvider.Current.Clear(typeof(IContentType));
+
             //all property type cache
             ApplicationContext.Current.ApplicationCache.ClearCacheByKeySearch(CacheKeys.PropertyTypeCacheKey);
             //all content type property cache
@@ -129,7 +137,8 @@ namespace Umbraco.Web.Cache
             ApplicationContext.Current.ApplicationCache.ClearCacheByKeySearch(CacheKeys.ContentTypeCacheKey);
             //clear static object cache
             global::umbraco.cms.businesslogic.ContentType.RemoveAllDataTypeCache();
-            PublishedContentHelper.ClearPropertyTypeCache();
+
+            PublishedContentType.ClearAll();
 
             base.RefreshAll();
         }
@@ -171,7 +180,7 @@ namespace Umbraco.Web.Cache
         /// - RuntimeCacheProvider.Current.Clear(); 
         /// - RoutesCache.Clear();        
         /// </remarks>
-        private static void ClearContentTypeCache(IEnumerable<JsonPayload> payloads)
+        private static void ClearContentTypeCache(JsonPayload[] payloads)
         {
             var needsContentRefresh = false;
             
@@ -201,8 +210,22 @@ namespace Umbraco.Web.Cache
             //clear the cache providers if there were any content types to clear
             if (payloads.Any())
             {
-                InMemoryCacheProvider.Current.Clear();
-                RuntimeCacheProvider.Current.Clear();
+                if (payloads.Any(x => x.Type == typeof (IContentType).Name))
+                {
+                    RuntimeCacheProvider.Current.Clear(typeof(IContent));
+                    RuntimeCacheProvider.Current.Clear(typeof(IContentType));    
+                }
+                if (payloads.Any(x => x.Type == typeof(IMediaType).Name))
+                {
+                    RuntimeCacheProvider.Current.Clear(typeof(IMedia));
+                    RuntimeCacheProvider.Current.Clear(typeof(IMediaType));
+                }
+                if (payloads.Any(x => x.Type == typeof(IMemberType).Name))
+                {
+                    RuntimeCacheProvider.Current.Clear(typeof(IMember));
+                    RuntimeCacheProvider.Current.Clear(typeof(IMemberType));
+                }
+                
 
                 //we only need to do this for IContentType NOT for IMediaType, we don't want to refresh the whole routes
                 //cache if only a media type has changed.
@@ -250,7 +273,8 @@ namespace Umbraco.Web.Cache
             
             //clears the dictionary object cache of the legacy ContentType
             global::umbraco.cms.businesslogic.ContentType.RemoveFromDataTypeCache(payload.Alias);
-            PublishedContentHelper.ClearPropertyTypeCache();
+
+            PublishedContentType.ClearContentType(payload.Id);
 
             //need to recursively clear the cache for each child content type
             foreach (var descendant in payload.DescendantPayloads)

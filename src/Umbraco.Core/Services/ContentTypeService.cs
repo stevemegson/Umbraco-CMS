@@ -10,7 +10,6 @@ using Umbraco.Core.Configuration;
 using Umbraco.Core.Events;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
-using Umbraco.Core.Models.EntityBase;
 using Umbraco.Core.Models.Rdbms;
 using Umbraco.Core.Persistence;
 using Umbraco.Core.Persistence.Querying;
@@ -21,7 +20,7 @@ namespace Umbraco.Core.Services
     /// <summary>
     /// Represents the ContentType Service, which is an easy access to operations involving <see cref="IContentType"/>
     /// </summary>
-    public class ContentTypeService : IContentTypeService
+    public class ContentTypeService : ContentTypeServiceBase, IContentTypeService
     {
 	    private readonly RepositoryFactory _repositoryFactory;
 	    private readonly IContentService _contentService;
@@ -45,6 +44,89 @@ namespace Umbraco.Core.Services
 	        _repositoryFactory = repositoryFactory;
 	        _contentService = contentService;
             _mediaService = mediaService;
+        }
+
+        /// <summary>
+        /// Copies a content type as a child under the specified parent if specified (otherwise to the root)
+        /// </summary>
+        /// <param name="original">
+        /// The content type to copy
+        /// </param>
+        /// <param name="alias">
+        /// The new alias of the content type
+        /// </param>
+        /// <param name="name">
+        /// The new name of the content type
+        /// </param>
+        /// <param name="parentId">
+        /// The parent to copy the content type to, default is -1 (root)
+        /// </param>
+        /// <returns></returns>
+        public IContentType Copy(IContentType original, string alias, string name, int parentId = -1)
+        {
+            IContentType parent = null;            
+            if (parentId > 0)
+            {
+                parent = GetContentType(parentId);
+                if (parent == null)
+                {
+                    throw new InvalidOperationException("Could not find content type with id " + parentId);
+                }
+            }
+            return Copy(original, alias, name, parent);
+        }
+
+        /// <summary>
+        /// Copies a content type as a child under the specified parent if specified (otherwise to the root)
+        /// </summary>
+        /// <param name="original">
+        /// The content type to copy
+        /// </param>
+        /// <param name="alias">
+        /// The new alias of the content type
+        /// </param>
+        /// <param name="name">
+        /// The new name of the content type
+        /// </param>
+        /// <param name="parent">
+        /// The parent to copy the content type to, default is null (root)
+        /// </param>
+        /// <returns></returns>
+        public IContentType Copy(IContentType original, string alias, string name, IContentType parent)
+        {
+            Mandate.ParameterNotNull(original, "original");
+            Mandate.ParameterNotNullOrEmpty(alias, "alias");
+            if (parent != null)
+            {
+                Mandate.That(parent.HasIdentity, () => new InvalidOperationException("The parent content type must have an identity"));    
+            }
+
+            var clone = original.DeepCloneWithResetIdentities(alias);
+
+            clone.Name = name;
+
+            var compositionAliases = clone.CompositionAliases().Except(new[] { alias }).ToList();
+            //remove all composition that is not it's current alias
+            foreach (var a in compositionAliases)
+            {
+                clone.RemoveContentType(a);
+            }
+
+            //if a parent is specified set it's composition and parent
+            if (parent != null)
+            {
+                //add a new parent composition
+                clone.AddContentType(parent);
+                clone.ParentId = parent.Id;
+            }
+            else
+            {
+                //set to root
+                clone.ParentId = -1;
+            }
+            
+            Save(clone);
+            return clone;
         }
 
         /// <summary>
@@ -147,48 +229,7 @@ namespace Umbraco.Core.Services
         private void UpdateContentXmlStructure(params IContentTypeBase[] contentTypes)
         {
 
-            var toUpdate = new List<IContentTypeBase>();
-
-            foreach (var contentType in contentTypes)
-            {
-                //we need to determine if we need to refresh the xml content in the database. This is to be done when:
-                // - the item is not new (already existed in the db) AND
-                //      - a content type changes it's alias OR
-                //      - if a content type has it's property removed OR
-                //      - if a content type has a property whose alias has changed
-                //here we need to check if the alias of the content type changed or if one of the properties was removed.                    
-                var dirty = contentType as IRememberBeingDirty;
-                if (dirty == null) continue;
-
-                //check if any property types have changed their aliases (and not new property types)
-                var hasAnyPropertiesChangedAlias = contentType.PropertyTypes.Any(propType =>
-                    {
-                        var dirtyProperty = propType as IRememberBeingDirty;
-                        if (dirtyProperty == null) return false;
-                        return dirtyProperty.WasPropertyDirty("HasIdentity") == false   //ensure it's not 'new'
-                               && dirtyProperty.WasPropertyDirty("Alias");              //alias has changed
-                    });
-
-                if (dirty.WasPropertyDirty("HasIdentity") == false //ensure it's not 'new'
-                    && (dirty.WasPropertyDirty("Alias") || dirty.WasPropertyDirty("HasPropertyTypeBeenRemoved") || hasAnyPropertiesChangedAlias))
-                {
-                    //If the alias was changed then we only need to update the xml structures for content of the current content type.
-                    //If a property was deleted or a property alias was changed then we need to update the xml structures for any 
-                    // content of the current content type and any of the content type's child content types.
-                    if (dirty.WasPropertyDirty("Alias") 
-                        && dirty.WasPropertyDirty("HasPropertyTypeBeenRemoved") == false && hasAnyPropertiesChangedAlias == false)
-                    {
-                        //if only the alias changed then only update the current content type                        
-                        toUpdate.Add(contentType);
-                    }
-                    else
-                    {
-                        //if a property was deleted or alias changed, then update all content of the current content type
-                        // and all of it's desscendant doc types.     
-                        toUpdate.AddRange(contentType.DescendantsAndSelf());
-                    }     
-                }
-            }
+            var toUpdate = GetContentTypesForXmlUpdates(contentTypes).ToArray();
 
             if (toUpdate.Any())
             {

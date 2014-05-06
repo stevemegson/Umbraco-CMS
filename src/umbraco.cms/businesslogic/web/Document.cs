@@ -55,9 +55,8 @@ namespace umbraco.cms.businesslogic.web
         /// <param name="id">The id of the document</param>
         /// <param name="Version">The version of the document</param>
         public Document(int id, Guid Version)
-            : base(id)
+            : base(id, Version)
         {
-            this.Version = Version;
         }
 
         /// <summary>
@@ -132,7 +131,8 @@ namespace umbraco.cms.businesslogic.web
         #region Constants and Static members
         
         private const string SqlOptimizedForPreview = @"
-                select umbracoNode.id, umbracoNode.parentId, umbracoNode.level, umbracoNode.sortOrder, cmsDocument.versionId, cmsPreviewXml.xml from cmsDocument
+                select umbracoNode.id, umbracoNode.parentId, umbracoNode.level, umbracoNode.sortOrder, cmsDocument.versionId, cmsPreviewXml.xml, cmsDocument.published
+                from cmsDocument
                 inner join umbracoNode on umbracoNode.id = cmsDocument.nodeId
                 inner join cmsPreviewXml on cmsPreviewXml.nodeId = cmsDocument.nodeId and cmsPreviewXml.versionId = cmsDocument.versionId
                 where newest = 1 and trashed = 0 and path like '{0}'
@@ -154,7 +154,7 @@ namespace umbraco.cms.businesslogic.web
         private User _creator;
         private User _writer;
         private int? _writerId;
-        private bool _optimizedMode;
+        private readonly bool _optimizedMode;
         protected internal IContent Content;
 
         /// <summary>
@@ -899,10 +899,7 @@ namespace umbraco.cms.businesslogic.web
         [Obsolete("Don't use! Only used internally to support the legacy events", false)]
         internal Attempt<PublishStatus> SaveAndPublish(int userId)
         {
-            var result = new Attempt<PublishStatus>(false,
-                                                    new PublishStatus(Content,
-                                                                      PublishStatusType
-                                                                          .FailedCancelledByEvent));
+            var result = Attempt.Fail(new PublishStatus(Content, PublishStatusType.FailedCancelledByEvent));
             foreach (var property in GenericProperties)
             {
                 Content.SetValue(property.PropertyType.Alias, property.Value);
@@ -1027,10 +1024,10 @@ namespace umbraco.cms.businesslogic.web
                     return result;
             }
 
-                return Attempt<PublishStatus>.False;
+                return new Attempt<PublishStatus>(false, new PublishStatus(Content, PublishStatusType.FailedCancelledByEvent));
         }
 
-            return Attempt<PublishStatus>.False;
+            return new Attempt<PublishStatus>(false, new PublishStatus(Content, PublishStatusType.FailedCancelledByEvent));
         }
 
         /// <summary>
@@ -1292,7 +1289,7 @@ namespace umbraco.cms.businesslogic.web
         public override void XmlPopulate(XmlDocument xd, ref XmlNode x, bool Deep)
         {
             string urlName = this.Content.GetUrlSegment().ToLower();
-            foreach (Property p in GenericProperties.Where(p => p != null))
+            foreach (Property p in GenericProperties.Where(p => p != null && p.Value != null && string.IsNullOrEmpty(p.Value.ToString()) == false))
                     x.AppendChild(p.ToXml(xd));
 
             // attributes
@@ -1381,7 +1378,7 @@ namespace umbraco.cms.businesslogic.web
 
             IRecordsReader dr = SqlHelper.ExecuteReader(String.Format(SqlOptimizedForPreview, pathExp));
             while (dr.Read())
-                nodes.Add(new CMSPreviewNode(dr.GetInt("id"), dr.GetGuid("versionId"), dr.GetInt("parentId"), dr.GetShort("level"), dr.GetInt("sortOrder"), dr.GetString("xml")));
+                nodes.Add(new CMSPreviewNode(dr.GetInt("id"), dr.GetGuid("versionId"), dr.GetInt("parentId"), dr.GetShort("level"), dr.GetInt("sortOrder"), dr.GetString("xml"), !dr.GetBoolean("published")));
             dr.Close();
 
             return nodes;
@@ -1429,6 +1426,9 @@ namespace umbraco.cms.businesslogic.web
         private void SetupNode(IContent content)
                 {
             Content = content;
+            //Also need to set the ContentBase item to this one so all the propery values load from it
+            ContentBase = Content;
+
             //Setting private properties from IContentBase replacing CMSNode.setupNode() / CMSNode.PopulateCMSNodeFromReader()
             base.PopulateCMSNodeFromUmbracoEntity(Content, _objectType);
 

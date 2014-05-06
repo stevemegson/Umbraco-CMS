@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using Umbraco.Core.Models.EntityBase;
 using Umbraco.Core.Persistence.Mappers;
+using Umbraco.Core.Strings;
 
 namespace Umbraco.Core.Models
 {
@@ -14,6 +15,7 @@ namespace Umbraco.Core.Models
     [DataContract(IsReference = true)]
     public class PropertyType : Entity, IEquatable<PropertyType>
     {
+        private readonly bool _isExplicitDbType;
         private string _name;
         private string _alias;
         private string _description;
@@ -29,16 +31,28 @@ namespace Umbraco.Core.Models
         public PropertyType(IDataTypeDefinition dataTypeDefinition)
         {
             if(dataTypeDefinition.HasIdentity)
-                DataTypeDefinitionId = dataTypeDefinition.Id;
+                _dataTypeDefinitionId = dataTypeDefinition.Id;
 
-            DataTypeId = dataTypeDefinition.ControlId;
-            DataTypeDatabaseType = dataTypeDefinition.DatabaseType;
+            _dataTypeId = dataTypeDefinition.ControlId;
+            _dataTypeDatabaseType = dataTypeDefinition.DatabaseType;
         }
 
         internal PropertyType(Guid dataTypeControlId, DataTypeDatabaseType dataTypeDatabaseType)
+            : this(dataTypeControlId, dataTypeDatabaseType, false)
         {
-            DataTypeId = dataTypeControlId;
-            DataTypeDatabaseType = dataTypeDatabaseType;
+        }
+
+        /// <summary>
+        /// Used internally to assign an explicity database type for this property type regardless of what the underlying data type/property editor is.
+        /// </summary>
+        /// <param name="dataTypeControlId"></param>
+        /// <param name="dataTypeDatabaseType"></param>
+        /// <param name="isExplicitDbType"></param>
+        internal PropertyType(Guid dataTypeControlId, DataTypeDatabaseType dataTypeDatabaseType, bool isExplicitDbType)
+        {
+            _isExplicitDbType = isExplicitDbType;
+            _dataTypeId = dataTypeControlId;
+            _dataTypeDatabaseType = dataTypeDatabaseType;
         }
 
         private static readonly PropertyInfo NameSelector = ExpressionHelper.GetPropertyInfo<PropertyType, string>(x => x.Name);
@@ -81,7 +95,7 @@ namespace Umbraco.Core.Models
             {
                 SetPropertyValueAndDetectChanges(o =>
                 {
-                    _alias = value;
+                    _alias = value.ToCleanString(CleanStringType.Alias | CleanStringType.UmbracoCase);
                     return _alias;
                 }, _alias, AliasSelector);
             }
@@ -149,6 +163,9 @@ namespace Umbraco.Core.Models
             get { return _dataTypeDatabaseType; }
             set
             {
+                //don't allow setting this if an explicit declaration has been made in the ctor
+                if (_isExplicitDbType) return;
+
                 SetPropertyValueAndDetectChanges(o =>
                 {
                     _dataTypeDatabaseType = value;
@@ -361,10 +378,20 @@ namespace Umbraco.Core.Models
             //Check against Regular Expression for Legacy DataTypes - Validation exists and value is not null:
             if(string.IsNullOrEmpty(ValidationRegExp) == false && (value != null && string.IsNullOrEmpty(value.ToString()) == false))
             {
-                var regexPattern = new Regex(ValidationRegExp);
-                return regexPattern.IsMatch(value.ToString());
+                try
+                {
+                    var regexPattern = new Regex(ValidationRegExp);
+                    return regexPattern.IsMatch(value.ToString());
+                }
+                catch 
+                {
+                         throw new Exception(string .Format("Invalid validation expression on property {0}",this.Alias));
+                }
+                
             }
-
+            
+            //TODO: We must ensure that the property value can actually be saved based on the specified database type
+            
             //TODO Add PropertyEditor validation when its relevant to introduce
             /*if (value is IEditorModel && DataTypeControlId != Guid.Empty)
             {
@@ -376,14 +403,6 @@ namespace Umbraco.Core.Models
             }*/
 
             return true;
-        }
-
-        internal PropertyType Clone()
-        {
-            var clone = (PropertyType) this.MemberwiseClone();
-            clone.ResetIdentity();
-            clone.ResetDirtyProperties(false);
-            return clone;
         }
 
         public bool Equals(PropertyType other)
@@ -408,6 +427,21 @@ namespace Umbraco.Core.Models
 
             //Calculate the hash code for the product. 
             return hashName ^ hashAlias;
+        }
+
+        public override object DeepClone()
+        {
+            var clone = (PropertyType)base.DeepClone();
+
+            //need to manually assign the Lazy value as it will not be automatically mapped
+            if (PropertyGroupId != null)
+            {
+                clone._propertyGroupId = new Lazy<int>(() => PropertyGroupId.Value);    
+            }
+
+            clone.ResetDirtyProperties(false);
+
+            return clone;
         }
     }
 }

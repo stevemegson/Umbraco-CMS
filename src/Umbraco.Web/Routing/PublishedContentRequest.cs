@@ -59,7 +59,21 @@ namespace Umbraco.Web.Routing
 		internal void Prepare()
 		{
 			_engine.PrepareRequest();
+		    ConfigureRequest();
 		}
+
+        /// <summary>
+        /// Called after the request is prepared - after content, templates, etc... have been assigned.
+        /// </summary>
+        /// <remarks>
+        /// This method must be called for the PCR to work, it is automatically called after the PCR is prepared.
+        /// This method has been exposed in case developers need to configure the request manually if they've manually assigned
+        /// a content instance to the PCR. (i.e. in EnsurePublishedContentRequestAttribute )
+        /// </remarks>
+        public void ConfigureRequest()
+        {
+            _engine.ConfigureRequest();
+        }
 
 		/// <summary>
 		/// Updates the request when there is no template to render the content.
@@ -299,6 +313,16 @@ namespace Umbraco.Web.Routing
         }
 
         /// <summary>
+        /// Resets the template.
+        /// </summary>
+        /// <remarks>The <c>RenderingEngine</c> becomes unknown.</remarks>
+	    public void ResetTemplate()
+	    {
+	        EnsureWriteable();
+	        TemplateModel = null;
+	    }
+
+        /// <summary>
         /// Gets a value indicating whether the content request has a template.
         /// </summary>
         public bool HasTemplate
@@ -379,7 +403,7 @@ namespace Umbraco.Web.Routing
 			get
 			{
 				if (_umbracoPage == null)
-					throw new InvalidOperationException("The umbraco page object is only available once Finalize()");
+					throw new InvalidOperationException("The UmbracoPage object has not been initialized yet.");
 
 				return _umbracoPage;
 			}

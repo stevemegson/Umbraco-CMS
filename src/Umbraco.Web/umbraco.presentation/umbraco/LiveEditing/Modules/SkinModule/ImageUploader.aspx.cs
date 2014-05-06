@@ -8,10 +8,15 @@ using System.IO;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using Umbraco.Core.IO;
 using umbraco.BusinessLogic;
+using Umbraco.Core;
 
 namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
 {
+
+    //TODO: This doesn't really handle image uploading appropriately (sizing, naming, etc... )- yet another reason live editing needs to be removed.
+
     public partial class ImageUploader : BasePages.UmbracoEnsuredPage
     {
         //max width and height is used to make sure the cropper doesn't grow bigger then the modal window
@@ -34,28 +39,30 @@ namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
         {
             if (FileUpload1.HasFile)
             {
+                //clean the name from XSS
+                var uploadedFileName = FileUpload1.FileName.CleanForXss();
                 
-                Guid g = Guid.NewGuid();
-                DirectoryInfo updir = new DirectoryInfo(IO.IOHelper.MapPath("~/media/upload/" + g));
+                var g = Guid.NewGuid();
+                var updir = new DirectoryInfo(IOHelper.MapPath("~/media/upload/" + g));
                
-                if (!updir.Exists)
+                if (updir.Exists == false)
                     updir.Create();
 
-                FileName.Value = FileUpload1.FileName;
+                FileName.Value = uploadedFileName;
 
-                FileUpload1.SaveAs(updir.FullName + "/" + FileUpload1.FileName);
+                FileUpload1.SaveAs(updir.FullName + "/" + uploadedFileName);
 
-                if (IsValidImage(updir.FullName + "/" + FileUpload1.FileName))
+                if (IsValidImage(updir.FullName + "/" + uploadedFileName))
                 {
-                    Image1.ImageUrl = this.ResolveUrl("~/media/upload/" + g) + "/" + FileUpload1.FileName;
+                    Image1.ImageUrl = this.ResolveUrl("~/media/upload/" + g) + "/" + uploadedFileName;
                     Image.Value = Image1.ImageUrl;
 
-                    if ((!string.IsNullOrEmpty(Request["w"]) && Request["w"].ToString() != "0") && (!string.IsNullOrEmpty(Request["h"]) && Request["h"].ToString() != "0"))
+                    if ((string.IsNullOrEmpty(Request["w"]) == false && Request["w"] != "0") && (string.IsNullOrEmpty(Request["h"]) == false && Request["h"] != "0"))
                     {
 
                         if (Convert.ToInt32(Request["w"]) > MaxWidth || Convert.ToInt32(Request["h"]) > MaxHeight)
                         {
-                            System.Drawing.Image img = System.Drawing.Image.FromFile(IO.IOHelper.MapPath(Image.Value));
+                            System.Drawing.Image img = System.Drawing.Image.FromFile(IOHelper.MapPath(Image.Value));
 
                             Image1.Width = img.Width / 2;
                             Image1.Height = img.Height / 2;
@@ -91,7 +98,7 @@ namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
 
         protected void bt_crop_Click(object sender, EventArgs e)
         {
-            System.Drawing.Image imgToResize = System.Drawing.Image.FromFile(IO.IOHelper.MapPath(Image.Value));
+            System.Drawing.Image imgToResize = System.Drawing.Image.FromFile(IOHelper.MapPath(Image.Value));
 
             int sourceWidth = imgToResize.Width;
             int sourceHeight = imgToResize.Height;
@@ -126,12 +133,12 @@ namespace umbraco.presentation.umbraco.LiveEditing.Modules.SkinModule
 
 
             Guid id = Guid.NewGuid();
-            DirectoryInfo updir = new DirectoryInfo(IO.IOHelper.MapPath("~/media/upload/" + id));
+            DirectoryInfo updir = new DirectoryInfo(IOHelper.MapPath("~/media/upload/" + id));
 
             if (!updir.Exists)
                 updir.Create();
 
-            FileInfo img = new FileInfo(IO.IOHelper.MapPath(Image.Value));
+            FileInfo img = new FileInfo(IOHelper.MapPath(Image.Value));
             // Copy metadata
             ImageCodecInfo[] codecs = ImageCodecInfo.GetImageEncoders();
             ImageCodecInfo codec = null;

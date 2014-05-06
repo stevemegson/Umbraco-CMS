@@ -3,7 +3,6 @@ using System.Collections.Specialized;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Umbraco.Core.Models.EntityBase;
-using Umbraco.Core.Persistence.Mappers;
 
 namespace Umbraco.Core.Models
 {
@@ -108,23 +107,6 @@ namespace Umbraco.Core.Models
             }
         }
 
-        internal PropertyGroup Clone()
-        {
-            var clone = (PropertyGroup) this.MemberwiseClone();
-            var collection = new PropertyTypeCollection();
-            foreach (var propertyType in this.PropertyTypes)
-            {
-                var property = propertyType.Clone();
-                property.ResetIdentity();
-                property.ResetDirtyProperties(false);
-                collection.Add(property);
-            }
-            clone.PropertyTypes = collection;
-            clone.ResetIdentity();
-            clone.ResetDirtyProperties(false);
-            return clone;
-        }
-
         /// <summary>
         /// Sets the ParentId from the lazy integer id
         /// </summary>
@@ -158,5 +140,6 @@ namespace Umbraco.Core.Models
             //Calculate the hash code for the product. 
             return hashName ^ hashId;
         }
+
     }
 }

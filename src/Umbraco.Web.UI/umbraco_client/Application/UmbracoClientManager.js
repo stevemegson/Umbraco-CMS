@@ -141,6 +141,20 @@ Umbraco.Sys.registerNamespace("Umbraco.Application");
                     },200);
                 }
             },
+            reloadContentFrameUrlIfPathLoaded: function (url) {
+                var contentFrame;
+                if (typeof this.mainWindow().right != "undefined") {
+                    contentFrame = this.mainWindow().right;
+                }
+                else {
+                    contentFrame = this.mainWindow(); 
+                }
+
+                var currentPath = contentFrame.location.pathname + (contentFrame.location.search ? contentFrame.location.search : "");
+                if (currentPath == url) {
+                    contentFrame.location.reload();
+                }
+            },
             openModalWindow: function(url, name, showHeader, width, height, top, leftOffset, closeTriggers, onCloseCallback) {
                 //need to create the modal on the top window if the top window has a client manager, if not, create it on the current window                
 
@@ -155,6 +169,26 @@ Umbraco.Sys.registerNamespace("Umbraco.Application");
                     if (this.mainWindow().UmbClientMgr) {
                         this.mainWindow().UmbClientMgr.openModalWindow.apply(this.mainWindow().UmbClientMgr,
                             [url, name, showHeader, width, height, top, leftOffset, closeTriggers, onCloseCallback]);
+                    }
+                    else {
+                        return; //exit recurse.
+                    }
+                }
+            },
+            openModalWindowForContent: function (jQueryElement, name, showHeader, width, height, top, leftOffset, closeTriggers, onCloseCallback) {
+                //need to create the modal on the top window if the top window has a client manager, if not, create it on the current window                
+
+                //if this is the top window, or if the top window doesn't have a client manager, create the modal in this manager
+                if (window == this.mainWindow() || !this.mainWindow().UmbClientMgr) {
+                    var m = new Umbraco.Controls.ModalWindow();
+                    this._modal.push(m);
+                    m.show(jQueryElement, name, showHeader, width, height, top, leftOffset, closeTriggers, onCloseCallback);
+                }
+                else {
+                    //if the main window has a client manager, then call the main window's open modal method whilst keeping the context of it's manager.
+                    if (this.mainWindow().UmbClientMgr) {
+                        this.mainWindow().UmbClientMgr.openModalWindowForContent.apply(this.mainWindow().UmbClientMgr,
+                            [jQueryElement, name, showHeader, width, height, top, leftOffset, closeTriggers, onCloseCallback]);
                     }
                     else {
                         return; //exit recurse.

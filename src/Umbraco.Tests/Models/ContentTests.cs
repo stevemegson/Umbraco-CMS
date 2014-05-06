@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Web;
+using Moq;
 using NUnit.Framework;
-using Rhino.Mocks;
 using Umbraco.Core.Models;
+using Umbraco.Core.Models.EntityBase;
+using Umbraco.Core.Serialization;
+using Umbraco.Tests.TestHelpers;
 using Umbraco.Tests.TestHelpers.Entities;
 
 namespace Umbraco.Tests.Models
@@ -13,6 +16,18 @@ namespace Umbraco.Tests.Models
     [TestFixture]
     public class ContentTests
     {
+        [SetUp]
+        public void Init()
+        {
+            TestHelper.EnsureUmbracoSettingsConfig();
+        }
+
+        [TearDown]
+        public void Dispose()
+        {
+            TestHelper.CleanUmbracoSettingsConfig();
+        }
+
         [Test]
         public void All_Dirty_Properties_Get_Reset()
         {
@@ -81,14 +96,14 @@ namespace Umbraco.Tests.Models
             var content = MockedContent.CreateTextpageContent(contentType, "Textpage", -1);
 
             var stream = new MemoryStream(System.Text.Encoding.Default.GetBytes("TestContent"));
-            var httpPostedFileBase = MockRepository.GenerateMock<HttpPostedFileBase>();
-            httpPostedFileBase.Stub(x => x.ContentLength).Return(Convert.ToInt32(stream.Length));
-            httpPostedFileBase.Stub(x => x.ContentType).Return("text/plain");
-            httpPostedFileBase.Stub(x => x.FileName).Return("sample.txt");
-            httpPostedFileBase.Stub(x => x.InputStream).Return(stream);
+            var postedFileMock = new Mock<HttpPostedFileBase>();
+            postedFileMock.Setup(x => x.ContentLength).Returns(Convert.ToInt32(stream.Length));
+            postedFileMock.Setup(x => x.ContentType).Returns("text/plain");
+            postedFileMock.Setup(x => x.FileName).Returns("sample.txt");
+            postedFileMock.Setup(x => x.InputStream).Returns(stream);
 
             // Assert
-            content.SetValue("title", httpPostedFileBase);
+            content.SetValue("title", postedFileMock.Object);
 
             // Assert
             Assert.That(content.Properties.Any(), Is.True);
@@ -98,7 +113,7 @@ namespace Umbraco.Tests.Models
 
 
         [Test]
-        public void Can_Clone_Content()
+        public void Can_Clone_Content_With_Reset_Identity()
         {
             // Arrange
             var contentType = MockedContentTypes.CreateTextpageContentType();
@@ -114,6 +129,143 @@ namespace Umbraco.Tests.Models
             Assert.AreNotSame(clone.Id, content.Id);
             Assert.AreNotSame(clone.Version, content.Version);
             Assert.That(clone.HasIdentity, Is.False);
+
+            Assert.AreNotSame(content.Properties, clone.Properties);
+        }
+
+        [Test]
+        public void Can_Deep_Clone()
+        {
+            // Arrange
+            var contentType = MockedContentTypes.CreateTextpageContentType();
+            contentType.Id = 99;
+            var content = MockedContent.CreateTextpageContent(contentType, "Textpage", -1);
+            var i = 200;
+            foreach (var property in content.Properties)
+            {
+                property.Id = ++i;
+            }
+            content.Id = 10;
+            content.CreateDate = DateTime.Now;
+            content.CreatorId = 22;
+            content.ExpireDate = DateTime.Now;
+            content.Key = Guid.NewGuid();
+            content.Language = "en";
+            content.Level = 3;
+            content.Path = "-1,4,10";
+            content.ReleaseDate = DateTime.Now;
+            content.ChangePublishedState(PublishedState.Published);
+            content.SortOrder = 5;
+            content.Template = new Template("-1,2,3,4", "Test Template", "testTemplate")
+            {
+                Id = 88
+            };
+            content.Trashed = false;
+            content.UpdateDate = DateTime.Now;
+            content.Version = Guid.NewGuid();
+            content.WriterId = 23;
+
+            ((IUmbracoEntity)content).AdditionalData.Add("test1", 123);
+            ((IUmbracoEntity)content).AdditionalData.Add("test2", "hello");
+
+            // Act
+            var clone = (Content)content.DeepClone();
+
+            // Assert
+            Assert.AreNotSame(clone, content);
+            Assert.AreEqual(clone, content);
+            Assert.AreEqual(clone.Id, content.Id);
+            Assert.AreEqual(clone.Version, content.Version);
+            Assert.AreEqual(((IUmbracoEntity)clone).AdditionalData, ((IUmbracoEntity)content).AdditionalData);
+            Assert.AreNotSame(clone.ContentType, content.ContentType);
+            Assert.AreEqual(clone.ContentType, content.ContentType);
+            Assert.AreEqual(clone.ContentType.PropertyGroups.Count, content.ContentType.PropertyGroups.Count);
+            for (var index = 0; index < content.ContentType.PropertyGroups.Count; index++)
+            {
+                Assert.AreNotSame(clone.ContentType.PropertyGroups[index], content.ContentType.PropertyGroups[index]);
+                Assert.AreEqual(clone.ContentType.PropertyGroups[index], content.ContentType.PropertyGroups[index]);
+            }
+            Assert.AreEqual(clone.ContentType.PropertyTypes.Count(), content.ContentType.PropertyTypes.Count());
+            for (var index = 0; index < content.ContentType.PropertyTypes.Count(); index++)
+            {
+                Assert.AreNotSame(clone.ContentType.PropertyTypes.ElementAt(index), content.ContentType.PropertyTypes.ElementAt(index));
+                Assert.AreEqual(clone.ContentType.PropertyTypes.ElementAt(index), content.ContentType.PropertyTypes.ElementAt(index));
+            }
+            Assert.AreEqual(clone.ContentTypeId, content.ContentTypeId);
+            Assert.AreEqual(clone.CreateDate, content.CreateDate);
+            Assert.AreEqual(clone.CreatorId, content.CreatorId);
+            Assert.AreEqual(clone.ExpireDate, content.ExpireDate);
+            Assert.AreEqual(clone.Key, content.Key);
+            Assert.AreEqual(clone.Language, content.Language);
+            Assert.AreEqual(clone.Level, content.Level);
+            Assert.AreEqual(clone.Path, content.Path);
+            Assert.AreEqual(clone.ReleaseDate, content.ReleaseDate);
+            Assert.AreEqual(clone.Published, content.Published);
+            Assert.AreEqual(clone.PublishedState, content.PublishedState);
+            Assert.AreEqual(clone.SortOrder, content.SortOrder);
+            Assert.AreEqual(clone.PublishedState, content.PublishedState);
+            Assert.AreNotSame(clone.Template, content.Template);
+            Assert.AreEqual(clone.Template, content.Template);
+            Assert.AreEqual(clone.Trashed, content.Trashed);
+            Assert.AreEqual(clone.UpdateDate, content.UpdateDate);
+            Assert.AreEqual(clone.Version, content.Version);
+            Assert.AreEqual(clone.WriterId, content.WriterId);
+            Assert.AreNotSame(clone.Properties, content.Properties);
+            Assert.AreEqual(clone.Properties.Count(), content.Properties.Count());
+            for (var index = 0; index < content.Properties.Count; index++)
+            {
+                Assert.AreNotSame(clone.Properties[index], content.Properties[index]);
+                Assert.AreEqual(clone.Properties[index], content.Properties[index]);
+            }
+
+            //This double verifies by reflection
+            var allProps = clone.GetType().GetProperties();
+            foreach (var propertyInfo in allProps)
+            {
+                Assert.AreEqual(propertyInfo.GetValue(clone, null), propertyInfo.GetValue(content, null));
+            }
+        }
+
+        [Test]
+        public void Can_Serialize_Without_Error()
+        {
+            var ss = new SerializationService(new JsonNetSerializer());
+
+            // Arrange
+            var contentType = MockedContentTypes.CreateTextpageContentType();
+            contentType.Id = 99;
+            var content = MockedContent.CreateTextpageContent(contentType, "Textpage", -1);
+            var i = 200;
+            foreach (var property in content.Properties)
+            {
+                property.Id = ++i;
+            }
+            content.Id = 10;
+            content.CreateDate = DateTime.Now;
+            content.CreatorId = 22;
+            content.ExpireDate = DateTime.Now;
+            content.Key = Guid.NewGuid();
+            content.Language = "en";
+            content.Level = 3;
+            content.Path = "-1,4,10";
+            content.ReleaseDate = DateTime.Now;
+            content.ChangePublishedState(PublishedState.Published);
+            content.SortOrder = 5;
+            content.Template = new Template("-1,2,3,4", "Test Template", "testTemplate")
+            {
+                Id = 88
+            };
+            content.Trashed = false;
+            content.UpdateDate = DateTime.Now;
+            content.Version = Guid.NewGuid();
+            content.WriterId = 23;
+
+            ((IUmbracoEntity)content).AdditionalData.Add("test1", 123);
+            ((IUmbracoEntity)content).AdditionalData.Add("test2", "hello");
+
+            var result = ss.ToStream(content);
+            var json = result.ResultStream.ToJsonString();
+            Console.WriteLine(json);
         }
 
         /*[Test]

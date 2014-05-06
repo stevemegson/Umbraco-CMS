@@ -529,9 +529,7 @@ namespace umbraco
 
                 var cachedFieldKeyStart = string.Format("{0}{1}_", CacheKeys.ContentItemCacheKey, d.Id);
                 ApplicationContext.Current.ApplicationCache.ClearCacheByKeySearch(cachedFieldKeyStart);                    
-
-                Action.RunActionHandlers(d, ActionPublish.Instance);
-
+                
                 FireAfterUpdateDocumentCache(d, e);
             }
         }
@@ -540,6 +538,7 @@ namespace umbraco
         /// Updates the document cache for multiple documents
         /// </summary>
         /// <param name="Documents">The documents.</param>
+        [Obsolete("This is not used and will be removed from the codebase in future versions")]
         public virtual void UpdateDocumentCache(List<Document> Documents)
         {
             if (Documents == null || Documents.Count == 0)
@@ -568,11 +567,6 @@ namespace umbraco
 
                 XmlContentInternal = xmlContentCopy;
                 ClearContextCache();
-            }
-
-            foreach (Document d in Documents)
-            {
-                Action.RunActionHandlers(d, ActionPublish.Instance);
             }
         }
         
@@ -661,12 +655,6 @@ namespace umbraco
                         XmlContentInternal = _xmlContent;
                         ClearContextCache();
                     }
-                }
-
-                if (x != null)
-                {
-                    // Run Handler				
-                    Action.RunActionHandlers(doc, ActionUnPublish.Instance);
                 }
 
                 //SD: changed to fire event BEFORE running the sitemap!! argh.

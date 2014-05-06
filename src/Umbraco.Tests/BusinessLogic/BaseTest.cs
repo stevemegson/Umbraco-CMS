@@ -7,7 +7,7 @@ using Umbraco.Core;
 using Umbraco.Tests.TestHelpers;
 using umbraco.BusinessLogic;
 using umbraco.DataLayer;
-using umbraco.IO;
+using Umbraco.Core.IO;
 using GlobalSettings = umbraco.GlobalSettings;
 
 namespace Umbraco.Tests.BusinessLogic
@@ -32,7 +32,7 @@ namespace Umbraco.Tests.BusinessLogic
         [SetUp]
         public void Initialize()
         {
-            ApplicationContext.Current = new ApplicationContext(false){IsReady = true};
+            ApplicationContext.Current = new ApplicationContext(CacheHelper.CreateDisabledCacheHelper()) { IsReady = true };
             InitializeDatabase();
             InitializeApps();
             InitializeAppConfigFile();

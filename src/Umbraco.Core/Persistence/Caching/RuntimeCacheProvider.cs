@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -28,6 +28,9 @@ namespace Umbraco.Core.Persistence.Caching
     /// Also note that we don't always keep checking if HttpContext.Current == null and instead check for _memoryCache != null. This is because
     /// when there are async requests being made even in the context of a web request, the HttpContext.Current will be null but the HttpRuntime.Cache will
     /// always be available.
+    /// 
+    /// TODO: Each item that get's added to this cache will be a clone of the original with it's dirty properties reset, and every item that is resolved from the cache
+    /// is a clone of the item that is in there, otherwise we end up with thread safety issues since multiple thread would be working on the exact same entity at the same time.
     /// 
     /// </remarks>
     internal sealed class RuntimeCacheProvider : IRepositoryCacheProvider
@@ -59,23 +62,45 @@ namespace Umbraco.Core.Persistence.Caching
             var item = _memoryCache != null 
                 ? _memoryCache.Get(key) 
                 : HttpRuntime.Cache.Get(key);
-            return item as IEntity;
+            var result = item as IEntity;
+            if (result == null)
+            {
+                //ensure the key doesn't exist anymore in the tracker
+                _keyTracker.Remove(key);
+                return null;
+            }
+
+            //IMPORTANT: we must clone to resolve, see: http://issues.umbraco.org/issue/U4-4259
+            return (IEntity)result.DeepClone();
         }
 
         public IEnumerable<IEntity> GetByIds(Type type, List<Guid> ids)
         {
+            var collection = new List<IEntity>();
             foreach (var guid in ids)
             {
+                var key = GetCompositeId(type, guid);
                 var item = _memoryCache != null
-                               ? _memoryCache.Get(GetCompositeId(type, guid))
-                               : HttpRuntime.Cache.Get(GetCompositeId(type, guid));
-
-                yield return item as IEntity;
+                               ? _memoryCache.Get(key)
+                               : HttpRuntime.Cache.Get(key);
+                var result = item as IEntity;
+                if (result == null)
+                {
+                    //ensure the key doesn't exist anymore in the tracker
+                    _keyTracker.Remove(key);
+                }
+                else
+                {
+                    //IMPORTANT: we must clone to resolve, see: http://issues.umbraco.org/issue/U4-4259
+                    collection.Add((IEntity)result.DeepClone());
+                }
             }
+            return collection;
         }
 
         public IEnumerable<IEntity> GetAllByType(Type type)
         {
+            var collection = new List<IEntity>();
             foreach (var key in _keyTracker)
             {
                 if (key.StartsWith(string.Format("{0}{1}-", CacheItemPrefix, type.Name)))
@@ -84,13 +109,27 @@ namespace Umbraco.Core.Persistence.Caching
                                ? _memoryCache.Get(key)
                                : HttpRuntime.Cache.Get(key);
 
-                    yield return item as IEntity;
+                    var result = item as IEntity;
+                    if (result == null)
+                    {
+                        //ensure the key doesn't exist anymore in the tracker
+                        _keyTracker.Remove(key);
+                    }
+                    else
+                    {
+                        //IMPORTANT: we must clone to resolve, see: http://issues.umbraco.org/issue/U4-4259
+                        collection.Add((IEntity)result.DeepClone());
+                    }
                 }
             }
+            return collection;
         }
 
         public void Save(Type type, IEntity entity)
         {
+            //IMPORTANT: we must clone to store, see: http://issues.umbraco.org/issue/U4-4259
+            entity = (IEntity)entity.DeepClone();
+
             var key = GetCompositeId(type, entity.Id);
             
             _keyTracker.TryAdd(key);
@@ -120,6 +159,21 @@ namespace Umbraco.Core.Persistence.Caching
                 HttpRuntime.Cache.Remove(key);
             }
             
+            _keyTracker.Remove(key);
+        }
+
+        public void Delete(Type type, int entityId)
+        {
+            var key = GetCompositeId(type, entityId);
+            if (_memoryCache != null)
+            {
+                _memoryCache.Remove(key);
+            }
+            else
+            {
+                HttpRuntime.Cache.Remove(key);
+            }
+
             _keyTracker.Remove(key);
         }
 
@@ -159,21 +213,27 @@ namespace Umbraco.Core.Persistence.Caching
             {
                 _keyTracker.Clear();
 
-                if (_memoryCache != null)
+                ClearDataCache();
+            }
+        }
+
+        //DO not call this unless it's for testing since it clears the data cached but not the keys
+        internal void ClearDataCache()
+        {
+            if (_memoryCache != null)
+            {
+                _memoryCache.DisposeIfDisposable();
+                _memoryCache = new MemoryCache("in-memory");
+            }
+            else
+            {
+                foreach (DictionaryEntry c in HttpRuntime.Cache)
                 {
-                    _memoryCache.DisposeIfDisposable();
-                    _memoryCache = new MemoryCache("in-memory");
-                }
-                else
-                {
-                    foreach (DictionaryEntry c in HttpRuntime.Cache)
+                    if (c.Key is string && ((string)c.Key).InvariantStartsWith(CacheItemPrefix))
                     {
-                        if (c.Key is string && ((string)c.Key).InvariantStartsWith(CacheItemPrefix))
-                        {
-                            if (HttpRuntime.Cache[(string)c.Key] == null) return;
-                            HttpRuntime.Cache.Remove((string)c.Key);
-                        }
-                    }   
+                        if (HttpRuntime.Cache[(string)c.Key] == null) return;
+                        HttpRuntime.Cache.Remove((string)c.Key);
+                    }
                 }
             }
         }

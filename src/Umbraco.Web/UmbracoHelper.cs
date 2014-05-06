@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,15 +14,19 @@ using Umbraco.Core;
 using Umbraco.Core.Dictionary;
 using Umbraco.Core.Dynamics;
 using Umbraco.Core.Models;
+using Umbraco.Core.Security;
 using Umbraco.Core.Xml;
 using Umbraco.Web.Models;
 using Umbraco.Web.PublishedCache;
+using Umbraco.Web.Routing;
+using Umbraco.Web.Security;
 using Umbraco.Web.Templates;
 using umbraco;
 using System.Collections.Generic;
 using umbraco.cms.businesslogic.member;
 using umbraco.cms.businesslogic.web;
 using umbraco.presentation.templateControls;
+using Member = umbraco.cms.businesslogic.member.Member;
 
 namespace Umbraco.Web
 {
@@ -33,7 +38,8 @@ namespace Umbraco.Web
 	{
 		private readonly UmbracoContext _umbracoContext;
 		private readonly IPublishedContent _currentPage;
-
+        private readonly MembershipHelper _membershipHelper;
+        
 		/// <summary>
 		/// Custom constructor setting the current page to the parameter passed in
 		/// </summary>
@@ -44,6 +50,7 @@ namespace Umbraco.Web
 		{			
 			if (content == null) throw new ArgumentNullException("content");
 			_currentPage = content;
+		    _membershipHelper = new MembershipHelper(_umbracoContext);
 		}
 
 		/// <summary>
@@ -55,6 +62,7 @@ namespace Umbraco.Web
 			if (umbracoContext == null) throw new ArgumentNullException("umbracoContext");
 			if (umbracoContext.RoutingContext == null) throw new NullReferenceException("The RoutingContext on the UmbracoContext cannot be null");
 			_umbracoContext = umbracoContext;
+            _membershipHelper = new MembershipHelper(_umbracoContext);
 			if (_umbracoContext.IsFrontEndUmbracoRequest)
 			{
 				_currentPage = _umbracoContext.PublishedContentRequest.PublishedContent;
@@ -153,7 +161,7 @@ namespace Umbraco.Web
 			{
 				//TODO: We are doing at ToLower here because for some insane reason the UpdateMacroModel method of macro.cs 
 				// looks for a lower case match. WTF. the whole macro concept needs to be rewritten.
-				macroProps.Add(i.Key.ToLower(), i.Value);
+				macroProps.Add(i.Key.ToLowerInvariant(), i.Value);
 			}
 			var macroControl = m.renderMacro(macroProps,
 				UmbracoContext.Current.PublishedContentRequest.UmbracoPage.Elements,
@@ -190,7 +198,7 @@ namespace Umbraco.Web
 				    var contentType = _umbracoContext.HttpContext.Response.ContentType;
 					var traceIsEnabled = containerPage.Trace.IsEnabled;
 					containerPage.Trace.IsEnabled = false;
-					_umbracoContext.HttpContext.Server.Execute(containerPage, output, false);
+					_umbracoContext.HttpContext.Server.Execute(containerPage, output, true);
 					containerPage.Trace.IsEnabled = traceIsEnabled;
                     //reset the content type
 				    _umbracoContext.HttpContext.Response.ContentType = contentType;
@@ -403,7 +411,8 @@ namespace Umbraco.Web
 		{
 			if (IsProtected(nodeId, path))
 			{
-				return Member.IsLoggedOn() && Access.HasAccess(nodeId, path, Membership.GetUser());
+                var provider = MembershipProviderExtensions.GetMembersMembershipProvider();
+                return _membershipHelper.IsLoggedIn() && Access.HasAccess(nodeId, path, provider.GetCurrentUser());
 			}
 			return true;
 		}
@@ -414,11 +423,7 @@ namespace Umbraco.Web
 		/// <returns>True is the current user is logged in</returns>
 		public bool MemberIsLoggedOn()
 		{
-			/*
-			   MembershipUser u = Membership.GetUser();
-			   return u != null;           
-			*/
-			return Member.IsLoggedOn();
+		    return _membershipHelper.IsLoggedIn();
 		} 
 
 		#endregion
@@ -434,9 +439,29 @@ namespace Umbraco.Web
 		/// <returns>String with a friendly url from a node</returns>
 		public string NiceUrl(int nodeId)
 		{
-			var urlProvider = UmbracoContext.Current.UrlProvider;
-			return urlProvider.GetUrl(nodeId);
+		    return Url(nodeId);
 		}
+
+        /// <summary>
+        /// Gets the url of a content identified by its identifier.
+        /// </summary>
+        /// <param name="contentId">The content identifier.</param>
+        /// <returns>The url for the content.</returns>
+        public string Url(int contentId)
+        {
+            return UmbracoContext.Current.UrlProvider.GetUrl(contentId);
+        }
+
+        /// <summary>
+        /// Gets the url of a content identified by its identifier, in a specified mode.
+        /// </summary>
+        /// <param name="contentId">The content identifier.</param>
+        /// <param name="mode">The mode.</param>
+        /// <returns>The url for the content.</returns>
+	    public string Url(int contentId, UrlProviderMode mode)
+	    {
+	        return UmbracoContext.Current.UrlProvider.GetUrl(contentId, mode);
+	    }
 
 		/// <summary>
 		/// This method will always add the domain to the path if the hostnames are set up correctly. 
@@ -445,15 +470,66 @@ namespace Umbraco.Web
 		/// <returns>String with a friendly url with full domain from a node</returns>
 		public string NiceUrlWithDomain(int nodeId)
 		{
-			var urlProvider = UmbracoContext.Current.UrlProvider;
-			return urlProvider.GetUrl(nodeId, true);
+		    return UrlAbsolute(nodeId);
 		}
+
+        /// <summary>
+        /// Gets the absolute url of a content identified by its identifier.
+        /// </summary>
+        /// <param name="contentId">The content identifier.</param>
+        /// <returns>The absolute url for the content.</returns>
+        public string UrlAbsolute(int contentId)
+        {
+            return UmbracoContext.Current.UrlProvider.GetUrl(contentId, true);
+        }
 
 		#endregion
 
-		#region Content
+        #region Members
 
-		public IPublishedContent TypedContent(object id)
+        public IPublishedContent TypedMember(object id)
+        {
+            var asInt = id.TryConvertTo<int>();
+            return asInt ? _membershipHelper.GetById(asInt.Result) : _membershipHelper.GetByProviderKey(id);
+        }
+
+        public IPublishedContent TypedMember(int id)
+        {
+            return _membershipHelper.GetById(id);
+        }
+
+        public IPublishedContent TypedMember(string id)
+        {
+            var asInt = id.TryConvertTo<int>();
+            return asInt ? _membershipHelper.GetById(asInt.Result) : _membershipHelper.GetByProviderKey(id);
+        }
+
+        public dynamic Member(object id)
+        {
+            var asInt = id.TryConvertTo<int>();
+            return asInt
+                ? _membershipHelper.GetById(asInt.Result).AsDynamic()
+                : _membershipHelper.GetByProviderKey(id).AsDynamic();
+        }
+
+        public dynamic Member(int id)
+        {
+            return _membershipHelper.GetById(id).AsDynamic();
+        }
+
+        public dynamic Member(string id)
+        {
+            var asInt = id.TryConvertTo<int>();
+            return asInt
+                ? _membershipHelper.GetById(asInt.Result).AsDynamic()
+                : _membershipHelper.GetByProviderKey(id).AsDynamic();
+        }
+
+        #endregion
+
+        #region Content
+
+        public IPublishedContent TypedContent(object id)
 		{
             return TypedDocumentById(id, _umbracoContext.ContentCache);
 		}
@@ -520,27 +596,27 @@ namespace Umbraco.Web
 
 		public dynamic Content(object id)
 		{
-            return DocumentById(id, _umbracoContext.ContentCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.ContentCache, DynamicNull.Null);
 		}
 
 		public dynamic Content(int id)
 		{
-            return DocumentById(id, _umbracoContext.ContentCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.ContentCache, DynamicNull.Null);
 		}
 
 		public dynamic Content(string id)
 		{
-            return DocumentById(id, _umbracoContext.ContentCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.ContentCache, DynamicNull.Null);
 		}
 
         public dynamic ContentSingleAtXPath(string xpath, params XPathVariable[] vars)
         {
-            return DocumentByXPath(xpath, vars, _umbracoContext.ContentCache, new DynamicNull());
+            return DocumentByXPath(xpath, vars, _umbracoContext.ContentCache, DynamicNull.Null);
         }
 
         public dynamic ContentSingleAtXPath(XPathExpression xpath, params XPathVariable[] vars)
         {
-            return DocumentByXPath(xpath, vars, _umbracoContext.ContentCache, new DynamicNull());
+            return DocumentByXPath(xpath, vars, _umbracoContext.ContentCache, DynamicNull.Null);
         }
 
         public dynamic Content(params object[] ids)
@@ -654,17 +730,17 @@ namespace Umbraco.Web
 
 		public dynamic Media(object id)
 		{
-            return DocumentById(id, _umbracoContext.MediaCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.MediaCache, DynamicNull.Null);
 		}
 
 		public dynamic Media(int id)
 		{
-            return DocumentById(id, _umbracoContext.MediaCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.MediaCache, DynamicNull.Null);
 		}
 
 		public dynamic Media(string id)
 		{
-            return DocumentById(id, _umbracoContext.MediaCache, new DynamicNull());
+            return DocumentById(id, _umbracoContext.MediaCache, DynamicNull.Null);
 		}
 
 		public dynamic Media(params object[] ids)
@@ -861,7 +937,7 @@ namespace Umbraco.Web
 		/// </remarks>
         private dynamic DocumentByIds(ContextualPublishedCache cache, params object[] ids)
 		{
-			var dNull = new DynamicNull();
+            var dNull = DynamicNull.Null;
 			var nodes = ids.Select(eachId => DocumentById(eachId, cache, dNull))
 				.Where(x => !TypeHelper.IsTypeAssignableFrom<DynamicNull>(x))
 				.Cast<DynamicPublishedContent>();
@@ -870,7 +946,7 @@ namespace Umbraco.Web
 
         private dynamic DocumentByIds(ContextualPublishedCache cache, params int[] ids)
 		{
-			var dNull = new DynamicNull();
+            var dNull = DynamicNull.Null;
 			var nodes = ids.Select(eachId => DocumentById(eachId, cache, dNull))
 				.Where(x => !TypeHelper.IsTypeAssignableFrom<DynamicNull>(x))
 				.Cast<DynamicPublishedContent>();
@@ -879,7 +955,7 @@ namespace Umbraco.Web
 
         private dynamic DocumentByIds(ContextualPublishedCache cache, params string[] ids)
 		{
-			var dNull = new DynamicNull();
+            var dNull = DynamicNull.Null;
 			var nodes = ids.Select(eachId => DocumentById(eachId, cache, dNull))
 				.Where(x => !TypeHelper.IsTypeAssignableFrom<DynamicNull>(x))
 				.Cast<DynamicPublishedContent>();
@@ -1304,6 +1380,44 @@ namespace Umbraco.Web
 
 		#endregion
 
+        #region Prevalues
+
+        public string GetPreValueAsString(int id)
+        {
+            var ds = _umbracoContext.Application.Services.DataTypeService;
+            return ds.GetPreValueAsString(id);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// This is used in methods like BeginUmbracoForm and SurfaceAction to generate an encrypted string which gets submitted in a request for which
+        /// Umbraco can decrypt during the routing process in order to delegate the request to a specific MVC Controller.
+        /// </summary>
+        /// <param name="controllerName"></param>
+        /// <param name="controllerAction"></param>
+        /// <param name="area"></param>
+        /// <param name="additionalRouteVals"></param>
+        /// <returns></returns>
+        internal static string CreateEncryptedRouteString(string controllerName, string controllerAction, string area, object additionalRouteVals = null)
+        {
+            Mandate.ParameterNotNullOrEmpty(controllerName, "controllerName");
+            Mandate.ParameterNotNullOrEmpty(controllerAction, "controllerAction");
+            Mandate.ParameterNotNull(area, "area");
+
+            //need to create a params string as Base64 to put into our hidden field to use during the routes
+            var surfaceRouteParams = string.Format("c={0}&a={1}&ar={2}",
+                                                      HttpUtility.UrlEncode(controllerName),
+                                                      HttpUtility.UrlEncode(controllerAction),
+                                                      area);
+
+            var additionalRouteValsAsQuery = additionalRouteVals != null ? additionalRouteVals.ToDictionary<object>().ToQueryString() : null;
+
+            if (additionalRouteValsAsQuery.IsNullOrWhiteSpace() == false)
+                surfaceRouteParams += "&" + additionalRouteValsAsQuery;
+
+            return surfaceRouteParams.EncryptWithMachineKey();
+        }
 
 	}
 }
