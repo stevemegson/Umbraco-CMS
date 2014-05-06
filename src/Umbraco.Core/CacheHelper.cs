@@ -115,11 +115,11 @@ namespace Umbraco.Core
         public TT GetCacheItem<TT>(string cacheKey,
             CacheItemPriority priority, 
 			CacheItemRemovedCallback refreshAction,
-            CacheDependency cacheDependency, 
+            Func<CacheDependency> getCacheDependency, 
 			TimeSpan timeout, 
 			Func<TT> getCacheItem)
         {
-	        return GetCacheItem(cacheKey, priority, refreshAction, cacheDependency, timeout, getCacheItem, Locker);
+	        return GetCacheItem(cacheKey, priority, refreshAction, getCacheDependency, timeout, getCacheItem, Locker);
         }
 
 		/// <summary>
@@ -138,7 +138,7 @@ namespace Umbraco.Core
 		/// <returns></returns>
 		internal TT GetCacheItem<TT>(string cacheKey,
 			CacheItemPriority priority, CacheItemRemovedCallback refreshAction,
-			CacheDependency cacheDependency, TimeSpan timeout, Func<TT> getCacheItem, object syncLock)
+			Func<CacheDependency> getCacheDependency, TimeSpan timeout, Func<TT> getCacheItem, object syncLock)
 		{
 			var result = _cache.Get(cacheKey);
 			if (result == null)
@@ -151,8 +151,14 @@ namespace Umbraco.Core
 						result = getCacheItem();
 						if (result != null)
 						{
+                            CacheDependency dependency = null;
+                            if (getCacheDependency != null)
+                            {
+                                dependency = getCacheDependency();
+                            }
+
 							//we use Insert instead of add if for some crazy reason there is now a cache with the cache key in there, it will just overwrite it.
-							_cache.Insert(cacheKey, result, cacheDependency, DateTime.Now.Add(timeout), TimeSpan.Zero, priority, refreshAction);
+							_cache.Insert(cacheKey, result, dependency, DateTime.Now.Add(timeout), TimeSpan.Zero, priority, refreshAction);
 						}
 					}
 				}
