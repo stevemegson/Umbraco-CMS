@@ -114,11 +114,11 @@ namespace umbraco.cms.businesslogic.cache
         [Obsolete("Use the ApplicationContext.Current.ApplicationCache.GetCacheItem instead")]
         public static TT GetCacheItem<TT>(string cacheKey, object syncLock,
             CacheItemPriority priority, CacheItemRemovedCallback refreshAction,
-            CacheDependency cacheDependency, TimeSpan timeout, GetCacheItemDelegate<TT> getCacheItem)
+            Func<CacheDependency> getCacheDependency, TimeSpan timeout, GetCacheItemDelegate<TT> getCacheItem)
         {
 			var helper = new CacheHelper(System.Web.HttpRuntime.Cache);
 			Func<TT> f = () => getCacheItem();
-			return helper.GetCacheItem(cacheKey, priority, refreshAction, cacheDependency, timeout, f);
+			return helper.GetCacheItem(cacheKey, priority, refreshAction, getCacheDependency, timeout, f);
         }
     }
 }

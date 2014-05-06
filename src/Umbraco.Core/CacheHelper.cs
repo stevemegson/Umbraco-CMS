@@ -369,7 +369,7 @@ namespace Umbraco.Core
         public TT GetCacheItem<TT>(string cacheKey,
             CacheItemPriority priority,
             CacheItemRemovedCallback refreshAction,
-            CacheDependency cacheDependency,
+            Func<CacheDependency> getCacheDependency,
             TimeSpan timeout,
             Func<TT> getCacheItem)
         {
@@ -382,7 +382,7 @@ namespace Umbraco.Core
                 var cache = _httpCache as HttpRuntimeCacheProvider;
                 if (cache != null)
                 {
-                    var result = cache.GetCacheItem(cacheKey, () => getCacheItem(), timeout, false, priority, refreshAction, cacheDependency);
+                    var result = cache.GetCacheItem(cacheKey, () => getCacheItem(), timeout, false, priority, refreshAction, getCacheDependency);
                     return result == null ? default(TT) : result.TryConvertTo<TT>().Result;
                 }
                 throw new InvalidOperationException("Cannot use this obsoleted overload when the current provider is not of type " + typeof(HttpRuntimeCacheProvider));
@@ -401,7 +401,7 @@ namespace Umbraco.Core
         [Obsolete("Do not use this method, we no longer support the caching overloads with references to CacheDependency, use the overloads specifying a file collection instead")]
         public TT GetCacheItem<TT>(string cacheKey,
             CacheItemPriority priority,
-            CacheDependency cacheDependency,
+            Func<CacheDependency> getCacheDependency,
             Func<TT> getCacheItem)
         {
             if (!_enableCache)
@@ -413,7 +413,7 @@ namespace Umbraco.Core
                 var cache = _httpCache as HttpRuntimeCacheProvider;
                 if (cache != null)
                 {
-                    var result = cache.GetCacheItem(cacheKey, () => getCacheItem(), null, false, priority, null, cacheDependency);
+                    var result = cache.GetCacheItem(cacheKey, () => getCacheItem(), null, false, priority, null, getCacheDependency);
                     return result == null ? default(TT) : result.TryConvertTo<TT>().Result;
                 }
                 throw new InvalidOperationException("Cannot use this obsoleted overload when the current provider is not of type " + typeof(HttpRuntimeCacheProvider));

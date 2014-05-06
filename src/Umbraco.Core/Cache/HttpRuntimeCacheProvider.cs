@@ -77,7 +77,7 @@ namespace Umbraco.Core.Cache
         /// <param name="removedCallback"></param>
         /// <param name="dependency"></param>
         /// <returns></returns>
-        internal object GetCacheItem(string cacheKey, Func<object> getCacheItem, TimeSpan? timeout, bool isSliding = false, CacheItemPriority priority = CacheItemPriority.Normal, CacheItemRemovedCallback removedCallback = null, CacheDependency dependency = null)
+        internal object GetCacheItem(string cacheKey, Func<object> getCacheItem, TimeSpan? timeout, bool isSliding = false, CacheItemPriority priority = CacheItemPriority.Normal, CacheItemRemovedCallback removedCallback = null, Func<CacheDependency> getDependency = null)
         {
             cacheKey = GetCacheKey(cacheKey);
 
@@ -94,6 +94,12 @@ namespace Umbraco.Core.Cache
                         var absolute = isSliding ? System.Web.Caching.Cache.NoAbsoluteExpiration : (timeout == null ? System.Web.Caching.Cache.NoAbsoluteExpiration : DateTime.Now.Add(timeout.Value));
                         var sliding = isSliding == false ? System.Web.Caching.Cache.NoSlidingExpiration : (timeout ?? System.Web.Caching.Cache.NoSlidingExpiration);
 
+                        CacheDependency dependency = null;
+                        if (getDependency != null)
+                        {
+                            dependency = getDependency();
+                        }
+
                         _cache.Insert(cacheKey, result, dependency, absolute, sliding, priority, removedCallback);
                     }
 
@@ -104,10 +110,10 @@ namespace Umbraco.Core.Cache
 
         public object GetCacheItem(string cacheKey, Func<object> getCacheItem, TimeSpan? timeout, bool isSliding = false, CacheItemPriority priority = CacheItemPriority.Normal, CacheItemRemovedCallback removedCallback = null, string[] dependentFiles = null)
         {
-            CacheDependency dependency = null;
+            Func<CacheDependency> dependency = null;
             if (dependentFiles != null && dependentFiles.Any())
             {
-                dependency = new CacheDependency(dependentFiles);
+                dependency = () => new CacheDependency(dependentFiles);
             }
             return GetCacheItem(cacheKey, getCacheItem, timeout, isSliding, priority, removedCallback, dependency);
         }

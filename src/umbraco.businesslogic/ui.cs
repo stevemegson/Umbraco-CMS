@@ -255,7 +255,7 @@ namespace umbraco
                 return ApplicationContext.Current.ApplicationCache.GetCacheItem(
                     cacheKey,
                     CacheItemPriority.Default,
-                    new CacheDependency(IOHelper.MapPath(UmbracoPath + "/config/lang/" + language + ".xml")),
+                    () => new CacheDependency(IOHelper.MapPath(UmbracoPath + "/config/lang/" + language + ".xml")),
                     () =>
                     {
                         using (var langReader = new XmlTextReader(IOHelper.MapPath(UmbracoPath + "/config/lang/" + language + ".xml")))

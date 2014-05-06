@@ -801,7 +801,7 @@ namespace umbraco
             return ApplicationContext.Current.ApplicationCache.GetCacheItem(
                 CacheKeys.MacroXsltCacheKey + XsltFile,
                 CacheItemPriority.Default,
-                new CacheDependency(IOHelper.MapPath(SystemDirectories.Xslt + "/" + XsltFile)),
+                () => new CacheDependency(IOHelper.MapPath(SystemDirectories.Xslt + "/" + XsltFile)),
                 () =>
                     {
                         using (var xslReader = new XmlTextReader(IOHelper.MapPath(SystemDirectories.Xslt.EnsureEndsWith('/') + XsltFile)))
@@ -1143,7 +1143,7 @@ namespace umbraco
                 XsltExtensionsCacheKey, 
                 CacheItemPriority.NotRemovable, // NH 4.7.1, Changing to NotRemovable
                 null, // no refresh action
-                _xsltExtensionsDependency(), // depends on the .config file
+                _xsltExtensionsDependency, // depends on the .config file
                 TimeSpan.FromDays(1), // expires in 1 day (?)
                 GetXsltExtensionsImpl);
         }
