@@ -13,16 +13,17 @@ namespace Umbraco.Web.Mvc
     {
         public bool Match(HttpContextBase httpContext, Route route, string parameterName, RouteValueDictionary values, RouteDirection routeDirection)
         {
-            UmbracoContext current = UmbracoContext.Current;
-            if (current == null)
+            UmbracoContext umbracoContext = UmbracoContext.Current;
+            if (umbracoContext == null)
             {
                 return false;
             }
-            PublishedContentRequest publishedContentRequest = new PublishedContentRequest(current.CleanedUmbracoUrl, current.RoutingContext);
-            PublishedContentRequestBuilder builder = new PublishedContentRequestBuilder(publishedContentRequest);
-            builder.LookupDomain();
-            builder.LookupDocument();
-            return publishedContentRequest.HasNode;
+
+            var pcr = new PublishedContentRequest(umbracoContext.CleanedUmbracoUrl, umbracoContext.RoutingContext);
+            umbracoContext.PublishedContentRequest = pcr;
+            pcr.Prepare();
+
+            return pcr.HasPublishedContent;
         }
     }
 }
