@@ -251,6 +251,33 @@ namespace Umbraco.Core.Services
             }
         }
 
+        public int Count(string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateMediaRepository(uow))
+            {
+                return repository.Count(contentTypeAlias);
+            }
+        }
+
+        public int CountChildren(int parentId, string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateMediaRepository(uow))
+            {
+                return repository.CountChildren(parentId, contentTypeAlias);
+            }
+        }
+
+        public int CountDescendants(int parentId, string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateMediaRepository(uow))
+            {
+                return repository.CountDescendants(parentId, contentTypeAlias);
+            }
+        }
+
         /// <summary>
         /// Gets an <see cref="IMedia"/> object by Id
         /// </summary>
@@ -375,6 +402,10 @@ namespace Umbraco.Core.Services
         public IEnumerable<IMedia> GetDescendants(int id)
         {
             var media = GetById(id);
+            if (media == null)
+            {
+                return Enumerable.Empty<IMedia>();
+            }
             return GetDescendants(media);
         }
 
@@ -388,7 +419,8 @@ namespace Umbraco.Core.Services
             var uow = _uowProvider.GetUnitOfWork();
             using (var repository = _repositoryFactory.CreateMediaRepository(uow))
             {
-                var query = Query<IMedia>.Builder.Where(x => x.Path.StartsWith(media.Path) && x.Id != media.Id);
+                var pathMatch = media.Path + ",";
+                var query = Query<IMedia>.Builder.Where(x => x.Path.StartsWith(pathMatch) && x.Id != media.Id);
                 var medias = repository.GetByQuery(query);
 
                 return medias;

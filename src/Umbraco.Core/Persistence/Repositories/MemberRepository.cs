@@ -204,6 +204,9 @@ namespace Umbraco.Core.Persistence.Repositories
         {
             ((Member)entity).AddingEntity();
 
+            //Ensure that strings don't contain characters that are invalid in XML
+            entity.SanitizeEntityPropertiesForXmlStorage();
+
             var factory = new MemberFactory(NodeObjectTypeId, entity.Id);
             var dto = factory.BuildDto(entity);
 
@@ -276,6 +279,9 @@ namespace Umbraco.Core.Persistence.Repositories
         {
             //Updates Modified date
             ((Member)entity).UpdatingEntity();
+
+            //Ensure that strings don't contain characters that are invalid in XML
+            entity.SanitizeEntityPropertiesForXmlStorage();
 
             var dirtyEntity = (ICanBeDirty)entity;
 
@@ -514,10 +520,10 @@ namespace Umbraco.Core.Persistence.Repositories
         public bool Exists(string username)
         {
             var sql = new Sql();
-            var escapedUserName = PetaPocoExtensions.EscapeAtSymbols(username);
+
             sql.Select("COUNT(*)")
                 .From<MemberDto>()
-                .Where<MemberDto>(x => x.LoginName == escapedUserName);
+                .Where<MemberDto>(x => x.LoginName == username);
 
             return Database.ExecuteScalar<int>(sql) > 0;
         }

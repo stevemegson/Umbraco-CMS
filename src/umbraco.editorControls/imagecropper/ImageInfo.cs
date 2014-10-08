@@ -33,12 +33,17 @@ namespace umbraco.editorControls.imagecropper
                 //This get's the IFileSystem's path based on the URL (i.e. /media/blah/blah.jpg )
                 Path = _fs.GetRelativePath(relativePath);
 
-                image = Image.FromStream(_fs.OpenFile(Path));
-                Name = _fs.GetFileName(Path);
-                DateStamp = _fs.GetLastModified(Path).Date;
-                Width = image.Width;
-                Height = image.Height;
-                Aspect = (float)Width / Height;
+                using (var stream = _fs.OpenFile(Path))                
+                using (image = Image.FromStream(stream))
+                {
+                    var fileName = _fs.GetFileName(Path);
+                    Name = fileName.Substring(0, fileName.LastIndexOf('.'));
+
+                    DateStamp = _fs.GetLastModified(Path).Date;
+                    Width = image.Width;
+                    Height = image.Height;
+                    Aspect = (float)Width / Height;        
+                }
                 
             }
             catch (Exception)
@@ -74,12 +79,10 @@ namespace umbraco.editorControls.imagecropper
                     {
                         crop = preset.Fit(this);
                     }
-
-                    var tmpName = Name.Substring(0, Name.LastIndexOf('.'));
-
+                    
                     ImageTransform.Execute(
                         Path,
-                        String.Format("{0}_{1}", tmpName, preset.Name),
+                        String.Format("{0}_{1}", Name, preset.Name),
                         crop.X,
                         crop.Y,
                         crop.X2 - crop.X,

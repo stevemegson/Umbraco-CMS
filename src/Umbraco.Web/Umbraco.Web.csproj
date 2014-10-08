@@ -101,9 +101,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\xmlrpcnet.2.5.0\lib\net20\CookComputing.XmlRpcV2.dll</HintPath>
     </Reference>
-    <Reference Include="Examine">
+    <Reference Include="Examine, Version=0.1.57.2941, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Examine.0.1.55.2941\lib\Examine.dll</HintPath>
+      <HintPath>..\packages\Examine.0.1.57.2941\lib\Examine.dll</HintPath>
     </Reference>
     <Reference Include="HtmlAgilityPack, Version=1.4.6.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -132,10 +132,6 @@
     </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>..\packages\Newtonsoft.Json.4.5.11\lib\net40\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="NuGet.Core, Version=1.0.11220.104, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <Private>True</Private>
-      <HintPath>..\packages\CodeSharp.Package.AspNetWebPage.1.0\lib\net40\NuGet.Core.dll</HintPath>
     </Reference>
     <Reference Include="Our.Umbraco.uGoLive">
       <HintPath>..\packages\uGoLive.1.4.0\lib\Our.Umbraco.uGoLive.dll</HintPath>
@@ -185,9 +181,11 @@
     </Reference>
     <Reference Include="System.Web.Http, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNet.WebApi.Core.4.0.30506.0\lib\net40\System.Web.Http.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="System.Web.Http.WebHost, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNet.WebApi.WebHost.4.0.30506.0\lib\net40\System.Web.Http.WebHost.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="System.Web.Mvc, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
@@ -203,10 +201,6 @@
     <Reference Include="System.Web.WebPages, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
       <HintPath>..\packages\Microsoft.AspNet.WebPages.2.0.30506.0\lib\net40\System.Web.WebPages.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Web.WebPages.Administration, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <Private>True</Private>
-      <HintPath>..\packages\CodeSharp.Package.AspNetWebPage.1.0\lib\net40\System.Web.WebPages.Administration.dll</HintPath>
     </Reference>
     <Reference Include="System.Web.WebPages.Deployment, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <Private>True</Private>
@@ -269,6 +263,7 @@
       <Link>Properties\SolutionInfo.cs</Link>
     </Compile>
     <Compile Include="ApplicationContextExtensions.cs" />
+    <Compile Include="BatchedServerMessenger.cs" />
     <Compile Include="CacheHelperExtensions.cs" />
     <Compile Include="Cache\ApplicationCacheRefresher.cs" />
     <Compile Include="Cache\ApplicationTreeCacheRefresher.cs" />
@@ -301,7 +296,9 @@
     <Compile Include="Models\IRenderModel.cs" />
     <Compile Include="Models\PostRedirectModel.cs" />
     <Compile Include="Models\PublishedProperty.cs" />
+    <Compile Include="Mvc\AdminTokenAuthorizeAttribute.cs" />
     <Compile Include="Mvc\RedirectToUmbracoUrlResult.cs" />
+    <Compile Include="PropertyEditors\ValueConverters\MacroContainerValueConverter.cs" />
     <Compile Include="PublishedCache\MemberPublishedContent.cs" />
     <Compile Include="PublishedCache\RawValueProperty.cs" />
     <Compile Include="PublishedCache\XmlPublishedCache\PublishedFragment.cs" />
@@ -324,6 +321,10 @@
     <Compile Include="Routing\ContentLastChanceFinderByNotFoundHandlers.cs" />
     <Compile Include="Models\RegisterModel.cs" />
     <Compile Include="Models\LoginModel.cs" />
+    <Compile Include="Scheduling\KeepAlive.cs" />
+    <Compile Include="Scheduling\LogScrubber.cs" />
+    <Compile Include="Scheduling\ScheduledPublishing.cs" />
+    <Compile Include="Scheduling\ScheduledTasks.cs" />
     <Compile Include="Security\MembershipHelper.cs" />
     <Compile Include="Security\Providers\MembersMembershipProvider.cs" />
     <Compile Include="Security\Providers\MembersRoleProvider.cs" />
@@ -499,7 +500,7 @@
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
     <Compile Include="HtmlHelperRenderExtensions.cs" />
-    <Compile Include="LegacyScheduledTasks.cs" />
+    <Compile Include="Scheduling\Scheduler.cs" />
     <Compile Include="Media\EmbedProviders\AbstractOEmbedProvider.cs" />
     <Compile Include="Media\EmbedProviders\AbstractProvider.cs" />
     <Compile Include="Media\EmbedProviders\Flickr.cs" />
@@ -592,9 +593,6 @@
     </Compile>
     <Compile Include="umbraco.presentation\MacroCacheContent.cs" />
     <Compile Include="umbraco.presentation\ScriptingMacroResult.cs" />
-    <Compile Include="umbraco.presentation\umbraco\cacheBrowser.aspx.cs">
-      <SubType>ASPXCodeBehind</SubType>
-    </Compile>
     <Compile Include="umbraco.presentation\umbraco\channels\wlwmanifest.aspx.cs">
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
@@ -1782,6 +1780,7 @@
     <Compile Include="WebServices\EmbedMediaService.cs" />
     <Compile Include="WebServices\ExamineManagementApiController.cs" />
     <Compile Include="WebServices\FolderBrowserService.cs" />
+    <Compile Include="WebServices\ScheduledPublishController.cs" />
     <Compile Include="WebServices\UmbracoAuthorizedHttpHandler.cs" />
     <Compile Include="WebServices\SaveFileController.cs" />
     <Compile Include="WebServices\UmbracoAuthorizedWebService.cs">
@@ -1797,7 +1796,9 @@
     <Content Include="umbraco.presentation\umbraco\developer\RelationTypes\EditRelationType.aspx" />
     <Content Include="umbraco.presentation\umbraco\developer\RelationTypes\NewRelationType.aspx" />
     <Content Include="umbraco.presentation\umbraco\developer\RelationTypes\RelationTypesWebService.asmx" />
-    <Content Include="umbraco.presentation\umbraco\dashboard\DesktopMediaUploader.ascx" />
+    <Content Include="umbraco.presentation\umbraco\dashboard\DesktopMediaUploader.ascx">
+      <SubType>ASPXCodeBehind</SubType>
+    </Content>
     <Content Include="umbraco.presentation\umbraco\dashboard\DeveloperDashboardIntro.ascx" />
     <Content Include="umbraco.presentation\umbraco\dashboard\DeveloperDashboardVideos.ascx" />
     <Content Include="umbraco.presentation\umbraco\dashboard\FeedProxy.aspx" />

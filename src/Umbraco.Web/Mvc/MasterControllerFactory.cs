@@ -18,9 +18,6 @@ namespace Umbraco.Web.Mvc
 	internal class MasterControllerFactory : DefaultControllerFactory
 	{
 		private readonly FilteredControllerFactoriesResolver _slaveFactories;
-		private readonly ReaderWriterLockSlim _locker = new ReaderWriterLockSlim();
-
-		private readonly ConcurrentDictionary<string, Type> _controllerCache = new ConcurrentDictionary<string, Type>();
 
 		public MasterControllerFactory(FilteredControllerFactoriesResolver factoryResolver)
 		{
@@ -87,8 +84,6 @@ namespace Umbraco.Web.Mvc
 		/// <remarks></remarks>
 		public override void ReleaseController(IController controller)
 		{
-			using (new WriteLock(_locker))
-			{
 				bool released = false;
 				if (controller is Controller && ((Controller)controller).ControllerContext != null)
 				{
@@ -103,5 +98,4 @@ namespace Umbraco.Web.Mvc
 				if (!released) base.ReleaseController(controller);
 			}
 		}
-	}
 }

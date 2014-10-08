@@ -1,12 +1,38 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace Umbraco.Core.Models
 {
+    /// <summary>
+    /// Used to attribute properties that have a setter and are a reference type
+    /// that should be ignored for cloning when using the DeepCloneHelper
+    /// </summary>
+    /// <remarks>
+    /// 
+    /// This attribute must be used:
+    /// * when the property is backed by a field but the result of the property is the un-natural data stored in the field
+    ///  
+    /// This attribute should not be used:
+    /// * when the property is virtual
+    /// * when the setter performs additional required logic other than just setting the underlying field
+    /// 
+    /// </remarks>
+    internal class DoNotCloneAttribute : Attribute
+    {
+        
+    }
+
     public static class DeepCloneHelper
     {
+        /// <summary>
+        /// Used to avoid constant reflection (perf)
+        /// </summary>
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropCache = new ConcurrentDictionary<Type, PropertyInfo[]>(); 
+
         /// <summary>
         /// Used to deep clone any reference properties on the object (should be done after a MemberwiseClone for which the outcome is 'output')
         /// </summary>
@@ -23,14 +49,18 @@ namespace Umbraco.Core.Models
                 throw new InvalidOperationException("Both the input and output types must be the same");
             }
 
-            var refProperties = inputType.GetProperties()
-                .Where(x =>
-                    //reference type but not string
-                    x.PropertyType.IsValueType == false && x.PropertyType != typeof (string)
-                        //settable
-                    && x.CanWrite
-                        //non-indexed
-                    && x.GetIndexParameters().Any() == false);
+            var refProperties = PropCache.GetOrAdd(inputType, type =>
+                inputType.GetProperties()
+                    .Where(x =>
+                        //is not attributed with the ignore clone attribute
+                    Attribute.GetCustomAttribute(x, typeof(DoNotCloneAttribute)) == null
+                            //reference type but not string
+                        && x.PropertyType.IsValueType == false && x.PropertyType != typeof (string)
+                            //settable
+                        && x.CanWrite
+                            //non-indexed
+                        && x.GetIndexParameters().Any() == false)
+                    .ToArray());
 
             foreach (var propertyInfo in refProperties)
             {

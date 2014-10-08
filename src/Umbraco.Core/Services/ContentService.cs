@@ -74,6 +74,33 @@ namespace Umbraco.Core.Services
             _dataTypeService = dataTypeService;
         }
 
+        public int Count(string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateContentRepository(uow))
+            {                
+                return repository.Count(contentTypeAlias);
+            }
+        }
+
+        public int CountChildren(int parentId, string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateContentRepository(uow))
+            {
+                return repository.CountChildren(parentId, contentTypeAlias);
+            }
+        }
+
+        public int CountDescendants(int parentId, string contentTypeAlias = null)
+        {
+            var uow = _uowProvider.GetUnitOfWork();
+            using (var repository = _repositoryFactory.CreateContentRepository(uow))
+            {
+                return repository.CountDescendants(parentId, contentTypeAlias);
+            }
+        }
+
         /// <summary>
         /// Assigns a single permission to the current content item for the specified user ids
         /// </summary>
@@ -457,6 +484,10 @@ namespace Umbraco.Core.Services
         public IEnumerable<IContent> GetDescendants(int id)
         {
             var content = GetById(id);
+            if (content == null)
+            {
+                return Enumerable.Empty<IContent>();
+            }
             return GetDescendants(content);
         }
 
@@ -469,7 +500,8 @@ namespace Umbraco.Core.Services
         {
             using (var repository = _repositoryFactory.CreateContentRepository(_uowProvider.GetUnitOfWork()))
             {
-                var query = Query<IContent>.Builder.Where(x => x.Path.StartsWith(content.Path) && x.Id != content.Id);
+                var pathMatch = content.Path + ",";
+                var query = Query<IContent>.Builder.Where(x => x.Path.StartsWith(pathMatch) && x.Id != content.Id);
                 var contents = repository.GetByQuery(query);
 
                 return contents;
@@ -1263,8 +1295,8 @@ namespace Umbraco.Core.Services
             if (SendingToPublish.IsRaisedEventCancelled(new SendToPublishEventArgs<IContent>(content), this))
                 return false;
 
-            //TODO: Do some stuff here.. ... what is it supposed to do ?
-            // pretty sure all that legacy stuff did was raise an event? and we no longer have IActionHandlers so no worries there.
+            //Save before raising event
+            Save(content, userId);
 
             SentToPublish.RaiseEvent(new SendToPublishEventArgs<IContent>(content, false), this);
 

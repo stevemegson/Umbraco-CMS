@@ -109,9 +109,10 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\ClientDependency-Mvc.1.7.0.4\lib\ClientDependency.Core.Mvc.dll</HintPath>
     </Reference>
-    <Reference Include="Examine">
+    <Reference Include="Examine, Version=0.1.57.2941, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Examine.0.1.55.2941\lib\Examine.dll</HintPath>
+      <HintPath>..\packages\Examine.0.1.57.2941\lib\Examine.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="log4net, Version=1.2.11.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -158,12 +159,14 @@
     </Reference>
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data.SqlServerCe, Version=4.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
-      <Private>True</Private>
       <HintPath>..\packages\SqlServerCE.4.0.0.0\lib\System.Data.SqlServerCe.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Data.SqlServerCe.Entity, Version=4.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL">
-      <Private>True</Private>
       <HintPath>..\packages\SqlServerCE.4.0.0.0\lib\System.Data.SqlServerCe.Entity.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.EnterpriseServices" />
@@ -1608,7 +1611,6 @@
     <Content Include="Umbraco\Dashboard\Images\starterkit32x32.png" />
     <Content Include="Umbraco\Dashboard\Images\TV.png" />
     <Content Include="Umbraco\Dashboard\Images\ZipFile.png" />
-    <Content Include="Umbraco\Dashboard\Swfs\AIRInstallBadge.swf" />
     <Content Include="Umbraco\Dashboard\Swfs\expressinstall.swf" />
     <Content Include="Umbraco\Images\Editor\insMacroSB.png" />
     <Content Include="Umbraco\Images\Editor\insRazorMacro.png" />
@@ -2100,7 +2102,6 @@
     <Content Include="Install\Steps\welcome.ascx">
       <SubType>UserControl</SubType>
     </Content>
-    <Content Include="Umbraco\cacheBrowser.aspx" />
     <Content Include="Umbraco\Config\Create\UI.xml" />
     <Content Include="Umbraco\Config\Lang\en.xml">
       <SubType>Designer</SubType>
@@ -2674,9 +2675,9 @@ xcopy "$(ProjectDir)"..\packages\SqlServerCE.4.0.0.0\x86\*.* "$(TargetDir)x86\" 
         <WebProjectProperties>
           <UseIIS>True</UseIIS>
           <AutoAssignPort>True</AutoAssignPort>
-          <DevelopmentServerPort>6200</DevelopmentServerPort>
+          <DevelopmentServerPort>6240</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:6200</IISUrl>
+          <IISUrl>http://localhost:6240</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>
