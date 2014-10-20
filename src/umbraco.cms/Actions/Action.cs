@@ -99,26 +99,40 @@ namespace umbraco.BusinessLogic.Actions
         /// <param name="action">The action triggered</param>
         public static void RunActionHandlers(Document d, IAction action)
         {
-            foreach (IActionHandler ia in ActionHandlers)
+            RunActionHandlers(new[] { d }, action);
+        }
+
+        public static void RunActionHandlers(IEnumerable<Document> docs, IAction action)
+        {
+            foreach (var d in docs)
             {
-                try
+                foreach (IActionHandler ia in ActionHandlers)
                 {
-                    foreach (IAction a in ia.ReturnActions())
+                    try
                     {
-                        if (a.Alias == action.Alias)
+                        foreach (IAction a in ia.ReturnActions())
                         {
-                            // Uncommented for auto publish support
-                            // System.Web.HttpContext.Current.Trace.Write("BusinessLogic.Action.RunActionHandlers", "Running " + ia.HandlerName() + " (matching action: " + a.Alias + ")");
-                            ia.Execute(d, action);
+                            if (a.Alias == action.Alias)
+                            {
+                                // Uncommented for auto publish support
+                                // System.Web.HttpContext.Current.Trace.Write("BusinessLogic.Action.RunActionHandlers", "Running " + ia.HandlerName() + " (matching action: " + a.Alias + ")");
+                                ia.Execute(d, action);
+                            }
                         }
                     }
-                }
-                catch (Exception iaExp)
-                {
-	                LogHelper.Error<Action>(string.Format("Error loading actionhandler '{0}'", ia.HandlerName()), iaExp);
+                    catch (Exception iaExp)
+                    {
+                        LogHelper.Error<Action>(string.Format("Error loading actionhandler '{0}'", ia.HandlerName()), iaExp);
+                    }
                 }
             }
 
+            ProcessNotifications(docs, action);
+        }
+
+
+        private static void ProcessNotifications(IEnumerable<Document> docs, IAction action)
+        {
             // Run notification
             // Find current user
             User u;
@@ -138,7 +152,7 @@ namespace umbraco.BusinessLogic.Actions
                 //so just check for it and set it to admin, so at least the notification gets sent
                 u = User.GetUser(0);
             }
-            Notification.GetNotifications(d, u, action);
+            Notification.GetNotifications(docs, u, action);
         }
 
         /// <summary>

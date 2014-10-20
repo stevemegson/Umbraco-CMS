@@ -55,20 +55,28 @@ namespace umbraco.cms.businesslogic.workflow
         /// <param name="action">The action.</param>
         public static void GetNotifications(CMSNode node, User user, IAction action)
         {
+            GetNotifications(new[] { node }, user, action);
+        }
+
+        public static void GetNotifications(IEnumerable<CMSNode> nodes, User user, IAction action)
+        {
             User[] allUsers = User.getAll();
             foreach (User u in allUsers)
             {
-                try
+                foreach (CMSNode node in nodes)
                 {
-                    if (u.Disabled == false && u.GetNotifications(node.Path).IndexOf(action.Letter.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal) > -1)
+                    try
                     {
-                        LogHelper.Debug<Notification>(string.Format("Notification about {0} sent to {1} ({2})", ui.Text(action.Alias, u), u.Name, u.Email));
-                        SendNotification(user, u, (Document)node, action);
+                        if (u.Disabled == false && u.GetNotifications(node.Path).IndexOf(action.Letter.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal) > -1)
+                        {
+                            LogHelper.Debug<Notification>(string.Format("Notification about {0} sent to {1} ({2})", ui.Text(action.Alias, u), u.Name, u.Email));
+                            SendNotification(user, u, (Document)node, action);
+                        }
                     }
-                }
-                catch (Exception notifyExp)
-                {
-					LogHelper.Error<Notification>("Error in notification", notifyExp);
+                    catch (Exception notifyExp)
+                    {
+                        LogHelper.Error<Notification>("Error in notification", notifyExp);
+                    }
                 }
             }
         }

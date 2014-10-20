@@ -28,16 +28,15 @@ namespace Umbraco.Web.Strategies
 
         static void ContentService_UnPublished(IPublishingStrategy sender, PublishEventArgs<IContent> e)
         {
-            e.PublishedEntities.ForEach(x =>
-                global::umbraco.BusinessLogic.Actions.Action.RunActionHandlers(
-                    new Document(x), ActionUnPublish.Instance));
+            global::umbraco.BusinessLogic.Actions.Action.RunActionHandlers(
+                e.PublishedEntities.Select(x => new Document(x)).ToArray(), ActionUnPublish.Instance);
+
         }
 
         static void ContentService_Published(IPublishingStrategy sender, PublishEventArgs<IContent> e)
         {
-            e.PublishedEntities.ForEach(x =>
-                global::umbraco.BusinessLogic.Actions.Action.RunActionHandlers(
-                    new Document(x), ActionPublish.Instance));
+            global::umbraco.BusinessLogic.Actions.Action.RunActionHandlers(
+                e.PublishedEntities.Select(x => new Document(x)).ToArray(), ActionPublish.Instance);
         }
     }
 }
