@@ -1359,16 +1359,17 @@ namespace Umbraco.Core.Services
         /// <returns>True if sorting succeeded, otherwise False</returns>
         public bool Sort(IEnumerable<IContent> items, int userId = 0, bool raiseEvents = true)
         {
+            var asArray = items.ToArray();
+
             if (raiseEvents)
             {
-                if (Saving.IsRaisedEventCancelled(new SaveEventArgs<IContent>(items), this))
+                if (Saving.IsRaisedEventCancelled(new SaveEventArgs<IContent>(asArray), this))
                     return false;
             }
 
             var shouldBePublished = new List<IContent>();
             var shouldBeSaved = new List<IContent>();
 
-            var asArray = items.ToArray();
             using (new WriteLock(Locker))
             {
                 var uow = _uowProvider.GetUnitOfWork();
@@ -1394,9 +1395,12 @@ namespace Umbraco.Core.Services
                         {
                             var published = _publishingStrategy.Publish(content, userId);
                             shouldBePublished.Add(content);
+                            shouldBeSaved.Add(content);
                         }
                         else
+                        {
                             shouldBeSaved.Add(content);
+                        }
 
                         repository.AddOrUpdate(content);
                         //add or update a preview
@@ -1413,8 +1417,8 @@ namespace Umbraco.Core.Services
                 }
             }
 
-            if (raiseEvents)
-                Saved.RaiseEvent(new SaveEventArgs<IContent>(asArray, false), this);
+            if (raiseEvents && shouldBeSaved.Any())
+                Saved.RaiseEvent(new SaveEventArgs<IContent>(shouldBeSaved, false), this);
 
             if (shouldBePublished.Any())
                 _publishingStrategy.PublishingFinalized(shouldBePublished, false);
