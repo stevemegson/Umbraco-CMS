@@ -5,6 +5,7 @@ using System.Text;
 using System.Web;
 using System.Web.Routing;
 
+using Umbraco.Core.Models;
 using Umbraco.Web.Routing;
 
 namespace Umbraco.Web.Mvc
@@ -23,7 +24,12 @@ namespace Umbraco.Web.Mvc
             umbracoContext.PublishedContentRequest = pcr;
             pcr.Prepare();
 
-            return pcr.HasPublishedContent;
+            return pcr.HasPublishedContent && ConstraintShouldMatchForPage(pcr.PublishedContent);
+        }
+
+        public virtual bool ConstraintShouldMatchForPage(IPublishedContent c)
+        {
+            return true;
         }
     }
 }
