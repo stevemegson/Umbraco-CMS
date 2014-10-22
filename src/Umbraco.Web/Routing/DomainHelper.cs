@@ -137,8 +137,7 @@ namespace Umbraco.Web.Routing
             var domainsAndUris = domains
                 .Where(d => !d.IsWildcard)
                 .Select(SanitizeForBackwardCompatibility)
-                .Select(d => new DomainAndUri(d, scheme))
-                .OrderByDescending(d => d.Uri.ToString())
+                .Select(d => new DomainAndUri(d, scheme))                
                 .ToArray();
 
             if (!domainsAndUris.Any())
@@ -156,6 +155,7 @@ namespace Umbraco.Web.Routing
                 // ie current is www.example.com/foo/bar, look for domain www.example.com
                 var currentWithSlash = current.EndPathWithSlash();
                 domainAndUri = domainsAndUris
+                    .OrderByDescending(d => d.Uri.ToString())
                     .FirstOrDefault(d => d.Uri.EndPathWithSlash().IsBaseOf(currentWithSlash));
                 if (domainAndUri != null) return domainAndUri;
 
@@ -185,8 +185,8 @@ namespace Umbraco.Web.Routing
             return domains
                 .Where(d => !d.IsWildcard)
                 .Select(SanitizeForBackwardCompatibility)
-                .Select(d => new DomainAndUri(d, scheme))
-                .OrderByDescending(d => d.Uri.ToString());
+                .Select(d => new DomainAndUri(d, scheme));
+                //.OrderByDescending(d => d.Uri.ToString());
         }
 
         #endregion
