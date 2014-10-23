@@ -1166,6 +1166,21 @@ order by umbracoNode.level, umbracoNode.sortOrder";
             }
         }
 
+        public bool ManuallyUpdateXmlDiskCache()
+        {
+            if (!UmbracoSettings.isXmlContentCacheDisabled && !UmbracoSettings.continouslyUpdateXmlDiskCache && !IsValidDiskCachePresent())
+            {
+                // Disk cache is enabled, but has been deleted due to a content change
+                // which would have updated the disk cache if updating were enabled
+
+                PersistXmlToFile();
+
+                return true;
+            }
+
+            return false;
+        }
+
         public void PersistXmlToFile()
         {
             PersistXmlToFile(_xmlContent);
