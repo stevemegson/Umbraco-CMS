@@ -18,6 +18,7 @@ using Umbraco.Core.IO;
 using Umbraco.Web.Templates;
 using umbraco.cms.businesslogic.web;
 using umbraco.cms.businesslogic;
+using System.Web.WebPages;
 
 namespace umbraco
 {
@@ -80,6 +81,9 @@ namespace umbraco
 
                     this.MasterPageFile = template.GetMasterPageName(_upage.Template);
 
+                    // Use an alternative master page if a display mode is available
+                    CheckForAlternativeMasterPage();
+
                     // reset the friendly path so it's used by forms, etc.			
                     Context.RewritePath(UmbracoContext.Current.OriginalRequestUrl.PathAndQuery);
 
@@ -88,6 +92,33 @@ namespace umbraco
                 }
             }
         }
+
+        private void CheckForAlternativeMasterPage()
+        {
+            this.MasterPageFile = TransformMasterPageFile(this.MasterPageFile);
+            var master = this.Master;
+            while (master != null)
+            {
+                //TODO: Should check for a cycle of master pages
+                if (!string.IsNullOrEmpty(master.MasterPageFile))
+                {
+                    master.MasterPageFile = TransformMasterPageFile(master.MasterPageFile);
+                }
+                master = master.Master;
+            }
+        }
+
+        private string TransformMasterPageFile(string file)
+        {
+            var displayInfo = DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
+                file,
+                UmbracoContext.Current.HttpContext,
+                filename => File.Exists(IOHelper.MapPath(filename)),
+                null);
+
+            return displayInfo != null ? displayInfo.FilePath : file;
+        }
+
 
         protected override void OnInit(EventArgs e)
         {
