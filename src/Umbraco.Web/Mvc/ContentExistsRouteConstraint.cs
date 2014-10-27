@@ -12,6 +12,13 @@ namespace Umbraco.Web.Mvc
 {
     public class ContentExistsRouteConstraint : IRouteConstraint
     {
+        private static HashSet<string> _failedMatches = new HashSet<string>();
+
+        public static void UncacheFailure(string path )
+        {
+            _failedMatches.Remove(path);
+        }
+
         public bool Match(HttpContextBase httpContext, Route route, string parameterName, RouteValueDictionary values, RouteDirection routeDirection)
         {
             UmbracoContext umbracoContext = UmbracoContext.Current;
@@ -20,11 +27,25 @@ namespace Umbraco.Web.Mvc
                 return false;
             }
 
+            if (_failedMatches.Contains(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path)))
+            {
+                return false;
+            }
+
             var pcr = new PublishedContentRequest(umbracoContext.CleanedUmbracoUrl, umbracoContext.RoutingContext);
             umbracoContext.PublishedContentRequest = pcr;
             pcr.Prepare();
 
-            return pcr.HasPublishedContent && ConstraintShouldMatchForPage(pcr.PublishedContent);
+            if (pcr.HasPublishedContent)
+            {
+                return ConstraintShouldMatchForPage(pcr.PublishedContent);
+            }
+            else
+            {
+                _failedMatches.Add(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path));
+
+                return false;
+            }
         }
 
         public virtual bool ConstraintShouldMatchForPage(IPublishedContent c)
