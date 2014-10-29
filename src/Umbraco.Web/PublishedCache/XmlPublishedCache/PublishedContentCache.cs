@@ -94,21 +94,35 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
             var path = pos == 0 ? route : route.Substring(pos);
             var startNodeId = pos == 0 ? 0 : int.Parse(route.Substring(0, pos));
             IEnumerable<XPathVariable> vars;
+            IPublishedContent content;
 
-            var xpath = CreateXpathQuery(startNodeId, path, hideTopLevelNode, out vars);
-
-            //check if we can find the node in our xml cache
-            var content = GetSingleByXPath(umbracoContext, preview, xpath, vars == null ? null : vars.ToArray());
-
-            // if hideTopLevelNodePath is true then for url /foo we looked for /*/foo
-            // but maybe that was the url of a non-default top-level node, so we also
-            // have to look for /foo (see note in ApplyHideTopLevelNodeFromPath).
-            if (content == null && hideTopLevelNode && path.Length > 1 && path.IndexOf('/', 1) < 0)
+            if (startNodeId > 0)
             {
-                xpath = CreateXpathQuery(startNodeId, path, false, out vars);
-                content = GetSingleByXPath(umbracoContext, preview, xpath, vars == null ? null : vars.ToArray());
-            }
+                var xpathBuilder = new StringBuilder();
+                xpathBuilder.Append(".");
+                vars = AppendXPathQueryForPath(path, xpathBuilder, null);
 
+                var xpath = xpathBuilder.ToString();
+
+                content = GetSingleByXPathFromStartNode(umbracoContext, preview, startNodeId, xpath, vars == null ? null : vars.ToArray());
+            }
+            else
+            {
+                var xpath = CreateXpathQuery(startNodeId, path, hideTopLevelNode, out vars);
+
+                //check if we can find the node in our xml cache
+                content = GetSingleByXPath(umbracoContext, preview, xpath, vars == null ? null : vars.ToArray());
+
+
+                // if hideTopLevelNodePath is true then for url /foo we looked for /*/foo
+                // but maybe that was the url of a non-default top-level node, so we also
+                // have to look for /foo (see note in ApplyHideTopLevelNodeFromPath).
+                if (content == null && hideTopLevelNode && startNodeId == 0 && path.Length > 1 && path.IndexOf('/', 1) < 0)
+                {
+                    xpath = CreateXpathQuery(startNodeId, path, false, out vars);
+                    content = GetSingleByXPath(umbracoContext, preview, xpath, vars == null ? null : vars.ToArray());
+                }
+            }
             return content;
         }
 
@@ -268,10 +282,34 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
             if (xpath == null) throw new ArgumentNullException("xpath");
             if (string.IsNullOrWhiteSpace(xpath)) return null;
 
+            LogHelper.Debug<PublishedContentCache>("Start xpath query {0}", () => xpath);
+
             var xml = GetXml(umbracoContext, preview);
             var node = vars == null
                 ? xml.SelectSingleNode(xpath)
                 : xml.SelectSingleNode(xpath, vars);
+
+            LogHelper.Debug<PublishedContentCache>("Done xpath query {0}", () => xpath);
+
+            return ConvertToDocument(node, preview);
+        }
+
+        public virtual IPublishedContent GetSingleByXPathFromStartNode(UmbracoContext umbracoContext, bool preview, int startNodeId, string xpath, params XPathVariable[] vars)
+        {
+            if (xpath == null) throw new ArgumentNullException("xpath");
+            if (string.IsNullOrWhiteSpace(xpath)) return null;
+
+            LogHelper.Debug<PublishedContentCache>("Start xpath query {0} from {1}", () => xpath, () => startNodeId);
+
+            var xml = GetXml(umbracoContext, preview);
+            var startNode = xml.GetElementById(startNodeId.ToString());
+
+            var node = vars == null
+                ? startNode.SelectSingleNode(xpath)
+                : startNode.SelectSingleNode(xpath, vars);
+
+            LogHelper.Debug<PublishedContentCache>("Done xpath query {0} from {1}", () => xpath, () => startNodeId);
+
             return ConvertToDocument(node, preview);
         }
 
@@ -279,10 +317,15 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
         {
             if (xpath == null) throw new ArgumentNullException("xpath");
 
+            LogHelper.Debug<PublishedContentCache>("Start xpath query {0}", () => xpath);
+
             var xml = GetXml(umbracoContext, preview);
             var node = vars == null
                 ? xml.SelectSingleNode(xpath)
                 : xml.SelectSingleNode(xpath, vars);
+
+            LogHelper.Debug<PublishedContentCache>("Done xpath query {0}", () => xpath);
+
             return ConvertToDocument(node, preview);
         }
 
@@ -415,9 +458,7 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
             else
             {
                 // if url is not empty, then use it to try lookup a matching page
-                var urlParts = path.Split(SlashChar, StringSplitOptions.RemoveEmptyEntries);
                 var xpathBuilder = new StringBuilder();
-                int partsIndex = 0;
                 List<XPathVariable> varsList = null;
 
                 if (startNodeId == 0)
@@ -433,23 +474,7 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 					// always "hide top level" when there's a domain
                 }
 
-                while (partsIndex < urlParts.Length)
-                {
-                    var part = urlParts[partsIndex++];
-                    if (part.Contains('\'') || part.Contains('"'))
-                    {
-                        // use vars, escaping gets ugly pretty quickly
-                        varsList = varsList ?? new List<XPathVariable>();
-                        var varName = string.Format("var{0}", partsIndex);
-                        varsList.Add(new XPathVariable(varName, part));
-                        xpathBuilder.AppendFormat(XPathStrings.ChildDocumentByUrlNameVar, varName);
-                    }
-                    else
-                    {
-                        xpathBuilder.AppendFormat(XPathStrings.ChildDocumentByUrlName, part);
-                        
-                    }
-                }
+                varsList = AppendXPathQueryForPath(path, xpathBuilder, varsList);
 
                 xpath = xpathBuilder.ToString();
                 if (varsList != null)
@@ -457,6 +482,32 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
             }
 
             return xpath;
+        }
+
+        private static List<XPathVariable> AppendXPathQueryForPath(string path, StringBuilder xpathBuilder, List<XPathVariable> varsList)
+        {
+            var urlParts = path.Split(SlashChar, StringSplitOptions.RemoveEmptyEntries);
+            int partsIndex = 0;
+            int varsListOffset = varsList == null ? 0 : varsList.Count;
+
+            while (partsIndex < urlParts.Length)
+            {
+                var part = urlParts[partsIndex++];
+                if (part.Contains('\'') || part.Contains('"'))
+                {
+                    // use vars, escaping gets ugly pretty quickly
+                    varsList = varsList ?? new List<XPathVariable>();
+                    var varName = string.Format("var{0}", partsIndex + varsListOffset);
+                    varsList.Add(new XPathVariable(varName, part));
+                    xpathBuilder.AppendFormat(XPathStrings.ChildDocumentByUrlNameVar, varName);
+                }
+                else
+                {
+                    xpathBuilder.AppendFormat(XPathStrings.ChildDocumentByUrlName, part);
+
+                }
+            }
+            return varsList;
         }
 
         #endregion
