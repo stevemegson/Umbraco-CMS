@@ -30,6 +30,8 @@ namespace Umbraco.Core.Configuration
 	/// </summary>
 	internal class UmbracoSettings
 	{
+        private static Dictionary<string, string> _keyValuesCache = new Dictionary<string, string>();
+
         private static bool GetKeyValue(string key, bool defaultValue)
         {
             bool value;
@@ -108,7 +110,7 @@ namespace Umbraco.Core.Configuration
 				{
 					temp.Load(settingsReader);
 					HttpRuntime.Cache.Insert("umbracoSettingsFile", temp,
-											 new CacheDependency(SettingsFilePath + Filename));
+                        new CacheDependency(SettingsFilePath + Filename), System.Web.Caching.Cache.NoAbsoluteExpiration, System.Web.Caching.Cache.NoSlidingExpiration, CacheItemPriority.Default,  SettingsFileChanged);
 				}
 				catch (XmlException e)
 				{
@@ -124,6 +126,11 @@ namespace Umbraco.Core.Configuration
 			else
 				return (XmlDocument)settingsFile;
 		}
+
+        internal static void SettingsFileChanged(string key, object value, CacheItemRemovedReason reason)
+        {
+            _keyValuesCache = new Dictionary<string, string>();
+        }
 
 		internal static void Save()
 		{
@@ -152,6 +159,18 @@ namespace Umbraco.Core.Configuration
 		/// <param name="key">The key.</param>
 		/// <returns></returns>
         internal static string GetKey(string key)
+        {
+            string value = _keyValuesCache.GetValue(key);
+            if (value == null)
+            {
+                value = GetKeyImpl(key);
+                _keyValuesCache[key] = value;
+            }
+
+            return value;
+        }
+
+        private static string GetKeyImpl(string key)
 		{
 			EnsureSettingsDocument();
 
