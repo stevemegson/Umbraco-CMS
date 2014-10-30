@@ -62,7 +62,7 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		private readonly ICollection<IPublishedContent> _children = new Collection<IPublishedContent>();
 		private IPublishedContent _parent;
 
-		private int _id;
+		private int? _id;
 		private int _template;
 		private string _name;
 		private string _docTypeAlias;
@@ -139,12 +139,17 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 
 		public override int Id
 		{
-			get
-			{
-				if (_initialized == false)
-					Initialize();
-				return _id;
-			}
+            get
+            {
+                if (_id == null)
+                {
+                    if (_xmlNode != null && _xmlNode.Attributes != null)
+                    {
+                        _id = int.Parse(_xmlNode.Attributes.GetNamedItem("id").Value);
+                    }
+                }
+                return _id.GetValueOrDefault();
+            }
 		}
 
 		public override int TemplateId
@@ -181,8 +186,18 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
+                if (_docTypeAlias == null && _xmlNode != null && _xmlNode.Attributes != null)
+                {
+                    if (UmbracoSettings.UseLegacyXmlSchema)
+                    {
+                        if (_xmlNode.Attributes.GetNamedItem("nodeTypeAlias") != null)
+                            _docTypeAlias = _xmlNode.Attributes.GetNamedItem("nodeTypeAlias").Value;
+                    }
+                    else
+                    {
+                        _docTypeAlias = _xmlNode.Name;
+                    }
+                }
 				return _docTypeAlias;
 			}
 		}
@@ -241,9 +256,18 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
-				return _path;
+                if (_path == null)
+                {
+                    if (_xmlNode != null && _xmlNode.Attributes != null)
+                    {
+                        var attr = _xmlNode.Attributes.GetNamedItem("path");
+                        if (attr != null)
+                        {
+                            _path = attr.Value;
+                        }
+                    }
+                }
+                return _path;
 			}
 		}
 
@@ -321,8 +345,11 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
         {
             get
             {
-                if (_initialized == false)
-                    Initialize();
+                if (_contentType == null && _xmlNode != null && _xmlNode.Attributes != null)
+                {
+                    _contentType = PublishedContentType.Get(PublishedItemType.Content, DocumentTypeAlias);
+                }
+
                 return _contentType;
             }
         }

@@ -26,15 +26,15 @@ namespace Umbraco.Web.Mvc
             {
                 return false;
             }
-
+            
             if (_failedMatches.Contains(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path)))
             {
                 return false;
             }
 
             var pcr = new PublishedContentRequest(umbracoContext.CleanedUmbracoUrl, umbracoContext.RoutingContext);
-            umbracoContext.PublishedContentRequest = pcr;
-            pcr.Prepare();
+            var engine = new PublishedContentRequestEngine(pcr);
+            engine.FindPublishedContent();
 
             if (pcr.HasPublishedContent)
             {
