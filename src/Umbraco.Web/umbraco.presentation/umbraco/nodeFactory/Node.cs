@@ -25,8 +25,12 @@ namespace umbraco.NodeFactory
 	{
 		private Hashtable _aliasToNames = new Hashtable();
 
-		private bool _initialized = false;
-		private Nodes _children = new Nodes();
+        private bool _initialized;
+        private bool _propertiesInitialized;
+        private bool _parentInitialized;
+        private bool _childrenInitialized;
+
+        private Nodes _children = new Nodes();
 		private Node _parent = null;
 		private int _id;
 		private int _template;
@@ -50,8 +54,8 @@ namespace umbraco.NodeFactory
 		{
 			get
 			{
-				if (!_initialized)
-					initialize();
+				if (!_childrenInitialized)
+					InitializeChildren();
 				return _children;
 			}
 		}
@@ -60,8 +64,8 @@ namespace umbraco.NodeFactory
 		{
 			get
 			{
-				if (!_initialized)
-					initialize();
+				if (!_parentInitialized)
+					InitializeParent();
 				return _parent;
 			}
 		}
@@ -71,7 +75,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _id;
 			}
 		}
@@ -81,7 +85,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _template;
 			}
 		}
@@ -91,7 +95,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _sortOrder;
 			}
 		}
@@ -101,7 +105,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _name;
 			}
 		}
@@ -116,7 +120,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _nodeTypeAlias;
 			}
 		}
@@ -126,7 +130,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _writerName;
 			}
 		}
@@ -136,7 +140,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _creatorName;
 			}
 		}
@@ -146,7 +150,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _writerID;
 			}
 		}
@@ -156,7 +160,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _creatorID;
 			}
 		}
@@ -167,7 +171,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _path;
 			}
 		}
@@ -177,7 +181,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _createDate;
 			}
 		}
@@ -187,7 +191,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _updateDate;
 			}
 		}
@@ -197,7 +201,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _version;
 			}
 		}
@@ -207,7 +211,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _urlName;
 			}
 		}
@@ -225,7 +229,7 @@ namespace umbraco.NodeFactory
 			get
 			{
 				if (!_initialized)
-					initialize();
+					Initialize();
 				return _level;
 			}
 		}
@@ -239,32 +243,29 @@ namespace umbraco.NodeFactory
 		{
 			get
 			{
-				if (!_initialized)
-					initialize();
+				if (!_propertiesInitialized)
+					InitializeProperties();
 				return _properties;
 			}
 		}
 
 		public Node()
+            : this( ((IHasXmlNode)library.GetXmlNodeCurrent().Current).GetNode() )
 		{
-			_pageXmlNode = ((IHasXmlNode)library.GetXmlNodeCurrent().Current).GetNode();
-			initializeStructure();
-			initialize();
 		}
 
 		public Node(XmlNode NodeXmlNode)
+            : this(NodeXmlNode, true)
 		{
-			_pageXmlNode = NodeXmlNode;
-			initializeStructure();
-			initialize();
 		}
 
 		public Node(XmlNode NodeXmlNode, bool DisableInitializing)
 		{
 			_pageXmlNode = NodeXmlNode;
-			initializeStructure();
-			if (!DisableInitializing)
-				initialize();
+            if (!DisableInitializing)
+            {
+                Initialize();
+            }
 		}
 
 		/// <summary>
@@ -284,8 +285,8 @@ namespace umbraco.NodeFactory
 					_pageXmlNode = content.Instance.XmlContent.DocumentElement;
 
 				}
-				initializeStructure();
-				initialize();
+				InitializeParent();
+				Initialize();
 			}
 			else
 			{
@@ -313,11 +314,7 @@ namespace umbraco.NodeFactory
 				{
 					_pageXmlNode = content.Instance.XmlContent.DocumentElement;
 				}
-
-
 			}
-			initializeStructure();
-			initialize();
 		}
 
 		public IProperty GetProperty(string Alias)
@@ -449,7 +446,7 @@ namespace umbraco.NodeFactory
 			return dt;
 		}
 
-		private void initializeStructure()
+		private void InitializeParent()
 		{
 			// Load parent if it exists and is a node
 
@@ -459,9 +456,11 @@ namespace umbraco.NodeFactory
 				if (parent != null && (parent.Name == "node" || (parent.Attributes != null && parent.Attributes.GetNamedItem("isDoc") != null)))
 					_parent = new Node(parent, true);
 			}
+
+            _parentInitialized = true;
 		}
 
-		private void initialize()
+		private void Initialize()
 		{
 			if (_pageXmlNode != null)
 			{
@@ -516,29 +515,44 @@ namespace umbraco.NodeFactory
 					if (_pageXmlNode.Attributes.GetNamedItem("level") != null)
 						_level = int.Parse(_pageXmlNode.Attributes.GetNamedItem("level").Value);
 
-				}
-
-				// load data
-				string dataXPath = UmbracoSettings.UseLegacyXmlSchema ? "data" : "* [not(@isDoc)]";
-				foreach (XmlNode n in _pageXmlNode.SelectNodes(dataXPath))
-					_properties.Add(new Property(n));
-
-				// load children
-				string childXPath = UmbracoSettings.UseLegacyXmlSchema ? "node" : "* [@isDoc]";
-				XPathNavigator nav = _pageXmlNode.CreateNavigator();
-				XPathExpression expr = nav.Compile(childXPath);
-				expr.AddSort("@sortOrder", XmlSortOrder.Ascending, XmlCaseOrder.None, "", XmlDataType.Number);
-				XPathNodeIterator iterator = nav.Select(expr);
-				while (iterator.MoveNext())
-				{
-					_children.Add(
-						new Node(((IHasXmlNode)iterator.Current).GetNode(), true)
-						);
-				}
+				}                
 			}
 			//            else
 			//                throw new ArgumentNullException("Node xml source is null");
 		}
+
+        private void InitializeChildren()
+        {
+            if (_pageXmlNode != null)
+            {
+                // load children
+                string childXPath = UmbracoSettings.UseLegacyXmlSchema ? "node" : "* [@isDoc]";
+                XPathNavigator nav = _pageXmlNode.CreateNavigator();
+                XPathExpression expr = nav.Compile(childXPath);
+                expr.AddSort("@sortOrder", XmlSortOrder.Ascending, XmlCaseOrder.None, "", XmlDataType.Number);
+                XPathNodeIterator iterator = nav.Select(expr);
+                while (iterator.MoveNext())
+                {
+                    _children.Add(
+                        new Node(((IHasXmlNode)iterator.Current).GetNode(), true)
+                        );
+                }
+            }
+            _childrenInitialized = true;
+        }
+
+        private void InitializeProperties()
+        {
+            if (_pageXmlNode != null)
+            {
+
+                // load data
+                string dataXPath = UmbracoSettings.UseLegacyXmlSchema ? "data" : "* [not(@isDoc)]";
+                foreach (XmlNode n in _pageXmlNode.SelectNodes(dataXPath))
+                    _properties.Add(new Property(n));
+            }
+            _propertiesInitialized = true;
+        }
 
 		public static Node GetCurrent()
 		{

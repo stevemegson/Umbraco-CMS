@@ -27,12 +27,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		/// <param name="xmlNode">The Xml node.</param>
         /// <param name="isPreviewing">A value indicating whether the published content is being previewed.</param>
         public XmlPublishedContent(XmlNode xmlNode, bool isPreviewing)
+            : this(xmlNode, isPreviewing, true)
 		{
-			_xmlNode = xmlNode;
-		    _isPreviewing = isPreviewing;
-			InitializeStructure();
-			Initialize();
-            InitializeChildren();
 		}
 
         /// <summary>
@@ -47,10 +43,11 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			_xmlNode = xmlNode;
             _isPreviewing = isPreviewing;
-			InitializeStructure();
             if (lazyInitialize == false)
             {
                 Initialize();
+                InitializeProperties();
+                InitializeParent();
                 InitializeChildren();
             }
 		}
@@ -58,7 +55,9 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
         private readonly XmlNode _xmlNode;
         
         private bool _initialized;
-	    private bool _childrenInitialized;
+        private bool _propertiesInitialized;
+        private bool _parentInitialized;
+        private bool _childrenInitialized;
 
 		private readonly ICollection<IPublishedContent> _children = new Collection<IPublishedContent>();
 		private IPublishedContent _parent;
@@ -88,8 +87,6 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
                 if (_childrenInitialized == false)
                     InitializeChildren();
 				return _children.OrderBy(x => x.SortOrder);
@@ -134,8 +131,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
+				if (_parentInitialized == false)
+					InitializeParent();
 				return _parent;
 			}
 		}
@@ -314,8 +311,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
+				if (_propertiesInitialized == false)
+					InitializeProperties();
 				return _properties;
 			}
 		}
@@ -330,7 +327,7 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
             }
         }
 		
-		private void InitializeStructure()
+		private void InitializeParent()
 		{
 			// load parent if it exists and is a node
 
@@ -339,6 +336,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 
 		    if (parent.Name == "node" || (parent.Attributes != null && parent.Attributes.GetNamedItem("isDoc") != null))
 		        _parent = PublishedContentModelFactory.CreateModel(new XmlPublishedContent(parent, _isPreviewing, true));
+
+            _parentInitialized = true;
 		}
 
 		private void Initialize()
@@ -400,13 +399,22 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
                 _isDraft = (_xmlNode.Attributes.GetNamedItem("isDraft") != null);
             }
 
-		    // load data
-		    var dataXPath = UmbracoSettings.UseLegacyXmlSchema ? "data" : "* [not(@isDoc)]";
-		    var nodes = _xmlNode.SelectNodes(dataXPath);
+            _contentType = PublishedContentType.Get(PublishedItemType.Content, _docTypeAlias);
 
-		    _contentType = PublishedContentType.Get(PublishedItemType.Content, _docTypeAlias);
+            // warn: this is not thread-safe...
+            _initialized = true;
+		}
 
-		    var propertyNodes = new Dictionary<string, XmlNode>();
+        private void InitializeProperties()
+        {
+            if (_xmlNode == null) return;
+
+            // load data
+            var dataXPath = UmbracoSettings.UseLegacyXmlSchema ? "data" : "* [not(@isDoc)]";
+            var nodes = _xmlNode.SelectNodes(dataXPath);
+
+
+            var propertyNodes = new Dictionary<string, XmlNode>();
             if (nodes != null)
                 foreach (XmlNode n in nodes)
                 {
@@ -416,17 +424,16 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
                     propertyNodes[alias.ToLowerInvariant()] = n;
                 }
 
-            _properties = _contentType.PropertyTypes.Select(p =>
-		        {
-                    XmlNode n;
-                    return propertyNodes.TryGetValue(p.PropertyTypeAlias.ToLowerInvariant(), out n)
-                        ? new XmlPublishedProperty(p, _isPreviewing, n)
-                        : new XmlPublishedProperty(p, _isPreviewing);		        
-		        }).Cast<IPublishedContentProperty>().ToArray();
+            _properties = ContentType.PropertyTypes.Select(p =>
+            {
+                XmlNode n;
+                return propertyNodes.TryGetValue(p.PropertyTypeAlias.ToLowerInvariant(), out n)
+                    ? new XmlPublishedProperty(p, _isPreviewing, n)
+                    : new XmlPublishedProperty(p, _isPreviewing);
+            }).Cast<IPublishedContentProperty>().ToArray();
 
-            // warn: this is not thread-safe...
-            _initialized = true;
-		}
+            _propertiesInitialized = true;
+        }
 
 	    private void InitializeChildren()
 	    {
