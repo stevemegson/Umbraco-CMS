@@ -198,7 +198,7 @@ namespace umbraco.presentation.webservices
             //TODO: Change this to not throw an exception otherwise we end up with JS errors all the time when recompiling!!
 
             AuthorizeRequest(true);
-            long timeout = BasePage.GetTimeout(true);
+            long timeout = UmbracoContext.Security.GetCachedTimeoutAndConditionallyRenew();
             DateTime timeoutDate = new DateTime(timeout);
             DateTime currentDate = DateTime.Now;
             

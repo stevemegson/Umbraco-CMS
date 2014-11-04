@@ -205,6 +205,40 @@ namespace Umbraco.Web.Security
             return GetTimeout(UmbracoUserContextId);
         }
 
+        internal long GetCachedTimeoutAndConditionallyRenew()
+        {
+            string contextId = UmbracoUserContextId;
+
+            // Get current timeout
+            long timeout = ApplicationContext.Current.ApplicationCache.GetCacheItem(
+                CacheKeys.UserContextTimeoutCacheKey + contextId,
+                new TimeSpan(0, UmbracoTimeOutInMinutes / 10, 0),
+                () => SqlHelper.ExecuteScalar<long>("select timeout from umbracoUserLogins where contextId=@contextId",
+                                                          SqlHelper.CreateParameter("@contextId", new Guid(contextId))));
+
+            // If more than 50% through time out period...
+            if (UmbracoSettings.KeepUserLoggedIn && 
+                timeout - (((TicksPrMinute * UmbracoTimeOutInMinutes) * 0.5)) < DateTime.Now.Ticks)
+            {
+                timeout = DateTime.Now.Ticks + (TicksPrMinute * UmbracoTimeOutInMinutes);
+
+                // ...store new timeout to database...
+                SqlHelper.ExecuteNonQuery(
+                    "UPDATE umbracoUserLogins SET timeout = @timeout WHERE contextId = @contextId",
+                    SqlHelper.CreateParameter("@timeout", timeout),
+                    SqlHelper.CreateParameter("@contextId", contextId));
+
+                // ...and cache new timeout
+                ApplicationContext.Current.ApplicationCache.InsertCacheItem(
+                    CacheKeys.UserContextTimeoutCacheKey + contextId,
+                    System.Web.Caching.CacheItemPriority.Default,                    
+                    new TimeSpan(0, UmbracoTimeOutInMinutes, 0),
+                    () => timeout);
+            }
+
+            return timeout;
+        }
+
         /// <summary>
         /// Gets the user id.
         /// </summary>
