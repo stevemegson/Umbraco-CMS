@@ -1852,7 +1852,7 @@ namespace Umbraco.Core.Services
                     _publishingStrategy.PublishingFinalized(descendants, false);
                 }
 
-                Audit.Add(AuditTypes.Publish, "Save and Publish performed by user", userId, content.Id);
+                Audit.Add(AuditTypes.Publish, String.Format("Save and Publish performed by user on content '{0}'", content.Name), userId, content.Id);
 
                 return Attempt.If(publishStatus.StatusType == PublishStatusType.Success, publishStatus);
             }
@@ -1899,7 +1899,7 @@ namespace Umbraco.Core.Services
                 if (raiseEvents)
                     Saved.RaiseEvent(new SaveEventArgs<IContent>(content, false), this);
 
-                Audit.Add(AuditTypes.Save, "Save Content performed by user", userId, content.Id);
+                Audit.Add(AuditTypes.Save, String.Format("Save Content '{0}' performed by user", content.Name), userId, content.Id);
             }
         }
 
