@@ -24,6 +24,12 @@ namespace Umbraco.Web.UI.Umbraco
             get
             {
                 var app = Request.CleanForXss("app");
+
+                if (app == String.Empty)
+                {
+                    return String.Empty;
+                }
+
                 //validate the app
                 if (global::umbraco.BusinessLogic.Application.getAll().Any(x => x.alias.InvariantEquals(app)) == false)
                 {

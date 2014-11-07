@@ -499,7 +499,7 @@ namespace umbraco.MacroEngines
                         result = valueOutput;
                         return true;
                     }
-                    LogHelper.Warn<DynamicNode>(string.Format("Failed to create the instance of the model binder"));
+                    LogHelper.Debug<DynamicNode>(string.Format("Failed to create the instance of the model binder, type {0}, value '{1}'", dataTypeType.FullName, propResult.Value));
                 }
                 else
                 {
@@ -519,7 +519,7 @@ namespace umbraco.MacroEngines
                         result = valueResult;
                         return true;
                     }
-                    LogHelper.Warn<DynamicNode>(string.Format("Failed to create the instance of the model binder"));
+                    LogHelper.Debug<DynamicNode>(string.Format("Failed to create the instance of the model binder, type {0}, value '{1}'", dataTypeType.FullName, propResult.Value));
                 }
                 else
                 {
@@ -660,7 +660,7 @@ namespace umbraco.MacroEngines
                 {
                     if (instance == null)
                     {
-						LogHelper.Warn<DynamicNode>("razorDataTypeModel successfully instantiated but returned null for instance");
+						LogHelper.Warn<DynamicNode>(String.Format("razorDataTypeModel successfully instantiated but returned null for instance, type {0}, value '{1}'", dataTypeType.FullName, value));
                     }
                 	result = instance;
                     return true;
@@ -669,7 +669,7 @@ namespace umbraco.MacroEngines
                 {
                     if (instance == null)
                     {
-						LogHelper.Warn<DynamicNode>("razorDataTypeModel successfully instantiated but returned null for instance");
+                        LogHelper.Warn<DynamicNode>(String.Format("razorDataTypeModel successfully instantiated but returned null for instance, type {0}, value '{1}'", dataTypeType.FullName, value));
                     }
                 }
             }

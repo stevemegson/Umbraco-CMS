@@ -15,6 +15,12 @@ namespace umbraco.MacroEngines.RazorDataTypeModels
     {
         public bool Init(int CurrentNodeId, string PropertyData, out object instance)
         {
+            if (String.IsNullOrEmpty(PropertyData))
+            {
+                instance = "";
+                return false;
+            }
+
             int integer = 0;
             if (int.TryParse(PropertyData, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out integer))
             {
