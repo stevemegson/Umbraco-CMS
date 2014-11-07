@@ -138,10 +138,15 @@ namespace Umbraco.Web.Cache
             }
         }
 
+        // TODO: We choose to clear only the cached macro results and leave the macro details in cache
+        //       RefreshAll is only called when content is published, so it's the cached results that matter
+        //       A separate MacroResultCacheRefresher would be a better solution
         public override void RefreshAll()
         {
             ApplicationContext.Current.ApplicationCache.ClearCacheObjectTypes<MacroCacheContent>();
-            GetAllMacroCacheKeys().ForEach(
+            GetAllMacroCacheKeys()
+                .Where(prefix => prefix != CacheKeys.MacroCacheKey)
+                .ForEach(
                     prefix =>
                     ApplicationContext.Current.ApplicationCache.ClearCacheByKeySearch(prefix));
 

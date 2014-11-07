@@ -63,7 +63,7 @@ namespace Umbraco.Web.Cache
         {
             ApplicationContext.Current.ApplicationCache.ClearPartialViewCache();
             content.Instance.UpdateDocumentCache(id);
-            DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
+            //DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
             DistributedCache.Instance.ClearXsltCacheOnCurrentServer();
             base.Refresh(id);
         }
@@ -76,7 +76,7 @@ namespace Umbraco.Web.Cache
         {
             ApplicationContext.Current.ApplicationCache.ClearPartialViewCache();
             content.Instance.ClearDocumentCache(id);
-            DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
+            //DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
             DistributedCache.Instance.ClearXsltCacheOnCurrentServer();
             base.Remove(id);
         }
@@ -85,7 +85,7 @@ namespace Umbraco.Web.Cache
         {
             ApplicationContext.Current.ApplicationCache.ClearPartialViewCache();
             content.Instance.UpdateDocumentCache(new Document(instance));
-            DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
+            //DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
             DistributedCache.Instance.ClearXsltCacheOnCurrentServer();
             base.Refresh(instance);
         }
@@ -94,7 +94,7 @@ namespace Umbraco.Web.Cache
         {
             ApplicationContext.Current.ApplicationCache.ClearPartialViewCache();
             content.Instance.ClearDocumentCache(new Document(instance));
-            DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
+            //DistributedCache.Instance.ClearAllMacroCacheOnCurrentServer();
             DistributedCache.Instance.ClearXsltCacheOnCurrentServer();
             base.Remove(instance);
         }
