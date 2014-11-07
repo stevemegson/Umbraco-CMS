@@ -8,7 +8,7 @@
 	<img src="./dashboard/images/logo32x32.png" alt="Umbraco" class="dashboardIcon" />
 	<asp:Repeater id="Repeater1" runat="server">
 		<ItemTemplate>
-			<%# PrintNodeName(DataBinder.Eval(Container.DataItem, "NodeId"), DataBinder.Eval(Container.DataItem, "datestamp")) %>
+			<%# PrintNodeName(DataBinder.Eval(Container.DataItem, "NodeId"), DataBinder.Eval(Container.DataItem, "Timestamp")) %>
 		</ItemTemplate>
 	</asp:Repeater>
 </div>

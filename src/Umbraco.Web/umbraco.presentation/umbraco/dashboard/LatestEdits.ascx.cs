@@ -1,5 +1,6 @@
 using umbraco.BusinessLogic;
 using System;
+using System.Linq;
 using Umbraco.Core.IO;
 using umbraco.cms.businesslogic.web;
 
@@ -21,7 +22,10 @@ namespace dashboardUtilities
 			if (MaxRecords == 0)
 		        MaxRecords = 30;
 
-			Repeater1.DataSource = Log.GetLogReader(User.GetCurrent(), LogTypes.Save, DateTime.Now.Subtract(new TimeSpan(7,0,0,0,0)), MaxRecords);
+            var saves = Log.Instance.GetLogItems(User.GetCurrent(), LogTypes.Save, DateTime.Now.Subtract(new TimeSpan(7, 0, 0, 0, 0)));
+            var publishes = Log.Instance.GetLogItems(User.GetCurrent(), LogTypes.Publish, DateTime.Now.Subtract(new TimeSpan(7, 0, 0, 0, 0)));
+
+            Repeater1.DataSource = saves.Concat(publishes).OrderByDescending(l => l.Timestamp).ToArray();
 			Repeater1.DataBind();
 		}
 
