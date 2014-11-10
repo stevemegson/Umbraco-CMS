@@ -40,7 +40,7 @@ namespace umbraco.editorControls.MultiNodeTreePicker
         {
             get
             {
-                return false;
+                return true;
             }
         }
 
@@ -202,24 +202,40 @@ namespace umbraco.editorControls.MultiNodeTreePicker
             var xpath = this.GetXPathFromCookie(dataTypeId);
             var xPathType = this.GetXPathFilterTypeFromCookie(dataTypeId);
 
-            // resolves any Umbraco params in the XPath
-            xpath = uQuery.ResolveXPath(xpath);
-
-            var xDoc = new XmlDocument();
-            XmlNode xmlDoc;
-            if (!doc.Published)
+            if (!String.IsNullOrEmpty(xpath))
             {
-                xmlDoc = doc.ToPreviewXml(xDoc);
+
+                // resolves any Umbraco params in the XPath
+                xpath = uQuery.ResolveXPath(xpath);
+
+                var xDoc = new XmlDocument();
+                
+                XmlNode xmlDoc = content.Instance.XmlContent.GetElementById(doc.Id.ToString());
+
+                if (xmlDoc == null)
+                {
+                    xmlDoc = new Document(doc.Id).ToPreviewXml(xDoc);
+                }
+                else
+                {
+                    var clone = xmlDoc.CloneNode(false);
+                    foreach (XmlNode c in xmlDoc.SelectNodes("./*[not(@isDoc)]"))
+                    {
+                        clone.AppendChild(c.CloneNode(true));
+                    }
+
+                    xmlDoc = clone;
+                }
+
+                var xmlString = "<root>" + xmlDoc.OuterXml + "</root>";
+                var xml = XElement.Parse(xmlString);
+
+                xNode.DetermineClickable(xpath, xPathType, xml);
             }
             else
             {
-                xmlDoc = doc.ToXml(xDoc, false);
+                xNode.DetermineClickable(xpath, xPathType, null);
             }
-
-            var xmlString = "<root>" + xmlDoc.OuterXml + "</root>";
-            var xml = XElement.Parse(xmlString);
-
-            xNode.DetermineClickable(xpath, xPathType, xml);
 
             //ensure that the NodeKey is passed through
             xNode.Source = this.GetTreeServiceUrlWithParams(int.Parse(xNode.NodeID), dataTypeId);
