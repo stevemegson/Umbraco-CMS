@@ -297,6 +297,9 @@
     <Compile Include="Models\PostRedirectModel.cs" />
     <Compile Include="Models\PublishedProperty.cs" />
     <Compile Include="Mvc\AdminTokenAuthorizeAttribute.cs" />
+    <Compile Include="Mvc\UmbracoWebFormsTemplatePage.cs">
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
     <Compile Include="Mvc\RedirectToUmbracoUrlResult.cs" />
     <Compile Include="PropertyEditors\ValueConverters\MacroContainerValueConverter.cs" />
     <Compile Include="PublishedCache\MemberPublishedContent.cs" />
