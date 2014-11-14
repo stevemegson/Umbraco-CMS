@@ -221,6 +221,20 @@ namespace umbraco
             var alias = string.IsNullOrEmpty(model.ScriptCode) ? model.Alias : Macro.GenerateCacheKeyFromCode(model.ScriptCode);
             id.AppendFormat("{0}-", alias);
 
+            // Add current display mode to cache key for partial view macros
+            if (model.MacroType == MacroTypes.PartialView)
+            {
+                var displayInfo = System.Web.WebPages.DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
+                    model.ScriptName,
+                    new HttpContextWrapper(HttpContext.Current),
+                    f => System.IO.File.Exists(IOHelper.MapPath(f)),
+                    null );
+
+                var displayMode = (displayInfo == null ? "" : displayInfo.DisplayMode.DisplayModeId);
+
+                id.AppendFormat("{0}-", displayMode);
+            }
+
             if (CacheByPage)
             {
                 id.AppendFormat("{0}-", pageId);
@@ -297,7 +311,7 @@ namespace umbraco
                 foreach (MacroPropertyModel prop in Model.Properties)
                     prop.Value = helper.parseAttribute(pageElements, prop.Value);
 
-                Model.CacheIdentifier = GetCacheIdentifier(Model, pageElements, pageId);
+                Model.CacheIdentifier = GetCacheIdentifier(Model, pageElements, pageId);                
 
                 string macroHtml;
                 Control macroControl;

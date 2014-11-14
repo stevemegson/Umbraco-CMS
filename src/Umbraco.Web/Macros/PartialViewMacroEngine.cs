@@ -139,6 +139,18 @@ namespace Umbraco.Web.Macros
 				controller.ControllerContext = new ControllerContext(request, controller);
 				//call the action to render
                 var result = controller.Index();
+
+                var displayInfo = System.Web.WebPages.DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
+                    result.ViewName,
+                    UmbracoContext.Current.HttpContext,
+                    filename => System.IO.File.Exists(Umbraco.Core.IO.IOHelper.MapPath(filename)),
+                    null);
+
+                if (displayInfo != null)
+                {
+                    result.ViewName = displayInfo.FilePath;
+                }
+
 				output = controller.RenderViewResultAsString(result);
             }
 
