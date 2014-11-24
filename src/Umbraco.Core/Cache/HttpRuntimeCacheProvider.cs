@@ -29,7 +29,7 @@ namespace Umbraco.Core.Cache
         {
             const string prefix = CacheItemPrefix + "-";
             return _cache.Cast<DictionaryEntry>()
-                .Where(x => x.Key is string && ((string) x.Key).StartsWith(prefix));
+                .Where(x => x.Key is string && ((string)x.Key).StartsWith(prefix));
         }
 
         protected override void RemoveEntry(string key)
@@ -38,21 +38,21 @@ namespace Umbraco.Core.Cache
         }
 
         protected override object GetEntry(string key)
-            {
+        {
             return _cache.Get(key);
         }
 
         #region Lock
 
         protected override IDisposable ReadLock
-                {
+        {
             get { return new ReadLock(_locker); }
-                        }
+        }
 
         protected override IDisposable WriteLock
-            {
+        {
             get { return new WriteLock(_locker); }
-            }
+        }
 
         #endregion
 
@@ -120,7 +120,7 @@ namespace Umbraco.Core.Cache
             if (value != null) return value;
 
             using (var lck = new UpgradeableReadLock(_locker))
-                {
+            {
                 result = _cache.Get(cacheKey) as Lazy<object>; // null if key not found
 
                 // cannot create value within the lock, so if result.IsValueCreated is false, just
@@ -130,25 +130,34 @@ namespace Umbraco.Core.Cache
                 if (result == null || GetSafeLazyValue(result, true) == null) // get non-created as NonCreatedValue & exceptions as null
                 {
                     result = new Lazy<object>(getCacheItem);
-                        var absolute = isSliding ? System.Web.Caching.Cache.NoAbsoluteExpiration : (timeout == null ? System.Web.Caching.Cache.NoAbsoluteExpiration : DateTime.Now.Add(timeout.Value));
-                        var sliding = isSliding == false ? System.Web.Caching.Cache.NoSlidingExpiration : (timeout ?? System.Web.Caching.Cache.NoSlidingExpiration);
+                    var absolute = isSliding ? System.Web.Caching.Cache.NoAbsoluteExpiration : (timeout == null ? System.Web.Caching.Cache.NoAbsoluteExpiration : DateTime.Now.Add(timeout.Value));
+                    var sliding = isSliding == false ? System.Web.Caching.Cache.NoSlidingExpiration : (timeout ?? System.Web.Caching.Cache.NoSlidingExpiration);
 
-                        CacheDependency dependency = null;
-                        if (getDependency != null)
-                        {
-                            dependency = getDependency();
-                        }
+                    CacheDependency dependency = null;
+                    if (getDependency != null)
+                    {
+                        dependency = getDependency();
+                    }
 
                     lck.UpgradeToWriteLock();
-                        _cache.Insert(cacheKey, result, dependency, absolute, sliding, priority, removedCallback);
-                    }
+                    _cache.Insert(cacheKey, result, dependency, absolute, sliding, priority, removedCallback);
+                }
             }
 
             // this may throw if getCacheItem throws, but this is the only place where
             // it would throw as everywhere else we use GetLazySaveValue() to hide exceptions
             // and pretend exceptions were never inserted into cache to begin with.
-            return result.Value;
-                }
+            try
+            {
+                value = result.Value;
+            }
+            catch
+            {
+                _cache.Remove(cacheKey);
+                throw;
+            }
+            return value;
+        }
 
         public object GetCacheItem(string cacheKey, Func<object> getCacheItem, TimeSpan? timeout, bool isSliding = false, CacheItemPriority priority = CacheItemPriority.Normal, CacheItemRemovedCallback removedCallback = null, string[] dependentFiles = null)
         {
@@ -183,15 +192,15 @@ namespace Umbraco.Core.Cache
             var value = result.Value; // force evaluation now - this may throw if cacheItem throws, and then nothing goes into cache
             if (value == null) return; // do not store null values (backward compat)
 
-            cacheKey = GetCacheKey(cacheKey);           
+            cacheKey = GetCacheKey(cacheKey);
 
             var absolute = isSliding ? System.Web.Caching.Cache.NoAbsoluteExpiration : (timeout == null ? System.Web.Caching.Cache.NoAbsoluteExpiration : DateTime.Now.Add(timeout.Value));
             var sliding = isSliding == false ? System.Web.Caching.Cache.NoSlidingExpiration : (timeout ?? System.Web.Caching.Cache.NoSlidingExpiration);
 
             using (new WriteLock(_locker))
             {
-            _cache.Insert(cacheKey, result, dependency, absolute, sliding, priority, removedCallback);
-        }
+                _cache.Insert(cacheKey, result, dependency, absolute, sliding, priority, removedCallback);
+            }
         }
 
         public void InsertCacheItem(string cacheKey, Func<object> getCacheItem, TimeSpan? timeout = null, bool isSliding = false, CacheItemPriority priority = CacheItemPriority.Normal, CacheItemRemovedCallback removedCallback = null, string[] dependentFiles = null)
