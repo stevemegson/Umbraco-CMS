@@ -31,6 +31,7 @@ namespace Umbraco.Core.Configuration
 	internal class UmbracoSettings
 	{
         private static Dictionary<string, string> _keyValuesCache = new Dictionary<string, string>();
+        private static readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
 
         private static bool GetKeyValue(string key, bool defaultValue)
         {
@@ -160,15 +161,23 @@ namespace Umbraco.Core.Configuration
 		/// <returns></returns>
         internal static string GetKey(string key)
         {
-            string value = _keyValuesCache.GetValue(key);
+            string value;
+            using (new ReadLock(_lock))
+            {
+                value = _keyValuesCache.GetValue(key);
+            }
             if (value == null)
             {
                 value = GetKeyImpl(key);
-                _keyValuesCache[key] = value;
+
+                using (new WriteLock(_lock))
+                {
+                    _keyValuesCache[key] = value;
+                }
             }
 
             return value;
-        }
+        }        
 
         private static string GetKeyImpl(string key)
 		{
