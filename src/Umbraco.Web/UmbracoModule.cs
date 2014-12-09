@@ -223,7 +223,10 @@ namespace Umbraco.Web
 
             if (pcr.IsRedirect)
             {
-                response.Flush();
+                if (response.IsClientConnected)
+                {
+                    response.Flush();
+                }
                 // bypass everything and directly execute EndRequest event -- but returns
                 context.ApplicationInstance.CompleteRequest();
                 // though some say that .CompleteRequest() does not properly shutdown the response
