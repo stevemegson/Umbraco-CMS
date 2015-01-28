@@ -231,10 +231,17 @@ namespace umbraco.cms.businesslogic.macro
             }
 		}
 
+        private readonly object _getPropertiesLock = new object();
         private void LoadProperties()
         {
-            _properties = MacroProperty.GetProperties(Id);
-            m_propertiesLoaded = true;
+            lock (_getPropertiesLock)
+            {
+                if (!m_propertiesLoaded)
+                {
+                    _properties = MacroProperty.GetProperties(Id);
+                    m_propertiesLoaded = true;
+                }
+            }
         }
 
 		/// <summary>
@@ -490,6 +497,8 @@ namespace umbraco.cms.businesslogic.macro
 			return list.ToArray();
 		}
 
+        private static readonly object _getByAliasLock = new object();
+
 		/// <summary>
 		/// Static contructor for retrieving a macro given an alias
 		/// </summary>
@@ -497,21 +506,23 @@ namespace umbraco.cms.businesslogic.macro
 		/// <returns>If the macro with the given alias exists, it returns the macro, else null</returns>
         public static Macro GetByAlias(string alias)
 		{
-		    return ApplicationContext.Current.ApplicationCache.GetCacheItem(
-		        GetCacheKey(alias),
-		        TimeSpan.FromMinutes(30),
-		        delegate
-		            {
-		                try
-		                {
-		                    return new Macro(alias);
-		                }
-		                catch
-		                {
-		                    return null;
-		                }
-		            });
-		}
+            lock (_getByAliasLock)
+            {                
+                return ApplicationContext.Current.ApplicationCache.GetCacheItem(
+                    GetCacheKey(alias),
+                    delegate
+                    {
+                        try
+                        {
+                            return new Macro(alias);
+                        }
+                        catch
+                        {
+                            return null;
+                        }
+                    });
+            }
+        }
 
         public static Macro GetById(int id)
         {
