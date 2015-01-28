@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Globalization;
 using System.IO;
+using System.Collections.Generic;
 
 using Umbraco.Core;
 using Umbraco.Core.IO;
@@ -22,6 +23,7 @@ namespace Umbraco.Web.Routing
 	{
 		private readonly PublishedContentRequest _pcr;
 		private readonly RoutingContext _routingContext;
+        private static Dictionary<string, RenderingEngine> _renderingEngineCache = new Dictionary<string, RenderingEngine>();
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PublishedContentRequestEngine"/> class with a content request.
@@ -287,17 +289,27 @@ namespace Umbraco.Web.Routing
 
             alias = alias.Replace('\\', '/'); // forward slashes only
 
-            // NOTE: we could start with what's the current default?
+            if (!_renderingEngineCache.ContainsKey(alias))
+            {
+                // NOTE: we could start with what's the current default?
 
-            if (FindTemplateRenderingEngineInDirectory(new DirectoryInfo(IOHelper.MapPath(SystemDirectories.MvcViews)),
-                    alias, new[] { ".cshtml", ".vbhtml" }))
-                return RenderingEngine.Mvc;
+                if (FindTemplateRenderingEngineInDirectory(new DirectoryInfo(IOHelper.MapPath(SystemDirectories.MvcViews)),
+                        alias, new[] { ".cshtml", ".vbhtml" }))
+                {
+                    _renderingEngineCache[alias] = RenderingEngine.Mvc;
+                }
+                else if (FindTemplateRenderingEngineInDirectory(new DirectoryInfo(IOHelper.MapPath(SystemDirectories.Masterpages)),
+                        alias, new[] { ".master" }))
+                {
+                    _renderingEngineCache[alias] = RenderingEngine.WebForms;
+                }
+                else
+                {
+                    _renderingEngineCache[alias] = RenderingEngine.Unknown;
+                }
+            }
 
-            if (FindTemplateRenderingEngineInDirectory(new DirectoryInfo(IOHelper.MapPath(SystemDirectories.Masterpages)),
-                    alias, new[] { ".master" }))
-                return RenderingEngine.WebForms;
-
-            return RenderingEngine.Unknown;
+            return _renderingEngineCache[alias];
         }
 
         internal bool FindTemplateRenderingEngineInDirectory(DirectoryInfo directory, string alias, string[] extensions)

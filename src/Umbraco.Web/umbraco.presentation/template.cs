@@ -26,6 +26,8 @@ namespace umbraco
     /// 
     public class template
     {
+        private static Dictionary<int, string> _masterPageFilesById = new Dictionary<int, string>();
+
         #region private variables
 
         readonly StringBuilder _templateOutput = new StringBuilder();
@@ -482,11 +484,23 @@ namespace umbraco
 
         public static string GetMasterPageName(int templateID, string templateFolder)
         {
+            if (templateFolder == null && _masterPageFilesById.ContainsKey(templateID))
+            {
+                return _masterPageFilesById[templateID];
+            }
+
             var t = new template(templateID);
             
-            return !string.IsNullOrEmpty(templateFolder) 
+            var result = !string.IsNullOrEmpty(templateFolder) 
                 ? t.AlternateMasterPageFile(templateFolder) 
                 : t.MasterPageFile;
+
+            if (templateFolder == null)
+            {
+                _masterPageFilesById[templateID] = result;
+            }
+
+            return result;
         }
 
         public template(int templateID)
