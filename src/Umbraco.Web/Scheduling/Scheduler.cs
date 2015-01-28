@@ -43,12 +43,12 @@ namespace Umbraco.Web.Scheduling
             // we also make these timers static to ensure further GC safety.
 
             // ping/keepalive            
-            _pingTimer = new Timer(KeepAlive.Start);
-            _pingTimer.Change(60000, 300000);
+            //_pingTimer = new Timer(KeepAlive.Start);
+            //_pingTimer.Change(60000, 300000);
 
             // scheduled publishing/unpublishing
             _schedulingTimer = new Timer(PerformScheduling);
-            _schedulingTimer.Change(30000, 60000);
+            _schedulingTimer.Change(300000, 60000);
 
             //log scrubbing
             _scrubber = new LogScrubber();
