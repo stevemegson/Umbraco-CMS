@@ -651,7 +651,7 @@ namespace umbraco
             if (UmbracoContext.Current.InPreviewMode == false && Model.CacheDuration > 0)
             {
                 var macroFile = GetMacroFile(Model);
-                var fileInfo = new FileInfo(HttpContext.Current.Server.MapPath(macroFile));
+                //var fileInfo = new FileInfo(HttpContext.Current.Server.MapPath(macroFile));
 
                 if (CacheMacroAsString(Model))
                 {
@@ -663,19 +663,19 @@ namespace umbraco
                     // An empty reference (null) means: macroHtml has NOT been cached before
                     if (macroHtml != null)
                     {
-                        if (MacroNeedsToBeClearedFromCache(Model, CacheKeys.MacroHtmlDateAddedCacheKey + Model.CacheIdentifier, fileInfo))
-                        {
-                            macroHtml = null;
-                            TraceInfo("renderMacro",
-                                      string.Format("Macro removed from cache due to file change '{0}'.",
-                                                    Model.CacheIdentifier));
-                        }
-                        else
-                        {
+                        //if (MacroNeedsToBeClearedFromCache(Model, CacheKeys.MacroHtmlDateAddedCacheKey + Model.CacheIdentifier, fileInfo))
+                        //{
+                        //    macroHtml = null;
+                        //    TraceInfo("renderMacro",
+                        //              string.Format("Macro removed from cache due to file change '{0}'.",
+                        //                            Model.CacheIdentifier));
+                        //}
+                        //else
+                        //{
                             TraceInfo("renderMacro",
                                       string.Format("Macro Content loaded from cache '{0}'.",
                                                     Model.CacheIdentifier));
-                        }
+                        //}
 
                     }
                 }
@@ -689,19 +689,19 @@ namespace umbraco
                         macroControl = cacheContent.Content;
                         macroControl.ID = cacheContent.ID;
 
-                        if (MacroNeedsToBeClearedFromCache(Model, CacheKeys.MacroControlDateAddedCacheKey + Model.CacheIdentifier, fileInfo))
-                        {
-                            TraceInfo("renderMacro",
-                                      string.Format("Macro removed from cache due to file change '{0}'.",
-                                                    Model.CacheIdentifier));
-                            macroControl = null;
-                        }
-                        else
-                        {
+                        //if (MacroNeedsToBeClearedFromCache(Model, CacheKeys.MacroControlDateAddedCacheKey + Model.CacheIdentifier, fileInfo))
+                        //{
+                        //    TraceInfo("renderMacro",
+                        //              string.Format("Macro removed from cache due to file change '{0}'.",
+                        //                            Model.CacheIdentifier));
+                        //    macroControl = null;
+                        //}
+                        //else
+                        //{
                             TraceInfo("renderMacro",
                                       string.Format("Macro Control loaded from cache '{0}'.",
                                                     Model.CacheIdentifier));
-                        }
+                        //}
 
                     }
                 }
