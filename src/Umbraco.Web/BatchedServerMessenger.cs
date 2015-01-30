@@ -244,7 +244,7 @@ namespace Umbraco.Web
                         asyncResultsList.Add(
                             cacheRefresher.BeginBulkRefresh(
                                 instructions, 
-                                HttpRuntime.AppDomainAppId,
+                                HttpRuntime.AppDomainId,
                                 Login, Password, null, null));
                     }
 

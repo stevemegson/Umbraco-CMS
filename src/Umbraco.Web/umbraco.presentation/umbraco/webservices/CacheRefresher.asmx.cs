@@ -38,7 +38,7 @@ namespace umbraco.presentation.webservices
             {
                 //we can only check this in full trust. if it's in medium trust we'll just end up with 
                 // the server refreshing it's cache twice.
-                if (HttpRuntime.AppDomainAppId == appId)
+                if (HttpRuntime.AppDomainId == appId)
                 {
                     return;
                 }
