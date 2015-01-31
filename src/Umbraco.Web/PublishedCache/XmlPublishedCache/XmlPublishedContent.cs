@@ -63,7 +63,7 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		private IPublishedContent _parent;
 
 		private int? _id;
-		private int _template;
+		private int? _template;
 		private string _name;
 		private string _docTypeAlias;
 		private int _docTypeId;
@@ -156,9 +156,14 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		{
 			get
 			{
-				if (_initialized == false)
-					Initialize();
-				return _template;
+                if (_template == null)
+                {
+                    if (_xmlNode != null && _xmlNode.Attributes != null)
+                    {
+                        _template = int.Parse(_xmlNode.Attributes.GetNamedItem("template").Value);
+                    }
+                }
+				return _template.GetValueOrDefault();
 			}
 		}
 
