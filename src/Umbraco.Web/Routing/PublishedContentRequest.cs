@@ -59,7 +59,7 @@ namespace Umbraco.Web.Routing
 		internal void Prepare()
 		{
 			_engine.PrepareRequest();
-		    ConfigureRequest();
+		    //ConfigureRequest();
 		}
 
         /// <summary>

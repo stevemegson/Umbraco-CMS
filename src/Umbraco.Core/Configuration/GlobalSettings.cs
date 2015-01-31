@@ -398,16 +398,22 @@ namespace Umbraco.Core.Configuration
         {
             get
             {
-                try
+                if (!_debugMode.HasValue)
                 {
-                    return bool.Parse(ConfigurationManager.AppSettings["umbracoDebugMode"]);
+                    try
+                    {
+                        _debugMode = bool.Parse(ConfigurationManager.AppSettings["umbracoDebugMode"]);
+                    }
+                    catch
+                    {
+                        return false;
+                    }
                 }
-                catch
-                {
-                    return false;
-                }
+
+                return _debugMode.GetValueOrDefault();
             }
         }
+        private static bool? _debugMode;
 
         /// <summary>
         /// Gets a value indicating whether the current version of umbraco is configured.

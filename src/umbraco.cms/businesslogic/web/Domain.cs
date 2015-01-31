@@ -143,7 +143,26 @@ namespace umbraco.cms.businesslogic.web
             return GetDomains(false);
         }
 
+        private static WeakReference _allDomainsRef;
+        private static Domain[] _allDomainsIncludeWildcards;
+        private static Domain[] _allDomainsExcludeWildcards;
+
         public static IEnumerable<Domain> GetDomains(bool includeWildcards)
+        {
+            if (_allDomainsRef == null || ! _allDomainsRef.IsAlive || _allDomainsIncludeWildcards == null || _allDomainsExcludeWildcards == null)
+            {
+                var domains = GetDomainsImpl(true);
+
+                _allDomainsExcludeWildcards = domains.Where(d => !d.IsWildcard).ToArray();
+                _allDomainsIncludeWildcards = domains.ToArray();
+
+                _allDomainsRef = new WeakReference(domains);
+            }
+
+            return includeWildcards ? _allDomainsIncludeWildcards : _allDomainsExcludeWildcards;
+        }
+
+        private static IEnumerable<Domain> GetDomainsImpl(bool includeWildcards)
         {
             var domains = ApplicationContext.Current.ApplicationCache.GetCacheItem(
                 CacheKeys.DomainCacheKey,

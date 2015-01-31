@@ -1,6 +1,7 @@
 using System;
 using System.Web;
 using Umbraco.Core.Configuration;
+using System.Configuration;
 
 namespace Umbraco.Core.Persistence
 {
@@ -14,7 +15,6 @@ namespace Umbraco.Core.Persistence
 	/// </remarks>
 	internal class DefaultDatabaseFactory : DisposableObject, IDatabaseFactory
 	{
-	    private readonly string _connectionStringName;
         public string ConnectionString { get; private set; }
         public string ProviderName { get; private set; }
         
@@ -40,8 +40,22 @@ namespace Umbraco.Core.Persistence
 		public DefaultDatabaseFactory(string connectionStringName)
 		{
 			Mandate.ParameterNotNullOrEmpty(connectionStringName, "connectionStringName");
-			_connectionStringName = connectionStringName;
-		}
+
+            var connectionStringSetting = ConfigurationManager.ConnectionStrings[connectionStringName];
+
+            ProviderName = "System.Data.SqlClient";
+            if (connectionStringSetting != null)
+            {
+                if (!string.IsNullOrEmpty(connectionStringSetting.ProviderName))
+                    ProviderName = connectionStringSetting.ProviderName;
+            }
+            else
+            {
+                throw new InvalidOperationException("Can't find a connection string with the name '" + connectionStringName + "'");
+            }
+
+            ConnectionString = connectionStringSetting.ConnectionString;
+        }
 
 		/// <summary>
 		/// Constructor accepting custom connectino string and provider name
@@ -68,9 +82,7 @@ namespace Umbraco.Core.Persistence
 						//double check
                         if (_nonHttpInstance == null)
 						{
-                            _nonHttpInstance = string.IsNullOrEmpty(ConnectionString) == false && string.IsNullOrEmpty(ProviderName) == false
-						                          ? new UmbracoDatabase(ConnectionString, ProviderName)
-						                          : new UmbracoDatabase(_connectionStringName);
+                            _nonHttpInstance = new UmbracoDatabase(ConnectionString, ProviderName);
 						}
 					}
 				}
@@ -81,9 +93,7 @@ namespace Umbraco.Core.Persistence
 			if (HttpContext.Current.Items.Contains(typeof(DefaultDatabaseFactory)) == false)
 			{
 			    HttpContext.Current.Items.Add(typeof (DefaultDatabaseFactory),
-			                                  string.IsNullOrEmpty(ConnectionString) == false && string.IsNullOrEmpty(ProviderName) == false
-			                                      ? new UmbracoDatabase(ConnectionString, ProviderName)
-			                                      : new UmbracoDatabase(_connectionStringName));
+			                                  new UmbracoDatabase(ConnectionString, ProviderName));
 			}
 			return (UmbracoDatabase)HttpContext.Current.Items[typeof(DefaultDatabaseFactory)];
 		}

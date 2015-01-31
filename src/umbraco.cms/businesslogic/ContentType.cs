@@ -168,6 +168,20 @@ namespace umbraco.cms.businesslogic
                 });
         }
 
+        public static void PopulateDataTypeCache()
+        {
+            foreach (var ct in ApplicationContext.Current.Services.ContentTypeService.GetAllContentTypes())
+            {
+                foreach (var pt in ct.PropertyTypes)
+                {
+                    var key = new System.Tuple<string, string>(ct.Alias, pt.Alias.ToUpper());
+                    var controlId = pt.DataTypeId;
+
+                    PropertyTypeCache[key] = controlId;
+                }
+            }
+        }
+
         /// <summary>
         /// Gets the type of the content.
         /// </summary>
