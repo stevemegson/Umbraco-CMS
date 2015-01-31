@@ -91,17 +91,7 @@ namespace umbraco.MacroEngines
             var context = HttpContext.Current;
             var contextWrapper = new HttpContextWrapper(context);
 
-            string fileLocation = null;
-            if (!string.IsNullOrEmpty(macro.ScriptName)) {
-                //Razor Is Already Contained In A File
-                if (macro.ScriptName.StartsWith("~"))
-                    fileLocation = macro.ScriptName;
-                else
-                    fileLocation = SystemDirectories.MacroScripts + "/" + macro.ScriptName;
-            } else if (!string.IsNullOrEmpty(macro.ScriptCode) && !string.IsNullOrEmpty(macro.ScriptLanguage)) {
-                //Inline Razor Syntax
-                fileLocation = CreateInlineRazorFile(macro.ScriptCode, macro.ScriptLanguage);
-            }
+            string fileLocation = GetFileLocation(macro);
 
             if (string.IsNullOrEmpty(fileLocation))
                 return String.Empty; //No File Location
@@ -118,6 +108,34 @@ namespace umbraco.MacroEngines
             razorWebPage.ExecutePageHierarchy(new WebPageContext(contextWrapper, razorWebPage, null), output);
             HttpContext.Current.Trace.Write("umbracoMacro", string.Format("Done Executing Macro Script (file: {0})", macro.Name));
             return output.ToString();
+        }
+
+        public string GetFileLocation(MacroModel macro)
+        {
+            string fileLocation = null;
+            if (!string.IsNullOrEmpty(macro.ScriptName))
+            {
+                //Razor Is Already Contained In A File
+                if (macro.ScriptName.StartsWith("~"))
+                    fileLocation = macro.ScriptName;
+                else
+                    fileLocation = SystemDirectories.MacroScripts + "/" + macro.ScriptName;
+            }
+            else if (!string.IsNullOrEmpty(macro.ScriptCode) && !string.IsNullOrEmpty(macro.ScriptLanguage))
+            {
+                //Inline Razor Syntax
+                fileLocation = CreateInlineRazorFile(macro.ScriptCode, macro.ScriptLanguage);
+            }
+            return fileLocation;
+        }
+
+        public void Compile(MacroModel macro)
+        {
+            string fileLocation = GetFileLocation(macro);
+            if (fileLocation != null)
+            {
+                CompileAndInstantiate(fileLocation);
+            }
         }
 
         /// <summary>
