@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace Umbraco
 {
     public static class FileExistenceCache
     {
-        private static Dictionary<string, bool> _cache = new Dictionary<string, bool>();
+        private static ConcurrentDictionary<string, bool> _cache = new ConcurrentDictionary<string,bool>();
 
         public static bool FileExists(string virtualPath)
         {

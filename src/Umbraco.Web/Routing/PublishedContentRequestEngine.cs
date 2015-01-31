@@ -23,7 +23,7 @@ namespace Umbraco.Web.Routing
 	{
 		private readonly PublishedContentRequest _pcr;
 		private readonly RoutingContext _routingContext;
-        private static Dictionary<string, RenderingEngine> _renderingEngineCache = new Dictionary<string, RenderingEngine>();
+        private static System.Collections.Concurrent.ConcurrentDictionary<string, RenderingEngine> _renderingEngineCache = new System.Collections.Concurrent.ConcurrentDictionary<string, RenderingEngine>();
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PublishedContentRequestEngine"/> class with a content request.
