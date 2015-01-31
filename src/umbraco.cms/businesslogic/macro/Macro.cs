@@ -364,7 +364,7 @@ namespace umbraco.cms.businesslogic.macro
                         {
                             property.Public = bool.Parse(mp.Attributes.GetNamedItem("show").Value);
                             property.Name = mp.Attributes.GetNamedItem("name").Value;
-                            property.Type = new MacroPropertyType(mp.Attributes.GetNamedItem("propertyType").Value);
+                            property.Type = MacroPropertyType.GetByAlias(mp.Attributes.GetNamedItem("propertyType").Value);
 
                             property.Save();
                         }
@@ -375,7 +375,7 @@ namespace umbraco.cms.businesslogic.macro
                                 bool.Parse(mp.Attributes.GetNamedItem("show").Value),
                                 propertyAlias,
                                 mp.Attributes.GetNamedItem("name").Value,
-                                new MacroPropertyType(mp.Attributes.GetNamedItem("propertyType").Value)
+                                MacroPropertyType.GetByAlias(mp.Attributes.GetNamedItem("propertyType").Value)
                             );
                         }
                     }
@@ -521,6 +521,28 @@ namespace umbraco.cms.businesslogic.macro
                             return null;
                         }
                     });
+            }
+        }
+
+        public static void PopulateCacheByAlias()
+        {
+            lock (_getByAliasLock)
+            {
+                foreach (var m in GetAll())
+                {
+                    ApplicationContext.Current.ApplicationCache.InsertCacheItem(
+                        GetCacheKey(m.Alias),
+                        System.Web.Caching.CacheItemPriority.Normal,
+                        () => m);
+
+                    ApplicationContext.Current.ApplicationCache.InsertCacheItem(
+                        GetCacheKey(string.Format("macro_via_id_{0}", m.Id)),
+                        System.Web.Caching.CacheItemPriority.Normal,
+                        TimeSpan.FromMinutes(30),                        
+                        () => m);
+
+                    m.LoadProperties();
+                }
             }
         }
 

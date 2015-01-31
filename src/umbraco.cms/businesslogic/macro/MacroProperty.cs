@@ -127,12 +127,12 @@ namespace umbraco.cms.businesslogic.macro
             {
                 if (dr.Read())
                 {
-                    m_macro = new Macro(dr.GetInt("macro"));
+                    m_macro = Macro.GetById(dr.GetInt("macro"));
                     _public = dr.GetBoolean("macroPropertyHidden");
                     _sortOrder = (int)dr.GetByte("macroPropertySortOrder");
                     _alias = dr.GetString("macroPropertyAlias");
                     _name = dr.GetString("macroPropertyName");
-                    _type = new MacroPropertyType(dr.GetShort("macroPropertyType"));
+                    _type = MacroPropertyType.GetById(dr.GetShort("macroPropertyType"));
                 }
                 else
                 {

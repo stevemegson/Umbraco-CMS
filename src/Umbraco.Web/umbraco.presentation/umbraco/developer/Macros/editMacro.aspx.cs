@@ -106,7 +106,7 @@ namespace umbraco.cms.presentation.developer
 					DropDownList macroElementType = (DropDownList)item.FindControl("macroPropertyType");
 
 					MacroProperty mp = new MacroProperty(int.Parse(macroPropertyID.Value));
-					mp.Type = new MacroPropertyType(int.Parse(macroElementType.SelectedValue));
+					mp.Type = MacroPropertyType.GetById(int.Parse(macroElementType.SelectedValue));
 					mp.Alias = macroElementAlias.Text;
 					mp.Name = macroElementName.Text;
 					mp.Save();
@@ -283,7 +283,7 @@ namespace umbraco.cms.presentation.developer
 					MacroProperty mp = new MacroProperty();
 					mp.Macro = m_macro;
 					mp.Public = true;
-					mp.Type = new MacroPropertyType(int.Parse(macroPropertyTypeNew.SelectedValue));
+					mp.Type = MacroPropertyType.GetById(int.Parse(macroPropertyTypeNew.SelectedValue));
 					mp.Alias = macroPropertyAliasNew.Text;
 					mp.Name = macroPropertyNameNew.Text;
 					mp.Save();

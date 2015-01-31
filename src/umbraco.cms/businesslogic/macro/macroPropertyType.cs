@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Linq;
 using umbraco.DataLayer;
 using umbraco.BusinessLogic;
 using System.Collections.Generic;
@@ -18,6 +19,8 @@ namespace umbraco.cms.businesslogic.macro
         string _type;
         string _baseType;
         private static List<MacroPropertyType> m_allPropertyTypes = new List<MacroPropertyType>();
+        private static Dictionary<string, MacroPropertyType> _allPropertyTypesByAlias;
+        private static Dictionary<int, MacroPropertyType> _allPropertyTypesById;
 
         protected static ISqlHelper SqlHelper
         {
@@ -43,6 +46,25 @@ namespace umbraco.cms.businesslogic.macro
             }
         }
 
+        public static MacroPropertyType GetByAlias(string alias)
+        {
+            if (_allPropertyTypesByAlias == null)
+            {
+                _allPropertyTypesByAlias = GetAll.ToDictionary(t => t.Alias);
+            }
+
+            return _allPropertyTypesByAlias[alias];
+        }
+
+        public static MacroPropertyType GetById(int id)
+        {
+            if (_allPropertyTypesById == null)
+            {
+                _allPropertyTypesById = GetAll.ToDictionary(t => t.Id);
+            }
+
+            return _allPropertyTypesById[id];
+        }
 
         /// <summary>
         /// Identifier
@@ -88,7 +110,7 @@ namespace umbraco.cms.businesslogic.macro
         /// </summary>
         /// <param name="Alias">The alias of the MacroPropertyType</param>
         public MacroPropertyType(string Alias)
-        {
+        {            
             _id = SqlHelper.ExecuteScalar<int>("select id from cmsMacroPropertyType where macroPropertyTypeAlias = @alias", SqlHelper.CreateParameter("@alias", Alias));
             setup();
         }
