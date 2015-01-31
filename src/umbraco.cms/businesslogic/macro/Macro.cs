@@ -493,7 +493,7 @@ namespace umbraco.cms.businesslogic.macro
 			// zb-00001 #29927 : refactor
 			IRecordsReader dr = SqlHelper.ExecuteReader("select id from cmsMacro order by macroName");
 			var list = new System.Collections.Generic.List<Macro>();
-			while (dr.Read()) list.Add(new Macro(dr.GetInt("id")));
+			while (dr.Read()) list.Add(GetById(dr.GetInt("id")));
 			return list.ToArray();
 		}
 
