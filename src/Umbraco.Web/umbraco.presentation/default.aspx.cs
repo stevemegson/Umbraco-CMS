@@ -108,12 +108,13 @@ namespace umbraco
             }
         }
 
+
         private string TransformMasterPageFile(string file)
         {
             var displayInfo = DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
                 file,
                 UmbracoContext.Current.HttpContext,
-                filename => File.Exists(IOHelper.MapPath(filename)),
+                f => Umbraco.FileExistenceCache.FileExists(f),
                 null);
 
             return displayInfo != null ? displayInfo.FilePath : file;

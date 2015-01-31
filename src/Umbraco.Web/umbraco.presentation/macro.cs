@@ -227,7 +227,7 @@ namespace umbraco
                 var displayInfo = System.Web.WebPages.DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
                     model.ScriptName,
                     new HttpContextWrapper(HttpContext.Current),
-                    f => System.IO.File.Exists(IOHelper.MapPath(f)),
+                    f=> Umbraco.FileExistenceCache.FileExists(f),
                     null );
 
                 var displayMode = (displayInfo == null ? "" : displayInfo.DisplayMode.DisplayModeId);

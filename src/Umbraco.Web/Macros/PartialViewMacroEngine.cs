@@ -143,7 +143,7 @@ namespace Umbraco.Web.Macros
                 var displayInfo = System.Web.WebPages.DisplayModeProvider.Instance.GetDisplayInfoForVirtualPath(
                     result.ViewName,
                     UmbracoContext.Current.HttpContext,
-                    filename => System.IO.File.Exists(Umbraco.Core.IO.IOHelper.MapPath(filename)),
+                    f => FileExistenceCache.FileExists(f),
                     null);
 
                 if (displayInfo != null)
