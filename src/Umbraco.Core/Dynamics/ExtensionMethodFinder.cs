@@ -21,18 +21,32 @@ namespace Umbraco.Core.Dynamics
 
 	    static ExtensionMethodFinder()
 	    {
-            AllExtensionMethods = TypeFinder.GetAssembliesWithKnownExclusions()
-                // assemblies that contain extension methods
-                .Where(a => a.IsDefined(typeof(ExtensionAttribute), false))
-                // types that contain extension methods
-                .SelectMany(a => a.GetTypes()
-                    .Where(t => t.IsDefined(typeof(ExtensionAttribute), false) && t.IsSealed && t.IsGenericType == false && t.IsNested == false))
-                // actual extension methods
-                .SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public)
-                    .Where(m => m.IsDefined(typeof(ExtensionAttribute), false)))
-                // and also IEnumerable<T> extension methods - because the assembly is excluded
-                .Concat(typeof(Enumerable).GetMethods(BindingFlags.Static | BindingFlags.Public))
-                .ToArray();
+            try
+            {
+                AllExtensionMethods = TypeFinder.GetAssembliesWithKnownExclusions()
+                    // assemblies that contain extension methods
+                    .Where(a => a.IsDefined(typeof(ExtensionAttribute), false))
+                    // types that contain extension methods
+                    .SelectMany(a => a.GetTypes()
+                        .Where(t => t.IsDefined(typeof(ExtensionAttribute), false) && t.IsSealed && t.IsGenericType == false && t.IsNested == false))
+                    // actual extension methods
+                    .SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public)
+                        .Where(m => m.IsDefined(typeof(ExtensionAttribute), false)))
+                    // and also IEnumerable<T> extension methods - because the assembly is excluded
+                    .Concat(typeof(Enumerable).GetMethods(BindingFlags.Static | BindingFlags.Public))
+                    .ToArray();
+            }
+            catch (System.Reflection.ReflectionTypeLoadException rtlex)
+            {
+                foreach (var x in rtlex.LoaderExceptions)
+                {
+                    Logging.LogHelper.Error(typeof(ExtensionMethodFinder), "Failed to initialise ExtensionMethodFinder", x);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogHelper.Error(typeof(ExtensionMethodFinder), "Failed to initialise ExtensionMethodFinder", ex);
+            }
 	    }
 
         // ORIGINAL CODE IS NOT COMPLETE, DOES NOT HANDLE GENERICS, ETC...
