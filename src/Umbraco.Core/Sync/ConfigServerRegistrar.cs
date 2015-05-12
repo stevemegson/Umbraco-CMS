@@ -35,6 +35,12 @@ namespace Umbraco.Core.Sync
                 if (_addresses == null)
                 {
                     _addresses = new List<IServerAddress>();
+
+                    HashSet<string> localAddresses = new HashSet<string>(
+                        System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                            .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+                            .SelectMany(n => n.GetIPProperties().UnicastAddresses.Select(a => a.Address.ToString()))
+                        );
                     
                     if (_xmlServers != null)
                     {
@@ -43,7 +49,11 @@ namespace Umbraco.Core.Sync
                         {
                             foreach (XmlNode n in nodes)
                             {
-                                _addresses.Add(new ConfigServerAddress(n));
+                                string address = XmlHelper.GetNodeValue(n);
+                                if (!localAddresses.Contains(address))
+                                {
+                                    _addresses.Add(new ConfigServerAddress(n));
+                                }
                             }
                         }    
                     }

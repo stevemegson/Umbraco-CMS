@@ -344,24 +344,23 @@ namespace Umbraco.Core.Sync
 
             EnsureLazyUsernamePasswordDelegateResolved();
 
+            // Invoke the method locally first
+            InvokeMethodOnRefresherInstance(refresher, dispatchType, ids, jsonPayload);
+
             //Now, check if we are using Distrubuted calls. If there are no servers in the list then we
             // can definitely not distribute.
-            if (!UseDistributedCalls || !servers.Any())
+            if (UseDistributedCalls && servers.Any())
             {
-                //if we are not, then just invoke the call on the cache refresher
-                InvokeMethodOnRefresherInstance(refresher, dispatchType, ids, jsonPayload);
-                return;
-            }
-            
-            LogHelper.Debug<DefaultServerMessenger>(
-                "Performing distributed call for refresher {0}, message type: {1}, servers: {2}, ids: {3}, json: {4}",
-                refresher.GetType,
-                () => dispatchType,
-                () => string.Join(";", servers.Select(x => x.ToString())),
-                () => ids == null ? "" : string.Join(";", ids.Select(x => x.ToString())),
-                () => jsonPayload ?? "");
+                LogHelper.Debug<DefaultServerMessenger>(
+                    "Performing distributed call for refresher {0}, message type: {1}, servers: {2}, ids: {3}, json: {4}",
+                    refresher.GetType,
+                    () => dispatchType,
+                    () => string.Join(";", servers.Select(x => x.ToString())),
+                    () => ids == null ? "" : string.Join(";", ids.Select(x => x.ToString())),
+                    () => jsonPayload ?? "");
 
-            PerformDistributedCall(servers, refresher, dispatchType, ids, arrayType, jsonPayload);
+                PerformDistributedCall(servers, refresher, dispatchType, ids, arrayType, jsonPayload);
+            }            
         }
 
         private bool ValidateIdArray(IEnumerable<object> ids, out Type arrayType)
@@ -408,6 +407,7 @@ namespace Umbraco.Core.Sync
                     //NOTE: 'asynchronously' in this case does not mean that it will continue while we give the page back to the user!
                     foreach (var n in servers)
                     {
+                        
                         //set the server address
                         cacheRefresher.Url = n.ServerAddress;
 
