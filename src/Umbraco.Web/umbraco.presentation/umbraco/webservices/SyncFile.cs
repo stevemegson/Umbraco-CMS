@@ -51,6 +51,8 @@ namespace umbraco.presentation.webservices
                 if (!Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
+
+                    Umbraco.Core.Media.MediaSubfolderCounter.Current.Recount();
                 }
                 using (var writer = File.Create(targetPath))
                 {

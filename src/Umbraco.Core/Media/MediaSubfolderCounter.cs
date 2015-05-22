@@ -24,20 +24,28 @@ namespace Umbraco.Core.Media
 
         private MediaSubfolderCounter()
         {
-            var folders = new List<long>();
-            var fs = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
-            var directories = fs.GetDirectories("");
-            foreach (var directory in directories)
+            FindLatestCount();
+        }
+
+        private void FindLatestCount()
+        {
+            using (new WriteLock(ClearLock))
             {
-                long dirNum;
-                if (long.TryParse(directory, out dirNum))
+                var folders = new List<long>();
+                var fs = FileSystemProviderManager.Current.GetFileSystemProvider<MediaFileSystem>();
+                var directories = fs.GetDirectories("");
+                foreach (var directory in directories)
                 {
-                    folders.Add(dirNum);
+                    long dirNum;
+                    if (long.TryParse(directory, out dirNum))
+                    {
+                        folders.Add(dirNum);
+                    }
                 }
+                var last = folders.OrderBy(x => x).LastOrDefault();
+                if (last != default(long))
+                    _numberedFolder = last;
             }
-            var last = folders.OrderBy(x => x).LastOrDefault();
-            if(last != default(long))
-                _numberedFolder = last;
         }
 
         #endregion
@@ -50,9 +58,13 @@ namespace Umbraco.Core.Media
         {
             using (new ReadLock(ClearLock))
             {
-                _numberedFolder = _numberedFolder + 1;
-                return _numberedFolder;
+                return Interlocked.Increment(ref _numberedFolder);
             }
+        }
+
+        public void Recount()
+        {
+            FindLatestCount();
         }
     }
 }
