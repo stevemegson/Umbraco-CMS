@@ -1360,7 +1360,7 @@ namespace umbraco
             }
             catch (Exception ex)
             {
-                LogHelper.Error<library>("Could not retrieve current xml node", ex);
+                LogHelper.Debug<library>("Could not retrieve current xml node, {0}", () => ex.Message );                
             }
 
             XmlDocument xd = new XmlDocument();
