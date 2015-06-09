@@ -20,7 +20,7 @@ namespace Umbraco.Web.Scheduling
 
         private static int GetLogScrubbingMaximumAge()
         {
-            int maximumAge = 24 * 60 * 60;
+            int maximumAge = 24 * 60 * 60 * 1000;
             try
             {
                 if (global::umbraco.UmbracoSettings.MaxLogAge > -1)
