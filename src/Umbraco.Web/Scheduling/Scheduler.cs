@@ -79,7 +79,7 @@ namespace Umbraco.Web.Scheduling
 
         private int GetLogScrubbingInterval()
         {
-            int interval = 24 * 60 * 60; //24 hours
+            int interval = 24 * 60 * 60 * 1000; //24 hours
             try
             {
                 if (global::umbraco.UmbracoSettings.CleaningMiliseconds > -1)
