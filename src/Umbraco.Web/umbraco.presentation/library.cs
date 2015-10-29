@@ -979,6 +979,12 @@ namespace umbraco
         {
             try
             {
+                int tagIndex = Text.ToLower().IndexOf("<?umbraco");
+                if (tagIndex < 0)
+                {
+                    return Text;
+                }
+
                 page p = new page(((IHasXmlNode)GetXmlNodeById(PageId.ToString()).Current).GetNode());
                 template t = new template(p.Template);
                 Control c = t.parseStringBuilder(new StringBuilder(Text), p);
