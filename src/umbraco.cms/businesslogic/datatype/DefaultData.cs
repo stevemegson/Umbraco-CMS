@@ -150,7 +150,14 @@ namespace umbraco.cms.businesslogic.datatype
 		{
             string sValue = Value!=null ? Value.ToString() : String.Empty;
 			if (_dataType.DBType == DBTypes.Ntext)
+            {
+                Func<char, bool> isInvalidControlChar = (ch => ch < ' ' && ch != '\t' && ch != '\r' && ch != '\n');
+                if (sValue.Any(isInvalidControlChar))
+                {
+                    sValue = new String(sValue.Where(ch => !isInvalidControlChar(ch)).ToArray());
+                }
                 return data.CreateCDataSection(sValue);
+            }
             return data.CreateTextNode(sValue);
 		}
 
