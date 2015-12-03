@@ -13,8 +13,9 @@ namespace Umbraco.Core.Profiling
 		{
 			_inner = inner;
 			_name = inner.GetType().Name;
-			var razorView = inner as RazorView;
+			var razorView = inner as BuildManagerCompiledView;
 			_viewPath = razorView != null ? razorView.ViewPath : "Unknown";
+
 		}
 
 		public void Render(ViewContext viewContext, TextWriter writer)
