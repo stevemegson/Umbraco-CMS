@@ -101,14 +101,19 @@ namespace Umbraco.Web.Macros
 
         public string Execute(MacroModel macro, INode node)
         {
-            var umbCtx = _getUmbracoContext();
-            return Execute(macro, umbCtx.ContentCache.GetById(node.Id));
+            IPublishedContent content = null;
+            if (node != null)
+            {
+                var umbCtx = _getUmbracoContext();
+                content = umbCtx.ContentCache.GetById(node.Id);
+            }
+            return Execute(macro, content);
         }
 
         public string Execute(MacroModel macro, IPublishedContent content)
         {
             if (macro == null) throw new ArgumentNullException("macro");
-            if (content == null) throw new ArgumentNullException("content");
+            //if (content == null) throw new ArgumentNullException("content");
 			if (macro.ScriptName.IsNullOrWhiteSpace()) throw new ArgumentException("The ScriptName property of the macro object cannot be null or empty");
 		
             var http = _getHttpContext();

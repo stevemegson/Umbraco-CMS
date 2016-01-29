@@ -14,7 +14,7 @@ namespace Umbraco.Web.Macros
         {
             base.InitializePage();
             //set the model to the current node if it is not set, this is generally not the case
-            if (Model != null)
+            if (Model != null && Model.Content != null)
             {
                 CurrentPage = Model.Content.AsDynamic();
             }

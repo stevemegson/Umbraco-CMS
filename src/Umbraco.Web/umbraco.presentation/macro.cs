@@ -2019,7 +2019,7 @@ namespace umbraco
         private static INode GetCurrentNode()
         {
             var id = Node.getCurrentNodeId();
-            var content = UmbracoContext.Current.ContentCache.GetById(id);
+            var content = id.HasValue ? UmbracoContext.Current.ContentCache.GetById(id.Value) : null;
             return CompatibilityHelper.ConvertToNode(content);
         }
 
