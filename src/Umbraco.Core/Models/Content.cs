@@ -312,6 +312,10 @@ namespace Umbraco.Core.Models
         /// </summary>
         public void ChangePublishedState(PublishedState state)
         {
+            if(state == PublishedState.Unpublished)
+            {
+                Published = true; // ensure dirty flag is set when explicitly unpublished
+            }
             Published = state == PublishedState.Published;
             PublishedState = state;
         }
