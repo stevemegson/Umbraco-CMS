@@ -43,6 +43,7 @@ namespace Umbraco.Web.Mvc
 
             var pcr = new PublishedContentRequest(umbracoContext.CleanedUmbracoUrl, umbracoContext.RoutingContext);
             var engine = new PublishedContentRequestEngine(pcr);
+            engine.FindDomain();
             engine.FindPublishedContent();
 
             if (pcr.HasPublishedContent)
