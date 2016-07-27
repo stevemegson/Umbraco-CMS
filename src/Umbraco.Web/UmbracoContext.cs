@@ -37,6 +37,7 @@ namespace Umbraco.Web
         /// <summary>
         /// Used if not running in a web application (no real HttpContext)
         /// </summary>
+        [ThreadStatic]
         private static UmbracoContext _umbracoContext;
 
         /// <summary>
@@ -395,7 +396,7 @@ namespace Umbraco.Web
         
         protected override void DisposeResources()
         {
-            Security.DisposeIfDisposable();
+          Security.DisposeIfDisposable();
             Security = null;
             _umbracoContext = null;
             //ensure not to dispose this!
