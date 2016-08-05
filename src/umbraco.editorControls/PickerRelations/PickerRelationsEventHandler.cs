@@ -211,35 +211,24 @@ namespace umbraco.editorControls.PickerRelations
 		private static void DeleteRelations(RelationType relationType, int contentNodeId, bool reverseIndexing, string instanceIdentifier)
 		{
 			//if relationType is bi-directional or a reverse index then we can't get at the relations via the API, so using SQL
-			string getRelationsSql = "SELECT id FROM umbracoRelation WHERE relType = " + relationType.Id.ToString() + " AND ";
+			string deleteRelationsSql = "DELETE FROM umbracoRelation WHERE relType = " + relationType.Id.ToString() + " AND ";
 
 			if (reverseIndexing || relationType.Dual)
 			{
-				getRelationsSql += "childId = " + contentNodeId.ToString();
+				deleteRelationsSql += "childId = " + contentNodeId.ToString();
 			}
 			if (relationType.Dual) // need to return relations where content node id is used on both sides
 			{
-				getRelationsSql += " OR ";
+				deleteRelationsSql += " OR ";
 			}
 			if (!reverseIndexing || relationType.Dual)
 			{
-				getRelationsSql += "parentId = " + contentNodeId.ToString();
+				deleteRelationsSql += "parentId = " + contentNodeId.ToString();
 			}
 
-			getRelationsSql += " AND comment = '" + instanceIdentifier + "'";
+			deleteRelationsSql += " AND comment = '" + instanceIdentifier + "'";
 
-			using (IRecordsReader relations = uQuery.SqlHelper.ExecuteReader(getRelationsSql))
-			{
-				//clear data
-				Relation relation;
-				while (relations.Read())
-				{
-					relation = new Relation(relations.GetInt("id"));
-
-					// TODO: [HR] check to see if an instance identifier is used
-					relation.Delete();
-				}
-			}
+            uQuery.SqlHelper.ExecuteNonQuery(deleteRelationsSql);			
 		}
 
 		/// <summary>
