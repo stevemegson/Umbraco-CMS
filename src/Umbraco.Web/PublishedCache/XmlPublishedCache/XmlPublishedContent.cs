@@ -77,7 +77,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 		private DateTime _updateDate;
 		private Guid _version;
 	    private IPublishedContentProperty[] _properties;
-		private int _sortOrder;
+        private Dictionary<string,IPublishedContentProperty> _propertyDictionary;
+        private int _sortOrder;
 		private int _level;
 	    private bool _isDraft;
 	    private readonly bool _isPreviewing;
@@ -89,13 +90,16 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
 			{
                 if (_childrenInitialized == false)
                     InitializeChildren();
-				return _children.OrderBy(x => x.SortOrder);
+                return _children;//.OrderBy(x => x.SortOrder);
 			}
 		}
 
 		public override IPublishedContentProperty GetProperty(string alias)
 		{
-			return Properties.FirstOrDefault(x => x.PropertyTypeAlias.InvariantEquals(alias));
+            if (_propertiesInitialized == false)
+                InitializeProperties();
+
+            return _propertyDictionary.GetValue(alias.ToLowerInvariant());
 		}
 
         // override to implement cache
@@ -463,6 +467,8 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
                     ? new XmlPublishedProperty(p, _isPreviewing, n)
                     : new XmlPublishedProperty(p, _isPreviewing);
             }).Cast<IPublishedContentProperty>().ToArray();
+
+            _propertyDictionary = _properties.ToDictionary(p => p.PropertyTypeAlias.ToLowerInvariant());
 
             _propertiesInitialized = true;
         }
