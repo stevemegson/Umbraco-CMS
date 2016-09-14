@@ -35,7 +35,7 @@ namespace umbraco.BusinessLogic.Actions
         private static readonly List<IActionHandler> ActionHandlers = new List<IActionHandler>();
         private static readonly Dictionary<string, string> ActionJs = new Dictionary<string, string>();
 
-        private static Dictionary<string, List<IAction>> ActionFromStringCache = new Dictionary<string, List<IAction>>();
+        private static System.Collections.Concurrent.ConcurrentDictionary<string, List<IAction>> ActionFromStringCache = new System.Collections.Concurrent.ConcurrentDictionary<string, List<IAction>>();
 
         private static readonly object Lock = new object();
 
@@ -251,20 +251,20 @@ namespace umbraco.BusinessLogic.Actions
 
                 var allActions = ActionsResolver.Current.Actions.ToList();
 
-            foreach (char c in actions.ToCharArray())
-            {
+                foreach (char c in actions.ToCharArray())
+                {
                     IAction action = allActions.Find(
-                    delegate(IAction a)
+                    delegate (IAction a)
                     {
                         return a.Letter == c;
                     }
                 );
-                if (action != null)
-                    list.Add(action);
-            }
+                    if (action != null)
+                        list.Add(action);
+                }
 
                 ActionFromStringCache[actions] = list;
-        }
+            }
 
             return new List<IAction>(list);
         }
@@ -279,7 +279,7 @@ namespace umbraco.BusinessLogic.Actions
             foreach (IAction a in actions)
             {
                 sb.Append(a.Letter);
-        }
+            }
 
             return sb.ToString();
         }
