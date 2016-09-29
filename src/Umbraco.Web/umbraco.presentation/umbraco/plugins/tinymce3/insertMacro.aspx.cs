@@ -214,7 +214,7 @@ namespace umbraco.presentation.tinymce3
             div += macroContent;
             div += macro.renderMacroEndTag();
 
-            _scriptOnLoad += string.Format("\t\tumbracoEditMacroDo('{0}', '{1}', '{2}');\n", macroAttributes.Replace("'", "\\'"), m.Name.Replace("'", "\\'"), div);
+            _scriptOnLoad += string.Format("\t\tumbracoEditMacroDo('{0}', '{1}', '{2}');\n", macroAttributes.Replace("'", "\\'").Replace("</script>", "</scr' + 'ipt>"), m.Name.Replace("'", "\\'"), div);
         }
     }
 }
