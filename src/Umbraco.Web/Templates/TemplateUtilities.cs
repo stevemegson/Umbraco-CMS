@@ -78,6 +78,7 @@ namespace Umbraco.Web.Templates
 	    public static string ResolveUrlsFromTextString(string text)
 		{
 		    if (UmbracoSettings.ResolveUrlsFromTextString == false) return text;
+            if (text.IndexOf('~') < 0) return text;
 
 		    using (var timer = DisposableTimer.DebugDuration(typeof(IOHelper), "ResolveUrlsFromTextString starting", "ResolveUrlsFromTextString complete"))
 		    {
