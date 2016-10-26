@@ -59,9 +59,12 @@ namespace Umbraco.Web.PropertyEditors.ValueConverters
         }
 
 	    public override object ConvertDataToSource(PublishedPropertyType propertyType, object source, bool preview)
-	    {
-	        if (source == null) return null;
-	        var sourceString = source.ToString();
+	    {	        
+            var baseResult = base.ConvertDataToSource(propertyType, source, preview);
+
+            if (baseResult == null) return null;
+
+            var sourceString = baseResult.ToString();
 
             // ensures string is parsed for {localLink} and urls are resolved correctly
             sourceString = TemplateUtilities.ParseInternalLinks(sourceString, preview);

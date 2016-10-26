@@ -384,6 +384,7 @@
     <Compile Include="textfield\TextFieldDataType.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="tinyMCE3\NoXmlTinyMCE3dataType.cs" />
     <Compile Include="tinymce\tinyMCEConfiguration.cs" />
     <Compile Include="tinymce\TinyMCEDataType.cs" />
     <Compile Include="tinymce\TinyMCELegacyControl.cs" />

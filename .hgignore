@@ -3,3 +3,5 @@ src/packages/*
 */bin/*
 */obj/*
 build/_BuildOutput/*
+src/Umbraco.Web.UI.Client/bower_components/*
+src/Umbraco.Web.UI.Client/node_modules/*

@@ -142,10 +142,15 @@
 			/// </summary>
 			public const string TinyMCEv3 = "5E9B75AE-FACE-41C8-B47E-5F4B0FD82F83";
 
-			/// <summary>
-			/// Guid for the TinyMCE wysiwyg (deprecated, upgrade to tinymce v3!) datatype.
-			/// </summary>
-			public const string TinyMCE = "83722133-F80C-4273-BDB6-1BEFAA04A612";
+            /// <summary>
+            /// Guid for the TinyMCE v3 wysiwyg datatype with values cached outside the XML cache.
+            /// </summary>
+            public const string NoXmlTinyMCE = "C78194B2-E8D2-4D5B-BA92-AC87F7A53C5C";
+            
+            /// <summary>
+            /// Guid for the TinyMCE wysiwyg (deprecated, upgrade to tinymce v3!) datatype.
+            /// </summary>
+            public const string TinyMCE = "83722133-F80C-4273-BDB6-1BEFAA04A612";
 
 			/// <summary>
 			/// Guid for the True/False (Ja/Nej) datatype.

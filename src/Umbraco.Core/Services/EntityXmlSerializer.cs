@@ -120,13 +120,19 @@ namespace Umbraco.Core.Services
             //SD: With the new null checks below, this shouldn't fail anymore.
             var dt = property.PropertyType.DataType(property.Id, dataTypeService);
             if (dt != null && dt.Data != null)
-            {
+            {                
+                object valueToSet = property.Value;
+                if ( dt.Id == new System.Guid(Constants.PropertyEditors.NoXmlTinyMCE) )
+                {
+                    valueToSet = ">>" + property.Id.ToString();
+                }
+
                 //We've already got the value for the property so we're going to give it to the 
                 // data type's data property so it doesn't go re-look up the value from the db again.
                 var defaultData = dt.Data as IDataValueSetter;
                 if (defaultData != null)
                 {
-                    defaultData.SetValue(property.Value, property.PropertyType.DataTypeDatabaseType.ToString());
+                    defaultData.SetValue(valueToSet, property.PropertyType.DataTypeDatabaseType.ToString());
                 }
 
                 xmlNode.AppendChild(dt.Data.ToXMl(xd));
@@ -185,7 +191,7 @@ namespace Umbraco.Core.Services
                 new XAttribute("path", contentBase.Path),
                 new XAttribute("isDoc", ""));
 
-            foreach (var property in contentBase.Properties.Where(p => p != null /* && p.Value != null && p.Value.ToString().IsNullOrWhiteSpace() == false */))
+            foreach (var property in contentBase.Properties.Where(p => p != null && p.Value != null && p.Value.ToString().IsNullOrWhiteSpace() == false))
             {
                 xml.Add(Serialize(dataTypeService, property));
             }
