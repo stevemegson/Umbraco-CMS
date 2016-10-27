@@ -70,7 +70,10 @@ namespace Umbraco.Web.PropertyEditors.ValueConverters
             sourceString = TemplateUtilities.ParseInternalLinks(sourceString, preview);
 	        sourceString = TemplateUtilities.ResolveUrlsFromTextString(sourceString);
             // ensure string is parsed for macros and macros are executed correctly
-            sourceString = RenderRteMacros(sourceString, preview);
+            if (UmbracoContext.Current.PageId != null)
+            {
+                sourceString = RenderRteMacros(sourceString, preview);
+            }
 
 	        return sourceString;
 	    }
