@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using Umbraco.Core.IO;
 using umbraco.cms.businesslogic.web;
+using Umbraco.Web;
 
 namespace dashboardUtilities
 {
@@ -29,28 +30,36 @@ namespace dashboardUtilities
 			Repeater1.DataBind();
 		}
 
-		public string PrintNodeName(object NodeId, object Date) 
-		{
-			if (!printedIds.Contains(NodeId) && count < MaxRecords) 
-			{
-				printedIds.Add(NodeId);
-				try 
-				{
-                    Document d = new Document(int.Parse(NodeId.ToString()));										
-					count++;
-					return
-                        "<a href=\"editContent.aspx?id=" + NodeId.ToString() + "\" style=\"text-decoration: none\"><img src=\"" + IOHelper.ResolveUrl(SystemDirectories.Umbraco) + "/images/forward.png\" align=\"absmiddle\" border=\"0\"/> " + d.Text + "</a>. " + umbraco.ui.Text("general", "edited", User.GetCurrent()) + " " + umbraco.library.ShortDateWithTimeAndGlobal(DateTime.Parse(Date.ToString()).ToString(), umbraco.ui.Culture(User.GetCurrent())) + "<br/>";
-				}
-				catch {
-					return "";
-				}
-				
-			} else
-				return "";
-		}
+        public string PrintNodeName(object nodeId, object date)
+        {
+            if (!printedIds.Contains(nodeId) && count < MaxRecords)
+            {
+                printedIds.Add(nodeId);
+                try
+                {
+                    var services = UmbracoContext.Current.Application.Services;
+                    var c = services.ContentService.GetById(int.Parse(nodeId.ToString()));                    
+                    count++;
 
-		#region Web Form Designer generated code
-		override protected void OnInit(EventArgs e)
+                    return String.Format("<a href=\"editContent.aspx?id={0}\" style=\"text-decoration: none\"><img src=\"{1}/images/forward.png\" align=\"absmiddle\" border=\"0\"/> {2}</a>. Edited {3}<br/>",
+                        nodeId.ToString(),
+                        IOHelper.ResolveUrl(SystemDirectories.Umbraco),
+                        c.Name,
+                        umbraco.library.ShortDateWithTimeAndGlobal(DateTime.Parse(date.ToString()).ToString(), umbraco.ui.Culture(UmbracoContext.Current.UmbracoUser))                        
+                        );
+                }
+                catch
+                {
+                    return "";
+                }
+
+            }
+            else
+                return "";
+        }
+
+        #region Web Form Designer generated code
+        override protected void OnInit(EventArgs e)
 		{
 			//
 			// CODEGEN: This call is required by the ASP.NET Web Form Designer.
