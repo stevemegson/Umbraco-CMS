@@ -485,12 +485,12 @@ namespace umbraco
             var xpath = UmbracoSettings.UseLegacyXmlSchema
                             ? "./node"
                             : "./* [@id]";
-
+                        
             XmlHelper.SortNodes(
                 parentNode,
                 xpath,
-                element => element.Attribute("id") != null,
-                element => element.AttributeValue<int>("sortOrder"));            
+                element => element.HasAttribute("id") ,
+                element => element.AttributeValue<int>("sortOrder"));
         }
 
 

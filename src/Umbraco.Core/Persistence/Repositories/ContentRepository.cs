@@ -569,6 +569,17 @@ namespace Umbraco.Core.Persistence.Repositories
             return repo.GetPermissionsForEntity(entityId);
         }
 
+        public void PersistSortOrder(IContent entity)
+        {
+            var factory = new ContentFactory(NodeObjectTypeId, entity.Id);
+            //Look up Content entry to get Primary for updating the DTO
+            var contentDto = Database.SingleOrDefault<ContentDto>("WHERE nodeId = @Id", new { Id = entity.Id });
+            factory.SetPrimaryKey(contentDto.PrimaryKey);
+
+            var dto = factory.BuildDto(entity);
+            Database.Update(dto.ContentVersionDto.ContentDto.NodeDto);
+        }
+
         /// <summary>
         /// Adds/updates content/published xml
         /// </summary>

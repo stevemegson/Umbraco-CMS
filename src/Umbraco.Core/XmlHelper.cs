@@ -137,20 +137,21 @@ namespace Umbraco.Core
 	    internal static void SortNodes(
             XmlNode parentNode, 
             string childXPathSelector, 
-            Func<XElement, bool> childSelector,
-            Func<XElement, object> orderByValue)
+            Func<XmlElement, bool> childSelector,
+            Func<XmlElement, object> orderByValue)
 	    {
 
-            var xElement = parentNode.ToXElement();
-            var children = xElement.Elements().Where(x => childSelector(x)).ToArray(); //(DONT conver to method group, the build server doesn't like it)
+            //var xElement = parentNode.ToXElement();
+            var children = parentNode.ChildNodes.OfType<XmlElement>().Where(x => childSelector(x)).ToArray(); //(DONT conver to method group, the build server doesn't like it)
             
             var data = children
-                .OrderByDescending(orderByValue)     //order by the sort order desc
-                .Select(x => children.IndexOf(x))   //store the current item's index (DONT conver to method group, the build server doesn't like it)
+                .Select((x,i) => new { element = x, index = i })
+                .OrderByDescending(x => orderByValue(x.element))     //order by the sort order desc
+                .Select(x => x.index)   //store the current item's index (DONT conver to method group, the build server doesn't like it)
                 .ToList();
 
             //get the minimum index that a content node exists  in the parent
-            var minElementIndex = xElement.Elements()
+            var minElementIndex = parentNode.ChildNodes.OfType<XmlElement>()
                 .TakeWhile(x => childSelector(x) == false)
                 .Count();
 

@@ -1387,13 +1387,21 @@ namespace Umbraco.Core.Services
                             continue;
                         }
 
+                        
                         content.SortOrder = i;
-                        content.WriterId = userId;
+                        //content.WriterId = userId;
                         i++;
+
+                        (repository as ContentRepository).PersistSortOrder(content);
+
+                        if ( content is Content)
+                        {
+                            (content as Content).ResetDirtyProperties();
+                        }
 
                         if (content.Published)
                         {
-                            var published = _publishingStrategy.Publish(content, userId);
+                            //var published = _publishingStrategy.Publish(content, userId);
                             shouldBePublished.Add(content);
                             shouldBeSaved.Add(content);
                         }
@@ -1402,7 +1410,7 @@ namespace Umbraco.Core.Services
                             shouldBeSaved.Add(content);
                         }
 
-                        repository.AddOrUpdate(content);
+                        //repository.AddOrUpdate(content);
                         //add or update a preview
                         repository.AddOrUpdatePreviewXml(content, c => _entitySerializer.Serialize(this, _dataTypeService, c));
                     }
