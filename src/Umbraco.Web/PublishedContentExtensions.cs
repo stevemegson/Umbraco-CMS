@@ -1259,8 +1259,19 @@ namespace Umbraco.Web
             yield return content;
 
             foreach (var child in content.Children)
-                foreach (var child2 in child.EnumerateDescendants())
-                    yield return child2;
+            {
+                if (child.Children.Any())
+                {
+                    foreach (var child2 in child.EnumerateDescendants())
+                    {
+                        yield return child2;
+                    }
+                }
+                else
+                {
+                    yield return child;
+                }
+            }
         }
         
         #endregion
