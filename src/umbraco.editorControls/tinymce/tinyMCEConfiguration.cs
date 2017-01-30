@@ -11,6 +11,7 @@ namespace umbraco.editorControls.tinymce
     public class tinyMCEConfiguration
     {
         private static bool _init = false;
+        private static object _initLock = new object();
 
         private static Hashtable _commands = new Hashtable(StringComparer.InvariantCultureIgnoreCase);
 
@@ -101,75 +102,81 @@ namespace umbraco.editorControls.tinymce
 
         private static void init()
         {
-            // Load config
-            XmlDocument xd = new XmlDocument();
-            xd.Load(IOHelper.MapPath( SystemFiles.TinyMceConfig ));
-
-            foreach (XmlNode n in xd.DocumentElement.SelectNodes("//command"))
+            lock (_initLock)
             {
-                if (!_commands.ContainsKey(n.SelectSingleNode("./umbracoAlias").FirstChild.Value))
+                if (!_init)
                 {
-                    bool isStyle = false;
-                    if (n.Attributes.GetNamedItem("isStyle") != null)
-                        isStyle = bool.Parse(n.Attributes.GetNamedItem("isStyle").Value);
+                    // Load config
+                    XmlDocument xd = new XmlDocument();
+                    xd.Load(IOHelper.MapPath(SystemFiles.TinyMceConfig));
 
-                    _commands.Add(
-                        n.SelectSingleNode("./umbracoAlias").FirstChild.Value.ToLower(),
-                        new tinyMCECommand(
-                            isStyle,
-                            n.SelectSingleNode("./icon").FirstChild.Value,
-                            n.SelectSingleNode("./tinyMceCommand").FirstChild.Value,
-                            n.SelectSingleNode("./umbracoAlias").FirstChild.Value.ToLower(),
-                            n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("userInterface").Value,
-                            n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("frontendCommand").Value,
-                            n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("value").Value,
-                            int.Parse(n.SelectSingleNode("./priority").FirstChild.Value)
-                            ));
+                    foreach (XmlNode n in xd.DocumentElement.SelectNodes("//command"))
+                    {
+                        if (!_commands.ContainsKey(n.SelectSingleNode("./umbracoAlias").FirstChild.Value))
+                        {
+                            bool isStyle = false;
+                            if (n.Attributes.GetNamedItem("isStyle") != null)
+                                isStyle = bool.Parse(n.Attributes.GetNamedItem("isStyle").Value);
+
+                            _commands.Add(
+                                n.SelectSingleNode("./umbracoAlias").FirstChild.Value.ToLower(),
+                                new tinyMCECommand(
+                                    isStyle,
+                                    n.SelectSingleNode("./icon").FirstChild.Value,
+                                    n.SelectSingleNode("./tinyMceCommand").FirstChild.Value,
+                                    n.SelectSingleNode("./umbracoAlias").FirstChild.Value.ToLower(),
+                                    n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("userInterface").Value,
+                                    n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("frontendCommand").Value,
+                                    n.SelectSingleNode("./tinyMceCommand").Attributes.GetNamedItem("value").Value,
+                                    int.Parse(n.SelectSingleNode("./priority").FirstChild.Value)
+                                    ));
+                        }
+                    }
+
+                    foreach (XmlNode n in xd.DocumentElement.SelectNodes("//plugin"))
+                    {
+                        if (!_plugins.ContainsKey(n.FirstChild.Value))
+                        {
+                            bool useOnFrontend = false;
+                            if (n.Attributes.GetNamedItem("loadOnFrontend") != null)
+                                useOnFrontend = bool.Parse(n.Attributes.GetNamedItem("loadOnFrontend").Value);
+
+                            _plugins.Add(
+                                n.FirstChild.Value.ToLower(),
+                                new tinyMCEPlugin(
+                                    n.FirstChild.Value,
+                                    useOnFrontend));
+                        }
+                    }
+
+                    foreach (XmlNode n in xd.DocumentElement.SelectNodes("//config"))
+                    {
+                        if (!_configOptions.ContainsKey(n.Attributes["key"].FirstChild.Value))
+                        {
+                            var value = "";
+                            if (n.FirstChild != null)
+                                value = n.FirstChild.Value;
+
+                            _configOptions.Add(
+                                n.Attributes["key"].FirstChild.Value.ToLower(),
+                                value);
+                        }
+                    }
+
+                    if (xd.DocumentElement.SelectSingleNode("./invalidElements") != null)
+                        _invalidElements = xd.DocumentElement.SelectSingleNode("./invalidElements").FirstChild.Value;
+                    if (xd.DocumentElement.SelectSingleNode("./validElements") != null)
+                    {
+                        string _val = xd.DocumentElement.SelectSingleNode("./validElements").FirstChild.Value.Replace("\r", "");
+                        foreach (string s in _val.Split("\n".ToCharArray()))
+                            _validElements += "'" + s + "' + \n";
+                        _validElements = _validElements.Substring(0, _validElements.Length - 4);
+
+                    }
+
+                    _init = true;
                 }
             }
-
-            foreach (XmlNode n in xd.DocumentElement.SelectNodes("//plugin"))
-            {
-                if (!_plugins.ContainsKey(n.FirstChild.Value))
-                {
-                    bool useOnFrontend = false;
-                    if (n.Attributes.GetNamedItem("loadOnFrontend") != null)
-                        useOnFrontend = bool.Parse(n.Attributes.GetNamedItem("loadOnFrontend").Value);
-
-                    _plugins.Add(
-                        n.FirstChild.Value.ToLower(),
-                        new tinyMCEPlugin(
-                            n.FirstChild.Value,
-                            useOnFrontend));
-                }
-            }
-
-            foreach (XmlNode n in xd.DocumentElement.SelectNodes("//config"))
-            {
-                if (!_configOptions.ContainsKey(n.Attributes["key"].FirstChild.Value))
-                {
-                    var value = "";
-                    if (n.FirstChild != null)
-                        value = n.FirstChild.Value;
-
-                    _configOptions.Add(
-                        n.Attributes["key"].FirstChild.Value.ToLower(),
-                        value);
-                }
-            }
-
-            if (xd.DocumentElement.SelectSingleNode("./invalidElements") != null)
-                _invalidElements = xd.DocumentElement.SelectSingleNode("./invalidElements").FirstChild.Value;
-            if (xd.DocumentElement.SelectSingleNode("./validElements") != null)
-            {
-                string _val = xd.DocumentElement.SelectSingleNode("./validElements").FirstChild.Value.Replace("\r", "");
-                foreach (string s in _val.Split("\n".ToCharArray()))
-                    _validElements += "'" + s + "' + \n";
-                _validElements = _validElements.Substring(0, _validElements.Length - 4);
-
-            }
-
-            _init = true;
         }
     }
 

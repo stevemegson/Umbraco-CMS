@@ -7,6 +7,7 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.IO;
 
 using System.Web.Security;
@@ -21,7 +22,7 @@ namespace umbraco.cms.businesslogic.web
     /// </summary>
     public class Access
     {
-        static private readonly Hashtable CheckedPages = new Hashtable();
+        static private readonly ConcurrentDictionary<int,bool> CheckedPages = new ConcurrentDictionary<int, bool>();
 
         static private volatile XmlDocument _accessXmlContent;
         static private string _accessXmlFilePath;
@@ -630,7 +631,7 @@ namespace umbraco.cms.businesslogic.web
 
             bool isProtected = false;
 
-            if (CheckedPages.ContainsKey(DocumentId) == false)
+            if (! CheckedPages.TryGetValue(DocumentId, out isProtected))
             {
                 foreach (string id in Path.Split(','))
                 {
@@ -641,14 +642,7 @@ namespace umbraco.cms.businesslogic.web
                     }
                 }
 
-                if (CheckedPages.ContainsKey(DocumentId) == false)
-                {
-                    CheckedPages.Add(DocumentId, isProtected);
-                }
-            }
-            else
-            {
-                isProtected = (bool)CheckedPages[DocumentId];
+                CheckedPages[DocumentId] = isProtected;                
             }
 
             return isProtected;
