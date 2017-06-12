@@ -21,6 +21,7 @@ namespace umbraco.cms.businesslogic.macro
         private static List<MacroPropertyType> m_allPropertyTypes = new List<MacroPropertyType>();
         private static Dictionary<string, MacroPropertyType> _allPropertyTypesByAlias;
         private static Dictionary<int, MacroPropertyType> _allPropertyTypesById;
+        private static object _getAllLock = new object();
 
         protected static ISqlHelper SqlHelper
         {
@@ -33,11 +34,17 @@ namespace umbraco.cms.businesslogic.macro
             {
                 if (m_allPropertyTypes.Count == 0)
                 {
-                    using (IRecordsReader dr = SqlHelper.ExecuteReader("select id from cmsMacroPropertyType order by macroPropertyTypeAlias"))
+                    lock(_getAllLock)
                     {
-                        while (dr.Read())
+                        if (m_allPropertyTypes.Count == 0)
                         {
-                            m_allPropertyTypes.Add(new MacroPropertyType(dr.GetShort("id")));
+                            using (IRecordsReader dr = SqlHelper.ExecuteReader("select id from cmsMacroPropertyType order by macroPropertyTypeAlias"))
+                            {
+                                while (dr.Read())
+                                {
+                                    m_allPropertyTypes.Add(new MacroPropertyType(dr.GetShort("id")));
+                                }
+                            }
                         }
                     }
                 }
