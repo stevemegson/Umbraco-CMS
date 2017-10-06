@@ -50,6 +50,10 @@ namespace Umbraco.Web.Mvc
             {
                 return ConstraintShouldMatchForPage(pcr.PublishedContent);
             }
+            else if ( pcr.IsRedirect)
+            {
+                return true;
+            }
             else
             {
                 using (new WriteLock(_lock))
