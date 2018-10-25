@@ -47,7 +47,17 @@ namespace umbraco.presentation.webservices
             if (ValidateCredentials(username, password))
             {
                 var u = new BusinessLogic.User(username);
-                BasePage.doLogin(u);
+
+                var currentUserId = BasePage.GetUserId(BasePage.umbracoUserContextID);
+                if (currentUserId == u.Id)
+                {
+                    BasePage.RenewLoginTimeout();
+                }
+                else
+                {
+                    BasePage.doLogin(u);
+                }
+
                 return true;
             }
             else
