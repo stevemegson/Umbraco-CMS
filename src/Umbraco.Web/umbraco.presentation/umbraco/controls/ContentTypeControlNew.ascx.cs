@@ -284,7 +284,7 @@ namespace umbraco.controls
                 }, _contentType.Alias, _contentType.Text, txtAlias.Text, txtName.Text, _contentType.PropertyTypes.Select(x => x.Alias).ToArray());
 
             //Add the async operation to the page
-            Page.RegisterAsyncTask(new PageAsyncTask(BeginAsyncSaveOperation, EndAsyncSaveOperation, HandleAsyncSaveTimeout, state));
+            Page.RegisterAsyncTask(new PageAsyncTask(BeginAsyncSaveOperation, EndAsyncSaveOperation, null /*HandleAsyncSaveTimeout*/, state));
             
             //create the save task to be executed async
             _asyncSaveTask = asyncState =>
@@ -1039,7 +1039,7 @@ jQuery(document).ready(function() {{ refreshDropDowns(); }});
                 (GenericPropertyWrapper)sender);
 
             //Add the async operation to the page
-            Page.RegisterAsyncTask(new PageAsyncTask(BeginAsyncDeleteOperation, EndAsyncDeleteOperation, HandleAsyncSaveTimeout, state));
+            Page.RegisterAsyncTask(new PageAsyncTask(BeginAsyncDeleteOperation, EndAsyncDeleteOperation, null /*HandleAsyncSaveTimeout*/, state));
 
             //create the save task to be executed async
             _asyncDeleteTask = asyncState =>

@@ -26,7 +26,7 @@ namespace umbraco.editorControls
                 // Don't query if there's nothing to query for..
                 if (string.IsNullOrWhiteSpace(Value.ToString()) == false)
                 {
-                    var dr = SqlHelper.ExecuteReader(string.Format("Select [value] from cmsDataTypeprevalues where id in ({0})", SqlHelper.EscapeString(Value.ToString())));
+                    var dr = SqlHelper.ExecuteReader(string.Format("Select [value] from cmsDataTypeprevalues where id in ({0}) order by sortorder", SqlHelper.EscapeString(Value.ToString())));
 
                     while (dr.Read())
                     {
