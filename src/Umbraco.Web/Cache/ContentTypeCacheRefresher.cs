@@ -194,7 +194,7 @@ namespace Umbraco.Web.Cache
                     //and, don't refresh the cache if it is new.
                     if (payload.Type == typeof(IContentType).Name
                         && !payload.IsNew 
-                        && (payload.WasDeleted || payload.AliasChanged || payload.PropertyRemoved))
+                        && (payload.WasDeleted || payload.AliasChanged))
                     {
                         needsContentRefresh = true;
                     }
