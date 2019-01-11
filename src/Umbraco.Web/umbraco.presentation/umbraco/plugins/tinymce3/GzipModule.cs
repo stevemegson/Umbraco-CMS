@@ -122,7 +122,12 @@ namespace umbraco.presentation.plugins.tinymce3
             gzipCompressor.DiskCache = !String.IsNullOrEmpty(configSection["GzipDiskCache"]) ? bool.Parse(configSection["GzipDiskCache"]) : false;
             gzipCompressor.CachePath = configSection["GzipCachePath"];
 
-            gzipCompressor.Compress(response.OutputStream);
+            try
+            {
+                gzipCompressor.Compress(response.OutputStream);
+            }
+            catch (HttpException)
+            { }
         }
     }
 }
