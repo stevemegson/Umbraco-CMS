@@ -66,13 +66,18 @@ namespace umbraco.presentation.umbraco.Search
 				foreach (var word in words)
 					operation = operation.And().GroupedOr(new[] { "__nodeName" }, new[] { word });
 
+                operation.Compile();
+
                 // ensure the user can only find nodes they are allowed to see
                 if (UmbracoContext.Current.UmbracoUser.StartNodeId > 0)
                 {
-                    operation = operation.And().Id(UmbracoContext.Current.UmbracoUser.StartNodeId);
+                    var descendantPath = string.Format(@"\-1\,*{0}\,*", UmbracoContext.Current.UmbracoUser.StartNodeId);
+                    var rawQuery = string.Format("{0}:{1}", UmbracoContentIndexer.IndexPathFieldName, descendantPath);
+
+                    criteria.RawQuery(rawQuery);
                 }
 
-                results = internalSearcher.Search(operation.Compile());
+                results = internalSearcher.Search(criteria);
             }
 
             JavaScriptSerializer js = new JavaScriptSerializer();
