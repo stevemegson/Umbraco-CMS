@@ -17,11 +17,19 @@ namespace Umbraco.Web.Mvc
         private static HashSet<string> _failedMatches = new HashSet<string>();
         private static readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
 
-        public static void UncacheFailure(string path )
+        public static void UncacheFailure(string url )
         {
             using (new WriteLock(_lock))
             {
-                _failedMatches.Remove(path);
+                _failedMatches.Remove(url.ToLower());
+            }
+        }
+        public static void UncacheFailureByPrefix(string urlPrefix)
+        {
+            using (new WriteLock(_lock))
+            {
+                string prefix = urlPrefix.ToLower();
+                _failedMatches.RemoveWhere(u => u.StartsWith(prefix));
             }
         }
 
@@ -35,7 +43,7 @@ namespace Umbraco.Web.Mvc
 
             using (new ReadLock(_lock))
             {
-                if (_failedMatches.Contains(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path)))
+                if (_failedMatches.Contains(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path).ToLower()))
                 {
                     return false;
                 }
@@ -58,7 +66,7 @@ namespace Umbraco.Web.Mvc
             {
                 using (new WriteLock(_lock))
                 {
-                    _failedMatches.Add(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path));
+                    _failedMatches.Add(umbracoContext.CleanedUmbracoUrl.GetLeftPart(UriPartial.Path).ToLower());
                 }
 
                 return false;
