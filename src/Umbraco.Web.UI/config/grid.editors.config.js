@@ -3,7 +3,8 @@
         "name": "Rich text editor",
         "alias": "rte",
         "view": "rte",
-        "icon": "icon-article"
+        "icon": "icon-article",
+        "editorAlias": "Umbraco.TinyMCE"
     },
     {
         "name": "Image",

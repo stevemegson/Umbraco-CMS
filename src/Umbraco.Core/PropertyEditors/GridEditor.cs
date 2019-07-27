@@ -38,6 +38,9 @@ namespace Umbraco.Core.PropertyEditors
         [JsonProperty("icon", Required = Required.Always)]
         public string Icon { get; set; }
 
+        [JsonProperty("editorAlias")]
+        public string EditorAlias { get; set; }
+
         [JsonProperty("config")]
         public IDictionary<string, object> Config { get; set; }
 
