@@ -53,26 +53,19 @@ function iconHelper($q, $timeout) {
         { oldIcon: ".sprTreeNewsletter", newIcon: "icon-file-text-alt" },
         { oldIcon: ".sprTreePackage", newIcon: "icon-box" },
         { oldIcon: ".sprTreeRepository", newIcon: "icon-server-alt" },
-        
-        { oldIcon: ".sprTreeSettingDataType", newIcon: "icon-autofill" },
 
-        // TODO: Something needs to be done with the old tree icons that are commented out.
-        /*
-        { oldIcon: ".sprTreeSettingAgent", newIcon: "" },
-        { oldIcon: ".sprTreeSettingCss", newIcon: "" },
-        { oldIcon: ".sprTreeSettingCssItem", newIcon: "" },
-        
-        { oldIcon: ".sprTreeSettingDataTypeChild", newIcon: "" },
-        { oldIcon: ".sprTreeSettingDomain", newIcon: "" },
-        { oldIcon: ".sprTreeSettingLanguage", newIcon: "" },
-        { oldIcon: ".sprTreeSettingScript", newIcon: "" },
-        { oldIcon: ".sprTreeSettingTemplate", newIcon: "" },
-        { oldIcon: ".sprTreeSettingXml", newIcon: "" },
-        { oldIcon: ".sprTreeStatistik", newIcon: "" },
-        { oldIcon: ".sprTreeUser", newIcon: "" },
-        { oldIcon: ".sprTreeUserGroup", newIcon: "" },
-        { oldIcon: ".sprTreeUserType", newIcon: "" },
-        */
+        { oldIcon: ".sprTreeSettingAgent", newIcon: "icon-traffic-alt" },
+        { oldIcon: ".sprTreeSettingDataType", newIcon: "icon-autofill" },
+        { oldIcon: ".sprTreeSettingDomain", newIcon: "icon-home" },
+        { oldIcon: ".sprTreeSettingScript", newIcon: "icon-script-alt" },
+        { oldIcon: ".sprTreeSettingTemplate", newIcon: "icon-layout" },
+        { oldIcon: ".sprTreeSettingXml", newIcon: "icon-code" },
+
+        { oldIcon: ".sprTreeUser", newIcon: "icon-user" },
+        { oldIcon: ".sprTreeUserGroup", newIcon: "icon-users" },
+        { oldIcon: ".sprTreeUserType", newIcon: "icon-users" },
+
+        { oldIcon: ".sprTreeStatistik", newIcon: "icon-bar-chart" },     
 
         { oldIcon: "folder.png", newIcon: "icon-folder" },
         { oldIcon: "mediaphoto.gif", newIcon: "icon-picture" },
@@ -80,9 +73,15 @@ function iconHelper($q, $timeout) {
 
         { oldIcon: ".sprTreeDeveloperCacheItem", newIcon: "icon-box" },
         { oldIcon: ".sprTreeDeveloperCacheTypes", newIcon: "icon-box" },
-        { oldIcon: ".sprTreeDeveloperMacro", newIcon: "icon-cogs" },
+        { oldIcon: ".sprTreeDeveloperMacro", newIcon: "icon-settings-alt" },
         { oldIcon: ".sprTreeDeveloperRegistry", newIcon: "icon-windows" },
-        { oldIcon: ".sprTreeDeveloperPython", newIcon: "icon-linux" }
+        { oldIcon: ".sprTreeDeveloperPython", newIcon: "icon-linux" },
+
+        { oldIcon: ".sprTreeSettingCss", newIcon: "settingCss.gif" },
+        { oldIcon: ".sprTreeSettingCssItem", newIcon: "settingCssItem.gif" },
+        { oldIcon: ".sprTreeSettingDataTypeChild", newIcon: "settingDataTypeChild.gif" },
+        { oldIcon: ".sprTreeSettingLanguage", newIcon: "settingLanguage.gif" }
+
     ];
 
     var imageConverter = [
