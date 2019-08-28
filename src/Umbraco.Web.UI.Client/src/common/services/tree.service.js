@@ -137,14 +137,14 @@ function treeService($q, treeResource, iconHelper, notificationsService, eventsS
                     treeNode.cssClass = standardCssClass + " " + converted;
                     if (converted.startsWith('.')) {
                         //its legacy so add some width/height
-                        treeNode.style = "height:16px;width:16px;";
+                        treeNode.style = { height: '16px', width: '16px' };
                     }
                     else {
-                        treeNode.style = "";
+                        treeNode.style = {};
                     }
                 }
                 else {
-                    treeNode.style = "background-image: url('" + treeNode.iconFilePath + "');";
+                    treeNode.style = { 'background-image': 'url(\'' + treeNode.iconFilePath + '\')' };
                     //we need an 'icon-' class in there for certain styles to work so if it is image based we'll add this
                     treeNode.cssClass = standardCssClass + " legacy-custom-file";
                 }
