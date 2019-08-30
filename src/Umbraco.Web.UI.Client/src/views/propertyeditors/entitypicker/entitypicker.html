@@ -1,5 +1,4 @@
-<div ng-controller="Umbraco.PropertyEditors.EntityPickerController" ng-switch="model.config.multiple">
-    
+<div ng-controller="Umbraco.PropertyEditors.EntityPickerController" ng-switch="model.config.multiple">        
     <select name="contentTypeList"
         class="umb-property-editor umb-dropdown"
         ng-switch-default
@@ -10,7 +9,7 @@
     <!--NOTE: This ng-switch is required because ng-multiple doesn't actually support dynamic bindings with multi-select lists -->
     <select name="contentTypeList"
         class="umb-property-editor umb-dropdown"
-        ng-switch-when="1"
+        ng-switch-when="true"
         multiple
         ng-model="model.value"
         ng-options="{{selectOptions}}">
