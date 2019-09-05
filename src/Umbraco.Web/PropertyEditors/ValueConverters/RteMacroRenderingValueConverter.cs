@@ -57,8 +57,8 @@ namespace Umbraco.Web.PropertyEditors.ValueConverters
                     (macroAlias, macroAttributes) => sb.Append(_macroRenderer.Render(
                         macroAlias,
                         umbracoContext.PublishedRequest?.PublishedContent,
-                        //needs to be explicitly casted to Dictionary<string, object>
-                        macroAttributes.ConvertTo(x => (string)x, x => x)).GetAsText()));
+                        //needs to be explicitly casted to Dictionary<string, object> and HTML decoded
+                        macroAttributes.ConvertTo(x => (string)x, x => (x is string) ? HttpUtility.HtmlDecode((string)x) : x)).GetAsText()));
 
                 return sb.ToString();
             }
