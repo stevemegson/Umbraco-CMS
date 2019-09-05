@@ -98,6 +98,10 @@ namespace Umbraco.Web.Macros
             {
                 return string.Empty;
             }
+            if (! rteContent.Contains("<?UMBRACO_MACRO"))
+            {
+                return rteContent;
+            }
 
             var html = new HtmlDocument();
             html.LoadHtml(rteContent);
