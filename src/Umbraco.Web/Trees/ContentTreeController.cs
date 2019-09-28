@@ -60,56 +60,58 @@ namespace Umbraco.Web.Trees
         {
             var culture = queryStrings?["culture"];
 
-            var allowedUserOptions = GetAllowedUserMenuItemsForNode(entity);
-            if (CanUserAccessNode(entity, allowedUserOptions, culture))
+            //Special check to see if it is a container, if so then we'll hide children.
+            var isContainer = entity.IsContainer;   // && (queryStrings.Get("isDialog") != "true");
+
+            var node = CreateTreeNode(
+                entity,
+                Constants.ObjectTypes.Document,
+                parentId,
+                queryStrings,
+                entity.HasChildren);
+
+            // set container style if it is one
+            if (isContainer)
             {
-                //Special check to see if it is a container, if so then we'll hide children.
-                var isContainer = entity.IsContainer;   // && (queryStrings.Get("isDialog") != "true");
-
-                var node = CreateTreeNode(
-                    entity,
-                    Constants.ObjectTypes.Document,
-                    parentId,
-                    queryStrings,
-                    entity.HasChildren);
-
-                // set container style if it is one
-                if (isContainer)
-                {
-                    node.AdditionalData.Add("isContainer", true);
-                    node.SetContainerStyle();
-                }
-
-                var documentEntity = (IDocumentEntitySlim)entity;
-
-                if (!documentEntity.Variations.VariesByCulture())
-                {
-                    if (!documentEntity.Published)
-                        node.SetNotPublishedStyle();
-                    else if (documentEntity.Edited)
-                        node.SetHasPendingVersionStyle();
-                }
-                else
-                {
-                    if (!culture.IsNullOrWhiteSpace())
-                    {
-                        if (!documentEntity.Published || !documentEntity.PublishedCultures.Contains(culture))
-                            node.SetNotPublishedStyle();
-                        else if (documentEntity.EditedCultures.Contains(culture))
-                            node.SetHasPendingVersionStyle();
-                    }
-                }
-
-                node.AdditionalData.Add("variesByCulture", documentEntity.Variations.VariesByCulture());
-                node.AdditionalData.Add("contentType", documentEntity.ContentTypeAlias);
-
-                if (Services.PublicAccessService.IsProtected(entity.Path))
-                    node.SetProtectedStyle();
-
-                return node;
+                node.AdditionalData.Add("isContainer", true);
+                node.SetContainerStyle();
             }
 
-            return null;
+            var documentEntity = (IDocumentEntitySlim)entity;
+
+            if (!documentEntity.Variations.VariesByCulture())
+            {
+                if (!documentEntity.Published)
+                    node.SetNotPublishedStyle();
+                else if (documentEntity.Edited)
+                    node.SetHasPendingVersionStyle();
+            }
+            else
+            {
+                if (!culture.IsNullOrWhiteSpace())
+                {
+                    if (!documentEntity.Published || !documentEntity.PublishedCultures.Contains(culture))
+                        node.SetNotPublishedStyle();
+                    else if (documentEntity.EditedCultures.Contains(culture))
+                        node.SetHasPendingVersionStyle();
+                }
+            }
+
+            node.AdditionalData.Add("variesByCulture", documentEntity.Variations.VariesByCulture());
+            node.AdditionalData.Add("contentType", documentEntity.ContentTypeAlias);
+
+            if (Services.PublicAccessService.IsProtected(entity.Path))
+                node.SetProtectedStyle();
+
+            return node;
+        }
+
+        protected override IEnumerable<IEntitySlim> FilterForUserHasAccess(IEnumerable<IEntitySlim> entities)
+        {
+            var permissions = Services.UserService.GetPermissions(Security.CurrentUser, entities.Select(e => e.Id).ToArray());
+            var accessibleIds = permissions.Where(p => p.AssignedPermissions.Contains("F")).Select(p => p.EntityId).ToArray();
+
+            return entities.Where(x => accessibleIds.Contains(x.Id)).ToArray();
         }
 
         protected override MenuItemCollection PerformGetMenuForNode(string id, FormDataCollection queryStrings)

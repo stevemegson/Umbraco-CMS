@@ -63,6 +63,9 @@ namespace Umbraco.Web.Trees
                 throw new HttpResponseException(Request.CreateResponse(HttpStatusCode.NotFound));
             }
 
+            if (!FilterForUserHasAccess(entity.AsEnumerableOfOne()).Any())
+                return null;
+
             var node = GetSingleTreeNode(entity, entity.ParentId.ToInvariantString(), queryStrings);
 
             //add the tree alias to the node since it is standalone (has no root for which this normally belongs)
@@ -90,6 +93,11 @@ namespace Umbraco.Web.Trees
         }
 
         protected abstract TreeNode GetSingleTreeNode(IEntitySlim entity, string parentId, FormDataCollection queryStrings);
+
+        protected virtual IEnumerable<IEntitySlim> FilterForUserHasAccess(IEnumerable<IEntitySlim> entities)
+        {
+            return entities;
+        }
 
         /// <summary>
         /// Returns a <see cref="TreeNode"/> for the <see cref="IUmbracoEntity"/> and
@@ -190,7 +198,8 @@ namespace Umbraco.Web.Trees
 
             // get child entities - if id is root, but user's start nodes do not contain the
             // root node, this returns the start nodes instead of root's children
-            var entities = GetChildEntities(id, queryStrings).ToList();
+            var entities = GetChildEntities(id, queryStrings);
+            entities = FilterForUserHasAccess(entities).ToArray();
 
             //get the current user start node/paths
             GetUserStartNodes(out var userStartNodes, out var userStartNodePaths);
@@ -206,6 +215,7 @@ namespace Umbraco.Web.Trees
                 if (topNodeIds.Length > 0)
                 {
                     var topNodes = Services.EntityService.GetAll(UmbracoObjectType, topNodeIds.ToArray());
+                    topNodes = FilterForUserHasAccess(topNodes);
                     nodes.AddRange(topNodes.Select(x => GetSingleTreeNodeWithAccessCheck(x, id, queryStrings, userStartNodes, userStartNodePaths)).Where(x => x != null));
                 }
             }
