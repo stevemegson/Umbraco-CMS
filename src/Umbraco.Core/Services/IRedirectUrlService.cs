@@ -17,6 +17,7 @@ namespace Umbraco.Core.Services
         /// <param name="culture">The culture.</param>
         /// <remarks>Is a proper Umbraco route eg /path/to/foo or 123/path/tofoo.</remarks>
         void Register(string url, Guid contentKey, string culture = null);
+        void RegisterMany(IEnumerable<Tuple<string, Guid, string>> redirects);
 
         /// <summary>
         /// Deletes all redirect urls for a given content.

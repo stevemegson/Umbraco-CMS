@@ -33,6 +33,28 @@ namespace Umbraco.Core.Services.Implement
             }
         }
 
+        public void RegisterMany(IEnumerable<Tuple<string, Guid, string>> redirects)
+        {
+            using (var scope = ScopeProvider.CreateScope())
+            {
+                foreach (var r in redirects)
+                {
+                    var url = r.Item1;
+                    var contentKey = r.Item2;
+                    var culture = r.Item3;
+
+                    var redir = _redirectUrlRepository.Get(url, contentKey, culture);
+                    if (redir != null)
+                        redir.CreateDateUtc = DateTime.UtcNow;
+                    else
+                        redir = new RedirectUrl { Key = Guid.NewGuid(), Url = url, ContentKey = contentKey, Culture = culture };
+                    _redirectUrlRepository.Save(redir);
+
+                }
+                scope.Complete();
+            }
+        }
+
         public void Delete(IRedirectUrl redirectUrl)
         {
             using (var scope = ScopeProvider.CreateScope())

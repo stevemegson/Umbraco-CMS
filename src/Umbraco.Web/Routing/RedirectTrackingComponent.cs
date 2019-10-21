@@ -120,13 +120,18 @@ namespace Umbraco.Web.Routing
         private void CreateRedirects(OldRoutesDictionary oldRoutes)
         {
             var contentCache = _publishedSnapshotAccessor.PublishedSnapshot.Content;
+            var toCreate = new List<Tuple<string, Guid, string>>();
 
             foreach (var oldRoute in oldRoutes)
             {
                 var newRoute = contentCache.GetRouteById(oldRoute.Key.ContentId, oldRoute.Key.Culture);
                 if (IsNotRoute(newRoute) || oldRoute.Value.OldRoute == newRoute) continue;
-                _redirectUrlService.Register(oldRoute.Value.OldRoute, oldRoute.Value.ContentKey, oldRoute.Key.Culture);
+
+                toCreate.Add(Tuple.Create(oldRoute.Value.OldRoute, oldRoute.Value.ContentKey, oldRoute.Key.Culture));
             }
+
+            if (toCreate.Any())
+                _redirectUrlService.RegisterMany(toCreate);
         }
 
         private static bool IsNotRoute(string route)
