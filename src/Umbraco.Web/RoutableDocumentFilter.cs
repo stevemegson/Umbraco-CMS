@@ -190,7 +190,11 @@ namespace Umbraco.Web
                 return false;
 
             //check if the current request matches a route, if so then it is reserved.
-            var hasRoute = RouteChecks.GetOrAdd(absPath, x => routes.GetRouteData(httpContext) != null);
+            var hasRoute = RouteChecks.GetOrAdd(absPath, x => {
+                var routeData = routes.GetRouteData(httpContext);
+                return routeData != null && !(routeData.RouteHandler is StopRoutingHandler);
+            });
+
             if (hasRoute)
                 return true;
 
