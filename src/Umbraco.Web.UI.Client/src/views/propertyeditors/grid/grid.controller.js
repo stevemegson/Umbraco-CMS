@@ -70,7 +70,7 @@ angular.module("umbraco")
                     ui.item[0].style.opacity = "0.5";
 
                     draggedRteSettings = {};
-                    ui.item.find(".umb-rte").each(function (key, value) {
+                    ui.item.find(".umb-rte-editor").each(function (key, value) {
                         // remove all RTEs in the dragged row and save their settings
                         var rteId = value.id;
                         var editor = _.findWhere(tinyMCE.editors, { id: rteId });
@@ -86,7 +86,7 @@ angular.module("umbraco")
                     ui.item[0].style.opacity = "1";
 
                     // reset all RTEs affected by the dragging
-                    ui.item.parents(".umb-column").find(".umb-rte").each(function (key, value) {
+                    ui.item.parents(".umb-column").find(".umb-rte-editor").each(function (key, value) {
                         var rteId = value.id;
                         var settings = draggedRteSettings[rteId];
                         if (!settings) {
@@ -180,7 +180,7 @@ angular.module("umbraco")
                         if (cancelMove) {
                             ui.item.sortable.cancel();
                         }
-                        ui.item.parents(".umb-cell-content").find(".umb-rte").each(function (key, value) {
+                        ui.item.parents(".umb-cell-content").find(".umb-rte-editor").each(function (key, value) {
                             var rteId = value.id;
 
                             if ($.inArray(rteId, notIncludedRte) < 0) {
@@ -195,7 +195,7 @@ angular.module("umbraco")
                         });
                     }
                     else {
-                        $(event.target).find(".umb-rte").each(function () {
+                        $(event.target).find(".umb-rte-editor").each(function () {
                             
                             var rteId = $(this).attr("id");
                             
@@ -228,7 +228,7 @@ angular.module("umbraco")
                     notIncludedRte = [];
                     
                     ui.item[0].style.display = "block";
-                    ui.item.find(".umb-rte").each(function (key, value) {
+                    ui.item.find(".umb-rte-editor").each(function (key, value) {
                         
                         var rteId = value.id;
                         
@@ -251,7 +251,7 @@ angular.module("umbraco")
                     // Fade in control when sorting stops
                     ui.item[0].style.opacity = "1";
 
-                    ui.item.offsetParent().find(".umb-rte").each(function (key, value) {
+                    ui.item.offsetParent().find(".umb-rte-editor").each(function (key, value) {
                         var rteId = value.id;
                         if ($.inArray(rteId, notIncludedRte) < 0) {
                             

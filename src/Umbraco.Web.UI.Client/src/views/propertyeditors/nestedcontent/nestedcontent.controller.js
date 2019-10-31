@@ -404,11 +404,6 @@ angular.module("umbraco").controller("Umbraco.PropertyEditors.NestedContent.Prop
             scroll: true,
             start: function (ev, ui) {
                 updateModel();
-                // Yea, yea, we shouldn't modify the dom, sue me
-                $("#umb-nested-content--" + $scope.model.id + " .umb-rte textarea").each(function () {
-                    tinymce.execCommand("mceRemoveEditor", false, $(this).attr("id"));
-                    $(this).css("visibility", "hidden");
-                });
                 $scope.$apply(function () {
                     $scope.sorting = true;
                 });
@@ -417,10 +412,6 @@ angular.module("umbraco").controller("Umbraco.PropertyEditors.NestedContent.Prop
                 $scope.setDirty();
             },
             stop: function (ev, ui) {
-                $("#umb-nested-content--" + $scope.model.id + " .umb-rte textarea").each(function () {
-                    tinymce.execCommand("mceAddEditor", true, $(this).attr("id"));
-                    $(this).css("visibility", "visible");
-                });
                 $scope.$apply(function () {
                     $scope.sorting = false;
                     updateModel();
