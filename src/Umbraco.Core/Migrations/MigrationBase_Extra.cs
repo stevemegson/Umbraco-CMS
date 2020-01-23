@@ -94,7 +94,12 @@ namespace Umbraco.Core.Migrations
             }
             else
             {
+                var table = DefinitionFactory.GetTableDefinition(typeof(T), SqlSyntax);
+                var column = table.Columns.First(x => x.Name == newName);
+                var createSql = SqlSyntax.Format(column, SqlSyntax.GetQuotedTableName(tableName), out var sqls);
+                
                 Execute.Sql(SqlSyntax.FormatColumnRename(tableName, currentName, newName)).Do();
+                foreach (var sql in sqls) Execute.Sql(sql).Do();
             }
         }
 
