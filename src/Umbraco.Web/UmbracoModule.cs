@@ -123,9 +123,25 @@ namespace Umbraco.Web
 			umbracoContext.PublishedContentRequest = pcr;
 			pcr.Prepare();
 
-            // HandleHttpResponseStatus returns a value indicating that the request should
-            // not be processed any further, eg because it has been redirect. then, exit.
-            if (HandleHttpResponseStatus(httpContext, pcr))
+			if (pcr.HasPublishedContent && !pcr.IsRedirect)
+			{
+				string targetPath = umbracoContext.UrlProvider.GetUrl(pcr.PublishedContent.Id, UrlProviderMode.Relative);
+				if (string.IsNullOrEmpty(httpContext.Request.Url.Query)
+					&& httpContext.Request.Url.AbsolutePath != targetPath
+					&& httpContext.Request.Url.AbsolutePath.ToLower().TrimEnd('/') == targetPath.ToLower().TrimEnd('/'))
+				{
+					httpContext.Response.RedirectPermanent(targetPath, false); // do not end response
+					if (httpContext.Response.IsClientConnected)
+						httpContext.Response.Flush();
+					// bypass everything and directly execute EndRequest event -- but returns
+					httpContext.ApplicationInstance.CompleteRequest();
+					return;
+				}
+			}
+
+			// HandleHttpResponseStatus returns a value indicating that the request should
+			// not be processed any further, eg because it has been redirect. then, exit.
+			if (HandleHttpResponseStatus(httpContext, pcr))
 		        return;
 
             if (!pcr.HasPublishedContent)
