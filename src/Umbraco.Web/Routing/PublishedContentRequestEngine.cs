@@ -673,16 +673,27 @@ namespace Umbraco.Web.Routing
 		/// <remarks>As per legacy, if the redirect does not work, we just ignore it.</remarks>
 		private void FollowExternalRedirect()
 		{
-		    if (!_pcr.HasPublishedContent) return;
+			if (!_pcr.HasPublishedContent) return;
 
-		    var redirectId = _pcr.PublishedContent.GetPropertyValue(Constants.Conventions.Content.Redirect, -1);
-		    var redirectUrl = "#";
-		    if (redirectId > 0)
-				redirectUrl = _routingContext.UrlProvider.GetUrl(redirectId);
-		    if (redirectUrl != "#")
-		        _pcr.SetRedirect(redirectUrl);
+			var content = _pcr.PublishedContent;
+			bool redirected;
+			do
+			{
+				redirected = false;
+				var redirectId = content.GetPropertyValue(Constants.Conventions.Content.Redirect, -1);
+				if (redirectId > 0)
+				{
+					var redirectUrl = _routingContext.UrlProvider.GetUrl(redirectId);
+					if (redirectUrl != "#")
+					{
+						content = _routingContext.UmbracoContext.ContentCache.GetById(redirectId);
+						_pcr.SetRedirectPermanent(redirectUrl);
+						redirected = true;
+					}
+				}
+			} while (redirected);
 		}
-	
+
 		#endregion
 	}
 }
