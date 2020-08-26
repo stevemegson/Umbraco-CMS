@@ -129,7 +129,7 @@ input.umb-table__input {
     &:hover {
         &::before {
             opacity:.33;
-        }
+    }
     }
 }
 .umb-table-body .umb-table-row.-selected.-selectable {
@@ -229,6 +229,28 @@ input.umb-table__input {
     
 }
 
+
+// Styling for when item is published or not
+.-published {
+
+}
+
+.-content .-unpublished:not(.with-unpublished-version) {
+    .umb-table__name > * {
+        opacity: .4;
+    }
+
+    .umb-table-body__icon {
+        opacity: .4;
+    }
+}
+
+.-selected.-unpublished {
+    .umb-table-body__icon {
+        opacity: 1;
+    }
+}
+
 // Table Row Styles
 .umb-table-row {
     display: flex;
@@ -321,7 +343,7 @@ input.umb-table__input {
     color: @gray-4;
 
     &:hover {
-        color: @black;
+    color: @black;
     }
 }
 
