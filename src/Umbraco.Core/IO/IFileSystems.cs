@@ -29,5 +29,10 @@
         /// Gets the MVC views filesystem.
         /// </summary>
         IFileSystem MvcViewsFileSystem { get; }
+
+        /// <summary>
+        /// Gets the MVC tenplates filesystem.
+        /// </summary>
+        IFileSystem MvcTemplatesFileSystem { get; }
     }
 }

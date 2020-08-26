@@ -3,7 +3,7 @@
 namespace Umbraco.Core.IO
 {
     //all paths has a starting but no trailing /
-    public class SystemDirectories
+	public class SystemDirectories
     {
         public static string Bin => "~/bin";
 
@@ -24,6 +24,8 @@ namespace Umbraco.Core.IO
         public static string AppPlugins => "~/App_Plugins";
 
         public static string MvcViews => "~/Views";
+        
+        public static string MvcTemplates => MvcViews + "/Templates";
 
         public static string PartialViews => MvcViews + "/Partials/";
 

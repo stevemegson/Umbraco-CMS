@@ -20,6 +20,7 @@ namespace Umbraco.Core.IO
         private ShadowWrapper _stylesheetsFileSystem;
         private ShadowWrapper _scriptsFileSystem;
         private ShadowWrapper _mvcViewsFileSystem;
+        private ShadowWrapper _mvcTemplatesFileSystem;
 
         // well-known file systems lazy initialization
         private object _wkfsLock = new object();
@@ -111,6 +112,16 @@ namespace Umbraco.Core.IO
             }
         }
 
+        /// <inheritdoc />
+        public IFileSystem MvcTemplatesFileSystem
+        {
+            get
+            {
+                if (Volatile.Read(ref _wkfsInitialized) == false) EnsureWellKnownFileSystems();
+                return _mvcTemplatesFileSystem;
+            }
+        }
+
         private void EnsureWellKnownFileSystems()
         {
             LazyInitializer.EnsureInitialized(ref _wkfsObject, ref _wkfsInitialized, ref _wkfsLock, CreateWellKnownFileSystems);
@@ -125,12 +136,14 @@ namespace Umbraco.Core.IO
             var stylesheetsFileSystem = new PhysicalFileSystem(SystemDirectories.Css);
             var scriptsFileSystem = new PhysicalFileSystem(SystemDirectories.Scripts);
             var mvcViewsFileSystem = new PhysicalFileSystem(SystemDirectories.MvcViews);
+            var mvcTemplatesFileSystem = new PhysicalFileSystem(SystemDirectories.MvcTemplates);
 
             _macroPartialFileSystem = new ShadowWrapper(macroPartialFileSystem, "macro-partials", IsScoped);
             _partialViewsFileSystem = new ShadowWrapper(partialViewsFileSystem, "partials", IsScoped);
             _stylesheetsFileSystem = new ShadowWrapper(stylesheetsFileSystem, "css", IsScoped);
             _scriptsFileSystem = new ShadowWrapper(scriptsFileSystem, "scripts", IsScoped);
             _mvcViewsFileSystem = new ShadowWrapper(mvcViewsFileSystem, "views", IsScoped);
+            _mvcTemplatesFileSystem = new ShadowWrapper(mvcTemplatesFileSystem, "templates", IsScoped);
 
             // TODO: do we need a lock here?
             _shadowWrappers.Add(_macroPartialFileSystem);
@@ -138,6 +151,7 @@ namespace Umbraco.Core.IO
             _shadowWrappers.Add(_stylesheetsFileSystem);
             _shadowWrappers.Add(_scriptsFileSystem);
             _shadowWrappers.Add(_mvcViewsFileSystem);
+            _shadowWrappers.Add(_mvcTemplatesFileSystem);
 
             return null;
         }

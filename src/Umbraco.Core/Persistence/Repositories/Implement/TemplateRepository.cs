@@ -28,7 +28,7 @@ namespace Umbraco.Core.Persistence.Repositories.Implement
         public TemplateRepository(IScopeAccessor scopeAccessor, AppCaches cache, ILogger logger, IFileSystems fileSystems)
             : base(scopeAccessor, cache, logger)
         {
-            _viewsFileSystem = fileSystems.MvcViewsFileSystem;
+            _viewsFileSystem = fileSystems.MvcTemplatesFileSystem;
             _viewHelper = new ViewHelper(_viewsFileSystem);
         }
 
@@ -583,7 +583,7 @@ namespace Umbraco.Core.Persistence.Repositories.Implement
             var path = template.VirtualPath;
 
             // get valid paths
-            var validDirs = new[] { SystemDirectories.MvcViews };
+            var validDirs = new[] { SystemDirectories.MvcTemplates };
 
             // get valid extensions
             var validExts = new List<string>();
