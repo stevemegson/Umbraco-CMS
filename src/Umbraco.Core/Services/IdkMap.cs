@@ -20,6 +20,26 @@ namespace Umbraco.Core.Services
             _scopeProvider = scopeProvider;
         }
 
+        public void PopulateCache(IEnumerable<Tuple<Guid, int>> mappings, UmbracoObjectTypes umbracoObjectType)
+        {
+            try
+            {
+                _locker.EnterWriteLock();
+
+                foreach (var mapping in mappings)
+                {
+                    _id2Key[mapping.Item2] = new TypedId<Guid>(mapping.Item1, umbracoObjectType);
+                    _key2Id[mapping.Item1] = new TypedId<int>(mapping.Item2, umbracoObjectType);
+                }
+            }
+            finally
+            {
+                if (_locker.IsWriteLockHeld)
+                    _locker.ExitWriteLock();
+            }
+        }
+
+        // note - no need for uow, scope would be enough, but a pain to wire
         // note - for pure read-only we might want to *not* enforce a transaction?
 
         // notes
@@ -166,18 +186,18 @@ namespace Umbraco.Core.Services
             {
                 using (var scope = _scopeProvider.CreateScope())
                 {
-                    //if it's unknown don't include the nodeObjectType in the query
-                    if (umbracoObjectType == UmbracoObjectTypes.Unknown)
-                    {
+                //if it's unknown don't include the nodeObjectType in the query
+                if (umbracoObjectType == UmbracoObjectTypes.Unknown)
+                {
                         val = scope.Database.ExecuteScalar<int?>("SELECT id FROM umbracoNode WHERE uniqueId=@id", new { id = key});
-                    }
-                    else
-                    {
+                }
+                else
+                {
                         val = scope.Database.ExecuteScalar<int?>("SELECT id FROM umbracoNode WHERE uniqueId=@id AND (nodeObjectType=@type OR nodeObjectType=@reservation)",
                             new { id = key, type = GetNodeObjectTypeGuid(umbracoObjectType), reservation = Constants.ObjectTypes.IdReservation });
-                    }
-                    scope.Complete();
                 }
+                    scope.Complete();
+            }
             }
 
             if (val == null) return Attempt<int>.Fail();
@@ -254,18 +274,18 @@ namespace Umbraco.Core.Services
             {
                 using (var scope = _scopeProvider.CreateScope())
                 {
-                    //if it's unknown don't include the nodeObjectType in the query
-                    if (umbracoObjectType == UmbracoObjectTypes.Unknown)
-                    {
+                //if it's unknown don't include the nodeObjectType in the query
+                if (umbracoObjectType == UmbracoObjectTypes.Unknown)
+                {
                         val = scope.Database.ExecuteScalar<Guid?>("SELECT uniqueId FROM umbracoNode WHERE id=@id", new { id });
-                    }
-                    else
-                    {
+                }
+                else
+                {
                         val = scope.Database.ExecuteScalar<Guid?>("SELECT uniqueId FROM umbracoNode WHERE id=@id AND (nodeObjectType=@type OR nodeObjectType=@reservation)",
                             new { id, type = GetNodeObjectTypeGuid(umbracoObjectType), reservation = Constants.ObjectTypes.IdReservation });
-                    }
-                    scope.Complete();
                 }
+                    scope.Complete();
+            }
             }
 
             if (val == null) return Attempt<Guid>.Fail();
@@ -353,12 +373,12 @@ namespace Umbraco.Core.Services
             public int Id { get; set; }
             public Guid UniqueId { get; set; }
             public Guid NodeObjectType { get; set; }
-        }
+            }
         // ReSharper restore ClassNeverInstantiated.Local
         // ReSharper restore UnusedAutoPropertyAccessor.Local
 
         private struct TypedId<T>
-        {
+            {
             public TypedId(T id, UmbracoObjectTypes umbracoObjectType)
             {
                 UmbracoObjectType = umbracoObjectType;
