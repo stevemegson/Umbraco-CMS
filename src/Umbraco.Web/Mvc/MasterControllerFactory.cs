@@ -99,7 +99,7 @@ namespace Umbraco.Web.Mvc
         {
             var released = false;
 
-            if (icontroller is Controller controller)
+            if (icontroller is Controller controller && controller.ControllerContext != null)
             {
                 var requestContext = controller.ControllerContext.RequestContext;
                 var factory = FactoryForRequest(requestContext);
