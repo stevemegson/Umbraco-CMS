@@ -103,7 +103,7 @@ namespace Umbraco.Core.Sync
             {
                 scope.Database.Insert(dto);
                 scope.Complete();
-            }
+        }
         }
 
         #endregion
@@ -157,7 +157,7 @@ namespace Umbraco.Core.Sync
                 Initialize(scope.Database); // boot
 
                 scope.Complete();
-            }
+        }
         }
 
         /// <summary>
@@ -446,6 +446,11 @@ namespace Umbraco.Core.Sync
                 new { pruneDate, maxId });
 
             database.Execute(delete);
+
+            delete = new Sql().Append(@"DELETE FROM umbracoCacheFile WHERE utcStamp < @pruneDate",
+                new { pruneDate });
+
+            database.Execute(delete);
         }
 
         /// <summary>
@@ -476,7 +481,7 @@ namespace Umbraco.Core.Sync
             {
                 var sql = Sql().SelectAll()
                     .From<CacheInstructionDto>()
-                    .Where<CacheInstructionDto>(dto => dto.Id == _lastId);
+                .Where<CacheInstructionDto>(dto => dto.Id == _lastId);
 
                 var dtos = database.Fetch<CacheInstructionDto>(sql);
 

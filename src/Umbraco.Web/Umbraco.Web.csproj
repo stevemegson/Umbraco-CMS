@@ -122,10 +122,12 @@
     <Compile Include="AreaRegistrationContextExtensions.cs" />
     <Compile Include="AspNetHttpContextAccessor.cs" />
     <Compile Include="BlockListTemplateExtensions.cs" />
+    <Compile Include="Cache\ArbitraryCacheRefresher.cs" />
     <Compile Include="Cache\DistributedCacheBinder.cs" />
     <Compile Include="Cache\DistributedCacheBinderComposer.cs" />
     <Compile Include="Cache\DistributedCacheBinder_Handlers.cs" />
     <Compile Include="Cache\ContentCacheRefresher.cs" />
+    <Compile Include="Cache\FileSystemCacheRefresher.cs" />
     <Compile Include="Cache\IDistributedCacheBinder.cs" />
     <Compile Include="Cache\UserGroupCacheRefresher.cs" />
     <Compile Include="Cache\UserGroupPermissionsCacheRefresher.cs" />
@@ -285,6 +287,8 @@
     <Compile Include="Models\Link.cs" />
     <Compile Include="Models\LinkType.cs" />
     <Compile Include="Models\TemplateQuery\OperatorFactory.cs" />
+    <Compile Include="SyncFileSystem\CacheFileDto.cs" />
+    <Compile Include="SyncFileSystem\SyncFileSystemWrapper.cs" />
     <Compile Include="Templates\HtmlLocalLinkParser.cs" />
     <Compile Include="Templates\HtmlImageSourceParser.cs" />
     <Compile Include="Templates\HtmlUrlParser.cs" />

@@ -6,27 +6,22 @@ using System.Text;
 using System.Web;
 
 using Umbraco.Core.Cache;
+using Umbraco.Core.Logging;
 
 namespace Umbraco.Web.Cache
 {
     public class ArbitraryCacheRefresher : JsonCacheRefresherBase<ArbitraryCacheRefresher>
     {
+        protected ArbitraryCacheRefresher(AppCaches appCaches) : base(appCaches)
+        { }
+
         public static readonly Guid RefresherTypeId = Guid.Parse("a65e1f93-dd89-4844-b729-bf524f101277");
 
-        protected override ArbitraryCacheRefresher Instance
-        {
-            get { return this; }
-        }
+        public override string Name => "Cache refresher for arbitrary keys";        
 
-        public override Guid UniqueIdentifier
-        {
-            get { return RefresherTypeId; }
-        }
+        protected override ArbitraryCacheRefresher This => this;
 
-        public override string Name
-        {
-            get { return "Cache refresher for arbitrary keys"; }
-        }
+        public override Guid RefresherUniqueId => RefresherTypeId;
 
         public override void Refresh(string jsonPayload)
         {
@@ -37,14 +32,13 @@ namespace Umbraco.Web.Cache
                                                     .Select(de => de.Key as string)
                                                     .Where(k => k.StartsWith(prefix)))
                 {
-                    Umbraco.Core.Logging.LogHelper.Debug<ArbitraryCacheRefresher>("Removed cache key {0}", () => key);
+                    Composing.Current.Logger.Debug<ArbitraryCacheRefresher>("Removed cache key {0}", key);
                     HttpRuntime.Cache.Remove(key);
                 }
             }
             else
             {
-                Umbraco.Core.Logging.LogHelper.Debug<ArbitraryCacheRefresher>("Removed cache key {0}", () => jsonPayload);
-
+                Composing.Current.Logger.Debug<ArbitraryCacheRefresher>("Removed cache key {0}", jsonPayload);
                 HttpRuntime.Cache.Remove(jsonPayload);
             }
 
