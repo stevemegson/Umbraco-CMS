@@ -78,7 +78,7 @@ namespace Umbraco.Web.Routing
                 if (urls.Add(otherUrl)) //avoid duplicates
                     yield return otherUrl;
         }
-        
+
         /// <summary>
         /// Tries to return a <see cref="UrlInfo"/> for each culture for the content while detecting collisions/errors
         /// </summary>
@@ -155,10 +155,10 @@ namespace Umbraco.Web.Routing
                 return UrlInfo.Message(textService.Localize("content/parentNotPublishedAnomaly"), culture);
 
             else if (!parent.Published) // totally not published
-                return UrlInfo.Message(textService.Localize("content/parentNotPublished", new[] {parent.Name}), culture);
+                return UrlInfo.Message(textService.Localize("content/parentNotPublished", new[] { parent.Name }), culture);
 
             else // culture not published
-                return UrlInfo.Message(textService.Localize("content/parentCultureNotPublished", new[] {parent.Name}), culture);
+                return UrlInfo.Message(textService.Localize("content/parentCultureNotPublished", new[] { parent.Name }), culture);
         }
 
         private static bool DetectCollision(IContent content, string url, string culture, UmbracoContext umbracoContext, IPublishedRouter publishedRouter, ILocalizedTextService textService, out UrlInfo urlInfo)
@@ -181,7 +181,7 @@ namespace Umbraco.Web.Routing
             if (pcr.IgnorePublishedContentCollisions)
                 return false;
 
-            if (pcr.PublishedContent.Id != content.Id)
+            if (pcr.PublishedContent.Id != content.Id && !url.Contains("#"))
             {
                 var o = pcr.PublishedContent;
                 var l = new List<string>();
@@ -193,7 +193,7 @@ namespace Umbraco.Web.Routing
                 l.Reverse();
                 var s = "/" + string.Join("/", l) + " (id=" + pcr.PublishedContent.Id + ")";
 
-                 urlInfo = UrlInfo.Message(textService.Localize("content/routeError", new[] { s }), culture);
+                urlInfo = UrlInfo.Message(textService.Localize("content/routeError", new[] { s }), culture);
                 return true;
             }
 
