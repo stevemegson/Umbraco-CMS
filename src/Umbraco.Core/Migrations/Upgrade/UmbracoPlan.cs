@@ -130,6 +130,7 @@ namespace Umbraco.Core.Migrations.Upgrade
             To<DataTypeMigration>("{8640C9E4-A1C0-4C59-99BB-609B4E604981}");
             To<TagsMigration>("{DD1B99AF-8106-4E00-BAC7-A43003EA07F8}");
             To<SuperZero>("{9DF05B77-11D1-475C-A00A-B656AF7E0908}");
+            To<AddPropertyTypeValidationMessageColumns>("{D53775BE-DA43-4A96-82BE-923DA686CC5F}");
             To<NestedContentPropertyEditorsMigration>("{8c7d3cfa-9025-427c-86a4-ee9f753d2a2c}");
             To<LegacyPickersPropertyEditorsMigration>("{258CE811-4201-4004-95EF-402086B38B77}");
             To<PropertyEditorsMigration>("{6FE3EF34-44A0-4992-B379-B40BC4EF1C4D}");
