@@ -130,6 +130,7 @@ namespace Umbraco.Core.Migrations.Upgrade
             To<DataTypeMigration>("{8640C9E4-A1C0-4C59-99BB-609B4E604981}");
             To<TagsMigration>("{DD1B99AF-8106-4E00-BAC7-A43003EA07F8}");
             To<SuperZero>("{9DF05B77-11D1-475C-A00A-B656AF7E0908}");
+            To<NestedContentPropertyEditorsMigration>("{8c7d3cfa-9025-427c-86a4-ee9f753d2a2c}");
             To<LegacyPickersPropertyEditorsMigration>("{258CE811-4201-4004-95EF-402086B38B77}");
             To<PropertyEditorsMigration>("{6FE3EF34-44A0-4992-B379-B40BC4EF1C4D}");
             To<LanguageColumns>("{7F59355A-0EC9-4438-8157-EB517E6D2727}");
@@ -194,7 +195,6 @@ namespace Umbraco.Core.Migrations.Upgrade
 
             // to 8.7.0...
             To<MissingDictionaryIndex>("{a78e3369-8ea3-40ec-ad3f-5f76929d2b20}");
-            
             //FINAL
         }
     }
