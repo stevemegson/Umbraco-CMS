@@ -12,7 +12,7 @@ namespace Umbraco.Web.Cache
 {
     public class ArbitraryCacheRefresher : JsonCacheRefresherBase<ArbitraryCacheRefresher>
     {
-        protected ArbitraryCacheRefresher(AppCaches appCaches) : base(appCaches)
+        public ArbitraryCacheRefresher(AppCaches appCaches) : base(appCaches)
         { }
 
         public static readonly Guid RefresherTypeId = Guid.Parse("a65e1f93-dd89-4844-b729-bf524f101277");

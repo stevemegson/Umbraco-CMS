@@ -16,7 +16,7 @@ namespace Umbraco.Web.Cache
 {
     public class FileSystemCacheRefresher : CacheRefresherBase<FileSystemCacheRefresher>
     {
-        protected FileSystemCacheRefresher(AppCaches appCaches) : base(appCaches)
+        public FileSystemCacheRefresher(AppCaches appCaches) : base(appCaches)
         { }
 
         public static readonly Guid RefresherTypeId = Guid.Parse("3dbae2fa-6094-4d41-8a9a-8cb0f40c78ec");
