@@ -199,6 +199,7 @@ Use this directive to construct a header inside the main editor window.
 @param {boolean=} aliasLocked Set to <code>true</code> to lock the alias.
 @param {boolean=} hideAlias Set to <code>true</code> to hide alias.
 @param {string=} description Add a description to the content.
+@param {boolean=} descriptionLocked Set to <code>true</code> to lock the description.
 @param {boolean=} hideDescription Set to <code>true</code> to hide description.
 @param {boolean=} setpagetitle If true the page title will be set to reflect the type of data the header is working with
 @param {string=} editorfor The localization to use to aid accessibility on the edit and create screen
@@ -227,6 +228,9 @@ Use this directive to construct a header inside the main editor window.
                 // to do make it work for user group create/ edit
                 // to make it work for language edit/create
                 setAccessibilityForEditorState();
+                scope.loading = false;
+            } else if (scope.name) {
+                setAccessibilityForName();
                 scope.loading = false;
             } else {
                 scope.loading = false;
@@ -266,6 +270,15 @@ Use this directive to construct a header inside the main editor window.
                 editorService.iconPicker(iconPicker);
             };
 
+            function setAccessibilityForName() {
+                var setTitle = false;
+                if (scope.setpagetitle !== undefined) {
+                    setTitle = scope.setpagetitle;
+                }
+                if (setTitle) {
+                    setAccessibilityHeaderDirective(false, scope.editorfor, scope.nameLocked, scope.name, "", true);
+                }
+            }
             function setAccessibilityForEditorState() {
                 var isNew = editorState.current.id === 0 ||
                     editorState.current.id === "0" ||

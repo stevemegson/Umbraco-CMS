@@ -18,7 +18,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
          *
          * @param {string} a virtual path, if this is already an absolute path it will just be returned, if this is a relative path an exception will be thrown
          */
-        convertVirtualToAbsolutePath: function(virtualPath) {
+        convertVirtualToAbsolutePath: function (virtualPath) {
             if (virtualPath.startsWith("/")) {
                 return virtualPath;
             }
@@ -136,7 +136,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
                 };
 
                 // if "opts" is a promise, we set "err.errorMsg" to be that promise
-                if (typeof(opts) == "object" && typeof(opts.then) == "function") {
+                if (typeof (opts) == "object" && typeof (opts.then) == "function") {
                     err.errorMsg = opts;
                 }
 
@@ -179,7 +179,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
 
                     //show a ysod dialog
                     if (Umbraco.Sys.ServerVariables["isDebuggingEnabled"] === true) {
-                        const error = { errorMsg: 'An error occured', data: response.data };
+                        const error = { errorMsg: 'An error occurred', data: response.data };
                         // TODO: All YSOD handling should be done with an interceptor
                         overlayService.ysod(error);
                     }
@@ -264,9 +264,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
 
                     //reset the tabs and set the active one
                     if (response.data.tabs && response.data.tabs.length > 0) {
-                        _.each(response.data.tabs, function (item) {
-                            item.active = false;
-                        });
+                        response.data.tabs.forEach(item => item.active = false);
                         response.data.tabs[activeTabIndex].active = true;
                     }
 
@@ -296,7 +294,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
                         }
                         else if (Umbraco.Sys.ServerVariables["isDebuggingEnabled"] === true) {
                             //show a ysod dialog
-                            const error = { errorMsg: 'An error occured', data: response.data };
+                            const error = { errorMsg: 'An error occurred', data: response.data };
                             // TODO: All YSOD handling should be done with an interceptor
                             overlayService.ysod(error);
                         }
@@ -327,7 +325,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
             if (!jsonData) { throw "jsonData cannot be null"; }
 
             if (Utilities.isArray(jsonData)) {
-                _.each(jsonData, function (item) {
+                jsonData.forEach(item => {
                     if (!item.key || !item.value) { throw "jsonData array item must have both a key and a value property"; }
                 });
             }
@@ -341,11 +339,11 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
                 // and setting the Content-type manually will not set this boundary parameter. For whatever reason, setting the Content-type to 'undefined'
                 // will force the request to automatically populate the headers properly including the boundary parameter.
                 headers: { 'Content-Type': undefined },
-                transformRequest: function(data) {
+                transformRequest: function (data) {
                     var formData = new FormData();
                     //add the json data
                     if (Utilities.isArray(data)) {
-                        _.each(data, function(item) {
+                        data.forEach(item => {
                             formData.append(item.key, !Utilities.isString(item.value) ? Utilities.toJson(item.value) : item.value);
                         });
                     }
@@ -361,9 +359,9 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
                     return formData;
                 },
                 data: jsonData
-            }).then(function(response) {
+            }).then(function (response) {
                 return $q.resolve(response);
-            }, function(response) {
+            }, function (response) {
                 return $q.reject(response);
             });
         },
@@ -379,7 +377,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
          * @param {string} httpPath the path (url) to the resource being downloaded
          * @returns {Promise} http promise object.
          */
-        downloadFile : function (httpPath) {
+        downloadFile: function (httpPath) {
 
             /**
              * Based on an implementation here: web.student.tuwien.ac.at/~e0427417/jsdownload.html
@@ -473,7 +471,7 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
                         window.open(httpPath, '_blank', '');
                     }
 
-                    return $q.resolve();
+                    return $q.resolve(response);
 
                 }, function (response) {
 
@@ -486,4 +484,5 @@ function umbRequestHelper($http, $q, notificationsService, eventsService, formHe
         }
     };
 }
+
 angular.module('umbraco.services').factory('umbRequestHelper', umbRequestHelper);

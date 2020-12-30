@@ -98,6 +98,8 @@
         vm.wideMode = Object.toBoolean(model.config.hideLabel);
         vm.hasContentTypes = model.config.contentTypes.length > 0;
 
+        var cultureChanged = eventsService.on('editors.content.cultureChanged', (name, args) => updateModel());
+
         var labels = {};
         vm.labels = labels;
         localizationService.localizeMany(["grid_addElement", "content_createEmpty", "actions_copy"]).then(function (data) {
@@ -166,7 +168,6 @@
             method: removeAllEntries,
             isDisabled: true
         };
-
         // helper to force the current form into the dirty state
         function setDirty() {
             if ($scope.$parent.$parent.propertyForm) {
@@ -185,17 +186,29 @@
         };
 
         vm.openNodeTypePicker = function ($event) {
-            if (vm.overlayMenu || vm.nodes.length >= vm.maxItems) {
+            
+            if (vm.nodes.length >= vm.maxItems) {
                 return;
             }
 
-            vm.overlayMenu = {
-                show: false,
-                style: {},
-                filter: vm.scaffolds.length > 12 ? true : false,
+            var availableItems = [];
+            _.each(vm.scaffolds, function (scaffold) {
+                availableItems.push({
+                    alias: scaffold.contentTypeAlias,
+                    name: scaffold.contentTypeName,
+                    icon: iconHelper.convertFromLegacyIcon(scaffold.icon),
+                    tooltip: scaffold.documentType.description
+                });
+            });
+
+            const dialog = {
+                view: "itempicker",
                 orderBy: "$index",
                 view: "itempicker",
                 event: $event,
+                filter: availableItems.length > 12,
+                size: availableItems.length > 6 ? "medium" : "small",
+                availableItems: availableItems,
                 clickPasteItem: function (item) {
                     if (Array.isArray(item.data)) {
                         _.each(item.data, function (entry) {
@@ -204,44 +217,30 @@
                     } else {
                         pasteFromClipboard(item.data);
                     }
-                    vm.overlayMenu.show = false;
-                    vm.overlayMenu = null;
+
+                    overlayService.close();
                 },
                 submit: function (model) {
                     if (model && model.selectedItem) {
                         addNode(model.selectedItem.alias);
                     }
-                    vm.overlayMenu.show = false;
-                    vm.overlayMenu = null;
+
+                    overlayService.close();
                 },
                 close: function () {
-                    vm.overlayMenu.show = false;
-                    vm.overlayMenu = null;
+                    overlayService.close();
                 }
             };
 
-            // this could be used for future limiting on node types
-            vm.overlayMenu.availableItems = [];
-            _.each(vm.scaffolds, function (scaffold) {
-                vm.overlayMenu.availableItems.push({
-                    alias: scaffold.contentTypeAlias,
-                    name: scaffold.contentTypeName,
-                    icon: iconHelper.convertFromLegacyIcon(scaffold.icon),
-                    tooltip: scaffold.documentType.description
-                });
-            });
-
-            if (vm.overlayMenu.availableItems.length === 0) {
+            if (dialog.availableItems.length === 0) {
                 return;
             }
 
-            vm.overlayMenu.size = vm.overlayMenu.availableItems.length > 6 ? "medium" : "small";
-
-            vm.overlayMenu.pasteItems = [];
+            dialog.pasteItems = [];
 
             var entriesForPaste = clipboardService.retriveEntriesOfType(clipboardService.TYPES.ELEMENT_TYPE, contentTypeAliases);
             _.each(entriesForPaste, function (entry) {
-                vm.overlayMenu.pasteItems.push({
+                dialog.pasteItems.push({
                     date: entry.date,
                     name: entry.label,
                     data: entry.data,
@@ -249,29 +248,31 @@
                 });
             });
 
-            vm.overlayMenu.pasteItems.sort( (a, b) => {
+            dialog.pasteItems.sort( (a, b) => {
                 return b.date - a.date
             });
 
-            vm.overlayMenu.title = labels.grid_addElement;
-            vm.overlayMenu.hideHeader = vm.overlayMenu.pasteItems.length > 0;
+            dialog.title = dialog.pasteItems.length > 0 ? labels.grid_addElement : labels.content_createEmpty;
+            dialog.hideHeader = dialog.pasteItems.length > 0;
 
-            vm.overlayMenu.clickClearPaste = function ($event) {
+            dialog.clickClearPaste = function ($event) {
                 $event.stopPropagation();
                 $event.preventDefault();
                 clipboardService.clearEntriesOfType(clipboardService.TYPES.ELEMENT_TYPE, contentTypeAliases);
-                vm.overlayMenu.pasteItems = [];// This dialog is not connected via the clipboardService events, so we need to update manually.
-                vm.overlayMenu.hideHeader = false;
+                dialog.pasteItems = [];// This dialog is not connected via the clipboardService events, so we need to update manually.
+                dialog.hideHeader = false;
             };
 
-            if (vm.overlayMenu.availableItems.length === 1 && vm.overlayMenu.pasteItems.length === 0) {
+            if (dialog.availableItems.length === 1 && dialog.pasteItems.length === 0) {
                 // only one scaffold type - no need to display the picker
                 addNode(vm.scaffolds[0].contentTypeAlias);
-                vm.overlayMenu = null;
+
+                dialog.close();
+
                 return;
             }
 
-            vm.overlayMenu.show = true;
+            overlayService.open(dialog);
         };
 
         vm.editNode = function (idx) {
@@ -441,6 +442,26 @@
         function clearNodeForCopy(clonedData) {
             delete clonedData.key;
             delete clonedData.$$hashKey;
+
+            var variant = clonedData.variants[0];
+            for (var t = 0; t < variant.tabs.length; t++) {
+                var tab = variant.tabs[t];
+                for (var p = 0; p < tab.properties.length; p++) {
+                    var prop = tab.properties[p];
+
+                    // If we have ncSpecific data, lets revert to standard data model.
+                    if (prop.propertyAlias) {
+                        prop.alias = prop.propertyAlias;
+                        delete prop.propertyAlias;
+                    }
+
+                    if(prop.ncMandatory !== undefined) {
+                        prop.validation.mandatory = prop.ncMandatory;
+                        delete prop.ncMandatory;
+                    }
+                }
+            }
+
         }
 
         vm.showCopy = clipboardService.isSupported();
@@ -465,6 +486,15 @@
 
             // generate a new key.
             newNode.key = String.CreateGuid();
+
+            // Ensure we have NC data in place:
+            var variant = newNode.variants[0];
+            for (var t = 0; t < variant.tabs.length; t++) {
+                var tab = variant.tabs[t];
+                for (var p = 0; p < tab.properties.length; p++) {
+                    extendPropertyWithNCData(tab.properties[p]);
+                }
+            }
 
             vm.nodes.push(newNode);
             setDirty();
@@ -502,8 +532,7 @@
                     if (tab) {
                         scaffold.variants[0].tabs.push(tab);
 
-                        angular.forEach(tab.properties,
-                            function (property) {
+                        tab.properties.forEach(function (property) {
                                 if (_.find(notSupported, function (x) { return x === property.editor; })) {
                                     property.notSupported = true;
                                     // TODO: Not supported message to be replaced with 'content_nestedContentEditorNotSupported' dictionary key. Currently not possible due to async/timing quirk.
@@ -577,6 +606,30 @@
             }
         }
 
+        function extendPropertyWithNCData(prop) {
+
+            if (prop.propertyAlias === undefined) {
+                // store the original alias before we change below, see notes
+                prop.propertyAlias = prop.alias;
+
+                // NOTE: This is super ugly, the reason it is like this is because it controls the label/html id in the umb-property component at a higher level.
+                // not pretty :/ but we can't change this now since it would require a bunch of plumbing to be able to change the id's higher up.
+                prop.alias = model.alias + "___" + prop.alias;
+            }
+
+            // TODO: Do we need to deal with this separately?
+            // Force validation to occur server side as this is the
+            // only way we can have consistency between mandatory and
+            // regex validation messages. Not ideal, but it works.
+            if(prop.ncMandatory === undefined) {
+                prop.ncMandatory = prop.validation.mandatory;
+                prop.validation = {
+                    mandatory: false,
+                    pattern: ""
+                };
+            }
+        }
+
         function createNode(scaffold, fromNcEntry) {
             var node = Utilities.copy(scaffold);
 
@@ -590,22 +643,7 @@
                 for (var p = 0; p < tab.properties.length; p++) {
                     var prop = tab.properties[p];
 
-                    // store the original alias before we change below, see notes
-                    prop.propertyAlias = prop.alias;
-
-                    // NOTE: This is super ugly, the reason it is like this is because it controls the label/html id in the umb-property component at a higher level.
-                    // not pretty :/ but we can't change this now since it would require a bunch of plumbing to be able to change the id's higher up.
-                    prop.alias = model.alias + "___" + prop.alias;
-
-                    // TODO: Do we need to deal with this separately?
-                    // Force validation to occur server side as this is the
-                    // only way we can have consistency between mandatory and
-                    // regex validation messages. Not ideal, but it works.
-                    prop.ncMandatory = prop.validation.mandatory;
-                    prop.validation = {
-                        mandatory: false,
-                        pattern: ""
-                    };
+                    extendPropertyWithNCData(prop);
 
                     if (fromNcEntry && fromNcEntry[prop.propertyAlias]) {
                         prop.value = fromNcEntry[prop.propertyAlias];
@@ -708,6 +746,7 @@
 
         $scope.$on("$destroy", function () {
             unsubscribe();
+            cultureChanged();
             watcher();
         });
 

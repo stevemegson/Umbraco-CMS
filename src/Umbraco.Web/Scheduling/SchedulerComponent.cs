@@ -16,7 +16,7 @@ using Umbraco.Web.Routing;
 
 namespace Umbraco.Web.Scheduling
 {
-    internal sealed class SchedulerComponent : IComponent
+    public sealed class SchedulerComponent : IComponent
     {
         private const int DefaultDelayMilliseconds = 180000; // 3 mins
         private const int OneMinuteMilliseconds = 60000;
@@ -177,7 +177,7 @@ namespace Umbraco.Web.Scheduling
                 new[] { new DirectoryInfo(IOHelper.MapPath(SystemDirectories.TempFileUploads)) },
                 TimeSpan.FromDays(1), //files that are over a day old
                 _runtime, _logger);
-            _scrubberRunner.TryAdd(task);
+            _fileCleanupRunner.TryAdd(task);
             return task;
         }
     }
